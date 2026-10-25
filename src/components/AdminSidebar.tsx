@@ -14,7 +14,8 @@ import {
   DollarSign,
   UserCheck,
   ShoppingBag,
-  Coins
+  Coins,
+  X
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -22,6 +23,8 @@ interface AdminSidebarProps {
   onTabChange: (tab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'payroll' | 'menu' | 'karyawan') => void;
   pendingCount: number;
   onLogout: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export default function AdminSidebar({
@@ -29,6 +32,8 @@ export default function AdminSidebar({
   onTabChange,
   pendingCount,
   onLogout,
+  isMobileOpen = false,
+  onCloseMobile,
 }: AdminSidebarProps) {
   
   const operasionalItems = [
@@ -81,29 +86,49 @@ export default function AdminSidebar({
     },
   ];
 
-  return (
-    <aside className="w-64 lg:w-72 bg-white border-r border-slate-200/90 flex flex-col shrink-0 h-screen sticky top-0 z-30 shadow-soft-sm">
-      
+  const handleSelectTab = (tab: any) => {
+    onTabChange(tab);
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  };
+
+  const sidebarContent = (
+    <div className="flex flex-col h-full bg-white select-none">
       {/* Brand Header */}
-      <div className="p-4 border-b border-slate-100 flex items-center space-x-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 border border-emerald-500/30 flex items-center justify-center text-white shadow-md shadow-emerald-950/20">
-          <span className="text-xl">🥞</span>
-        </div>
-        <div>
-          <div className="flex items-center space-x-1.5">
-            <span className="font-extrabold text-brand-dark text-sm sm:text-base tracking-tight leading-none">SERABI BAWEL</span>
-            <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-accent-light text-accent-gold border border-accent-amber/20">
-              PUSAT
-            </span>
+      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 border border-emerald-500/30 flex items-center justify-center text-white shadow-md shadow-emerald-950/20 shrink-0">
+            <span className="text-xl">🥞</span>
           </div>
-          <div className="text-[10px] text-slate-500 font-medium">
-            Wedang Geprek • Multi-Cabang
+          <div>
+            <div className="flex items-center space-x-1.5">
+              <span className="font-extrabold text-brand-dark text-sm sm:text-base tracking-tight leading-none">SERABI BAWEL</span>
+              <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-accent-light text-accent-gold border border-accent-amber/20">
+                PUSAT
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+              Wedang Geprek • Multi-Cabang
+            </div>
           </div>
         </div>
+
+        {/* Mobile Close Button */}
+        {onCloseMobile && (
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="md:hidden w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
+            title="Tutup Menu"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Navigation List */}
-      <nav className="p-4 space-y-4 flex-1 overflow-y-auto">
+      <nav className="p-3 sm:p-4 space-y-4 flex-1 overflow-y-auto">
         
         {/* GRUP 1: OPERASIONAL CABANG */}
         <div className="space-y-1">
@@ -116,7 +141,7 @@ export default function AdminSidebar({
             return (
               <button
                 key={item.id}
-                onClick={() => onTabChange(item.id as any)}
+                onClick={() => handleSelectTab(item.id)}
                 className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-left transition-all btn-tactile ${
                   isActive
                     ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
@@ -124,7 +149,7 @@ export default function AdminSidebar({
                 }`}
               >
                 <div className="flex items-center space-x-2.5">
-                  <div className={`w-7 h-7 rounded-xl flex items-center justify-center ${
+                  <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
                     isActive ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'
                   }`}>
                     <Icon className="w-3.5 h-3.5" />
@@ -139,7 +164,7 @@ export default function AdminSidebar({
                   </div>
                 </div>
 
-                {isActive && <ChevronRight className="w-3.5 h-3.5 text-emerald-300" />}
+                {isActive && <ChevronRight className="w-3.5 h-3.5 text-emerald-300 shrink-0" />}
               </button>
             );
           })}
@@ -157,7 +182,7 @@ export default function AdminSidebar({
             return (
               <button
                 key={item.id}
-                onClick={() => onTabChange(item.id as any)}
+                onClick={() => handleSelectTab(item.id)}
                 className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-left transition-all btn-tactile ${
                   isActive
                     ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
@@ -165,7 +190,7 @@ export default function AdminSidebar({
                 }`}
               >
                 <div className="flex items-center space-x-2.5">
-                  <div className={`w-7 h-7 rounded-xl flex items-center justify-center ${
+                  <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
                     isActive ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'
                   }`}>
                     <Icon className="w-3.5 h-3.5" />
@@ -181,11 +206,11 @@ export default function AdminSidebar({
                 </div>
 
                 {item.badge ? (
-                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] shadow-sm animate-pulse">
+                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] shadow-sm animate-pulse shrink-0">
                     {item.badge}
                   </span>
                 ) : isActive ? (
-                  <ChevronRight className="w-3.5 h-3.5 text-emerald-300" />
+                  <ChevronRight className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
                 ) : null}
               </button>
             );
@@ -197,7 +222,7 @@ export default function AdminSidebar({
       {/* Footer Profile & Security */}
       <div className="p-4 border-t border-slate-100 bg-slate-50/60 space-y-3">
         <div className="flex items-center space-x-2.5 p-2 rounded-xl bg-white border border-slate-200 shadow-sm">
-          <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">
+          <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">
             <ShieldCheck className="w-5 h-5 text-emerald-700" />
           </div>
           <div className="flex-1 min-w-0">
@@ -217,7 +242,28 @@ export default function AdminSidebar({
           <span>Kunci / Keluar Dashboard</span>
         </button>
       </div>
+    </div>
+  );
 
-    </aside>
+  return (
+    <>
+      {/* Desktop Sidebar: Permanent on md+ screens */}
+      <aside className="hidden md:flex w-64 lg:w-72 bg-white border-r border-slate-200/90 flex-col shrink-0 h-screen sticky top-0 z-30 shadow-soft-sm">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Drawer: Slide-out drawer on phone screens */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div 
+            className="w-72 max-w-[85vw] h-full bg-white shadow-2xl animate-in slide-in-from-left duration-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {sidebarContent}
+          </div>
+          <div className="flex-1" onClick={onCloseMobile} />
+        </div>
+      )}
+    </>
   );
 }

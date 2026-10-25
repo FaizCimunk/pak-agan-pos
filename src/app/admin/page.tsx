@@ -64,7 +64,8 @@ import {
   MessageCircle,
   XCircle,
   Filter,
-  Sparkles
+  Sparkles,
+  Menu
 } from 'lucide-react';
 
 const OWNER_AUTH_KEY = 'pakagan_owner_authenticated';
@@ -73,6 +74,7 @@ export default function AdminDashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [ownerPinInput, setOwnerPinInput] = useState<string>('');
   const [authError, setAuthError] = useState<string>('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   const [activeTab, setActiveTab] = useState<'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'payroll' | 'menu' | 'karyawan'>('ringkasan');
   const [cabangList, setCabangList] = useState<Cabang[]>([]);
@@ -464,7 +466,7 @@ export default function AdminDashboardPage() {
 
   // AUTHENTICATED: DEDICATED LEFT SIDEBAR FINTECH BACKOFFICE
   return (
-    <div className="min-h-screen bg-fintech-bg flex text-slate-800">
+    <div className="min-h-screen bg-fintech-bg flex flex-col md:flex-row text-slate-800">
       
       {/* 1. DEDICATED FINTECH LEFT SIDEBAR */}
       <AdminSidebar
@@ -472,13 +474,49 @@ export default function AdminDashboardPage() {
         onTabChange={setActiveTab}
         pendingCount={pendingExpenses.length}
         onLogout={handleLogoutOwner}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* 2. MAIN CONTENT AREA */}
-      <main className="flex-1 flex flex-col min-w-0 p-6 lg:p-8 space-y-6 overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 p-3 sm:p-5 lg:p-8 space-y-4 sm:space-y-6 overflow-y-auto">
         
+        {/* Mobile Top Navigation Header */}
+        <div className="md:hidden bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-soft-sm flex items-center justify-between gap-2">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 flex items-center justify-center text-white shadow-sm shrink-0">
+              <span className="text-sm font-bold">🥞</span>
+            </div>
+            <div className="min-w-0">
+              <span className="font-extrabold text-slate-900 text-xs block leading-tight truncate">
+                SERABI BAWEL PUSAT
+              </span>
+              <span className="text-[10px] text-emerald-700 font-bold capitalize truncate block">
+                {activeTab === 'ringkasan' ? 'Ringkasan & Mutasi' :
+                 activeTab === 'absensi' ? 'Monitor Presensi Cabang' :
+                 activeTab === 'menu' ? 'Master Menu & Resep' :
+                 activeTab === 'karyawan' ? 'Data Pekerja' :
+                 activeTab === 'approval' ? 'Pusat Persetujuan' :
+                 activeTab === 'gaji' ? 'Belanja & Kas Kecil' : 'Rekap Gaji & Saldo'}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-900/20 btn-tactile shrink-0"
+          >
+            <Menu className="w-3.5 h-3.5" />
+            <span>Menu Admin</span>
+            {pendingExpenses.length > 0 && (
+              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
+            )}
+          </button>
+        </div>
+
         {/* Top Header Bar inside Dashboard */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm">
           <div>
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-brand-primary animate-pulse" />
@@ -486,20 +524,20 @@ export default function AdminDashboardPage() {
                 Pusat Kendali Eksekutif Multi-Cabang
               </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-              Dashboard Keuangan & Manajemen Herbal Pak Agan
+            <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+              Dashboard Keuangan &amp; Manajemen Herbal Pak Agan
             </h1>
           </div>
 
           {/* Controls: Branch Filter & Reset Mulai dari 0 */}
-          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
-            <div className="flex items-center space-x-2 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto w-full md:w-auto">
+            <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-slate-200 w-full sm:w-auto">
               <Store className="w-4 h-4 text-brand-primary shrink-0" />
               <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Filter Outlet:</span>
               <select
                 value={selectedCabangId}
                 onChange={(e) => setSelectedCabangId(e.target.value)}
-                className="bg-transparent text-xs font-extrabold text-slate-800 outline-none cursor-pointer"
+                className="bg-transparent text-xs font-extrabold text-slate-800 outline-none cursor-pointer flex-1 sm:flex-initial"
               >
                 <option value="all">Semua Cabang (9 Cabang)</option>
                 {cabangList.map(c => (
@@ -513,7 +551,7 @@ export default function AdminDashboardPage() {
             <button
               type="button"
               onClick={() => setShowDailyReportModal(true)}
-              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-sm text-xs font-bold transition-all btn-tactile"
+              className="flex items-center space-x-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-sm text-xs font-bold transition-all btn-tactile w-full sm:w-auto justify-center"
               title="Buka Laporan Rekonsiliasi Harian Kas & Bank (Cetak PDF & Kirim WA)"
             >
               <FileText className="w-3.5 h-3.5 text-accent-gold" />
@@ -523,7 +561,7 @@ export default function AdminDashboardPage() {
             <button
               type="button"
               onClick={handleLoadDemoWeek}
-              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-700/20 text-xs font-bold transition-all btn-tactile"
+              className="flex items-center space-x-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-700/20 text-xs font-bold transition-all btn-tactile w-full sm:w-auto justify-center"
               title="Muat data simulasi lengkap 1 minggu penuh (19 - 25 Okt 2026) untuk mencoba kasbon, approval, & payroll"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -533,7 +571,7 @@ export default function AdminDashboardPage() {
             <button
               type="button"
               onClick={handleResetDatabase}
-              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all btn-tactile"
+              className="flex items-center space-x-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all btn-tactile w-full sm:w-auto justify-center"
               title="Kosongkan database transaksi, kasbon, dan staf kasir untuk mulai murni dari 0"
             >
               <RotateCcw className="w-3.5 h-3.5 text-rose-600" />

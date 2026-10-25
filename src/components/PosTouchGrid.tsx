@@ -143,7 +143,7 @@ export default function PosTouchGrid({
           </span>
         </button>
 
-        {kategoriList.map(kat => {
+        {kategoriList.filter(kat => kat.id !== 'kat-1' && !kat.nama.toLowerCase().includes('semua')).map(kat => {
           const isSelected = selectedKatId === kat.id;
           const count = categoryCounts[kat.id] || 0;
 
