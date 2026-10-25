@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, Menlo, monospace;
+}
+
+body {
+  color: #0F172A;
+  background-color: #F8FAFC;
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Tabular figures for bank-grade financial alignment */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Print styling for 58mm Thermal Receipts & Bank-Grade A4 Official Financial Reports */
+@media print {
+  html, body {
+    background: white !important;
+    color: #0F172A !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Universal hide for non-printable UI */
+  .print\:hidden,
+  header:not(.print-include),
+  nav,
+  aside,
+  button:not(.print-include) {
+    display: none !important;
+  }
+
+  /* When printing from inside a Modal: hide background dashboard & main tags */
+  body.printing-modal-open main,
+  body.printing-modal-open nav,
+  body.printing-modal-open header,
+  body.printing-modal-open aside,
+  body:has(#printable-daily-report-wrapper) main,
+  body:has(#printable-approval-wrapper) main,
+  body:has(#printable-report-wrapper) main,
+  body:has(#printable-wrapper) main {
+    display: none !important;
+  }
+
+  /* Modal Backdrop Container override for Print */
+  .printable-modal-backdrop {
+    position: static !important;
+    inset: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    display: block !important;
+  }
+
+  /* Printable Report Document Card Wrappers */
+  #printable-daily-report-wrapper,
+  #printable-approval-wrapper,
+  #printable-report-wrapper,
+  #printable-wrapper {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    visibility: visible !important;
+    background: white !important;
+  }
+
+  #printable-daily-report-wrapper *,
+  #printable-approval-wrapper *,
+  #printable-report-wrapper *,
+  #printable-wrapper * {
+    visibility: visible !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  #printable-daily-report-wrapper svg,
+  #printable-approval-wrapper svg,
+  #printable-report-wrapper svg,
+  #printable-wrapper svg {
+    stroke: #000000 !important;
+    color: #000000 !important;
+  }
+
+  /* Inner scroll containers expand fully to fit all pages */
+  #printable-daily-report,
+  #printable-approval-content,
+  #printable-report,
+  #printable-content,
+  #printable-slip {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0 !important;
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  /* Thermal Receipt Mode: ONLY applies when printing receipt modal */
+  body:has(#printable-receipt) * {
+    visibility: hidden;
+  }
+  body:has(#printable-receipt) #printable-receipt,
+  body:has(#printable-receipt) #printable-receipt * {
+    visibility: visible !important;
+  }
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 58mm;
+    margin: 0;
+    padding: 2mm;
+    font-family: var(--font-mono);
+    color: black;
+    background: white;
+  }
+}
+
+/* Ripple & Tactile Active Touch Feedback */
+.btn-tactile {
+  transition: transform 0.08s ease, filter 0.08s ease;
+}
+.btn-tactile:active {
+  transform: scale(0.96);
+  filter: brightness(0.95);
+}
