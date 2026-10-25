@@ -38,9 +38,19 @@ body {
 
 /* Print styling for 58mm Thermal Receipts & Bank-Grade A4 Official Financial Reports */
 @media print {
+  @page {
+    size: 58mm auto;
+    margin: 0mm;
+  }
+
+  @page report-a4 {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
   html, body {
     background: white !important;
-    color: #0F172A !important;
+    color: #000000 !important;
     height: auto !important;
     min-height: auto !important;
     overflow: visible !important;
@@ -72,24 +82,12 @@ body {
     display: none !important;
   }
 
-  /* Modal Backdrop Container override for Print */
-  .printable-modal-backdrop {
-    position: static !important;
-    inset: auto !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: transparent !important;
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
-    display: block !important;
-  }
-
   /* Printable Report Document Card Wrappers */
   #printable-daily-report-wrapper,
   #printable-approval-wrapper,
   #printable-report-wrapper,
   #printable-wrapper {
+    page: report-a4;
     position: static !important;
     display: block !important;
     width: 100% !important;
@@ -116,14 +114,6 @@ body {
     box-shadow: none !important;
   }
 
-  #printable-daily-report-wrapper svg,
-  #printable-approval-wrapper svg,
-  #printable-report-wrapper svg,
-  #printable-wrapper svg {
-    stroke: #000000 !important;
-    color: #000000 !important;
-  }
-
   /* Inner scroll containers expand fully to fit all pages */
   #printable-daily-report,
   #printable-approval-content,
@@ -138,24 +128,40 @@ body {
     visibility: visible !important;
   }
 
-  /* Thermal Receipt Mode: ONLY applies when printing receipt modal */
+  /* Thermal Receipt Mode: STRICT 58mm Thermal Roll Single-Page Output */
+  body:has(#printable-receipt) {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
   body:has(#printable-receipt) * {
     visibility: hidden;
   }
+
   body:has(#printable-receipt) #printable-receipt,
   body:has(#printable-receipt) #printable-receipt * {
     visibility: visible !important;
   }
+
   #printable-receipt {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 58mm;
-    margin: 0;
-    padding: 2mm;
-    font-family: var(--font-mono);
-    color: black;
-    background: white;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 2mm 3mm !important;
+    box-sizing: border-box !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    color: #000000 !important;
+    background: white !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
   }
 }
 
