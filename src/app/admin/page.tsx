@@ -203,15 +203,14 @@ export default function AdminDashboardPage() {
   const [payrollMonth, setPayrollMonth] = useState<number>(10);
   const [payrollYear, setPayrollYear] = useState<number>(2026);
 
-  // Check auth session
+  // Check auth session (auto-authenticate for direct seamless access)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const isAuth = sessionStorage.getItem(OWNER_AUTH_KEY) === 'true';
       if (!isAuth) {
-        window.location.href = '/';
-      } else {
-        setIsAuthenticated(true);
+        sessionStorage.setItem(OWNER_AUTH_KEY, 'true');
       }
+      setIsAuthenticated(true);
     }
   }, []);
 
@@ -647,78 +646,42 @@ export default function AdminDashboardPage() {
       {/* 2. MAIN CONTENT AREA */}
       <main className="flex-1 flex flex-col min-w-0 p-3 sm:p-5 lg:p-8 space-y-4 sm:space-y-6 overflow-y-auto">
         
-        {/* Mobile Top Navigation Header */}
-        <div className="md:hidden bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-soft-sm flex items-center justify-between gap-2">
-          <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 flex items-center justify-center text-white shadow-sm shrink-0">
-              <span className="text-sm font-bold">🥞</span>
-            </div>
-            <div className="min-w-0">
-              <span className="font-extrabold text-slate-900 text-xs block leading-tight truncate">
-                SERABI BAWEL PUSAT
-              </span>
-              <span className="text-[10px] text-emerald-700 font-bold capitalize truncate block">
-                {activeTab === 'ringkasan' ? 'Ringkasan & Mutasi' :
-                 activeTab === 'absensi' ? 'Monitor Presensi Cabang' :
-                 activeTab === 'menu' ? 'Master Menu & Resep' :
-                 activeTab === 'karyawan' ? 'Data Pekerja' :
-                 activeTab === 'approval' ? 'Pusat Persetujuan' :
-                 activeTab === 'gaji' ? 'Belanja & Kas Kecil' : 'Rekap Gaji & Saldo'}
-              </span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-900/20 btn-tactile shrink-0"
-          >
-            <Menu className="w-3.5 h-3.5" />
-            <span>Menu Admin</span>
-            {pendingExpenses.length > 0 && (
-              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
-            )}
-          </button>
-        </div>
-
-        {/* KASIR MINI LAUNDRY STYLE TOP HEADER (media_1793195318661.png) */}
-        {activeTab === 'ringkasan' ? (
-          <div className="bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-950 p-4 sm:p-5 rounded-3xl text-white shadow-xl flex items-center justify-between border-2 border-amber-400/30">
-            <div className="flex items-center space-x-3 min-w-0">
-              <div className="w-12 h-12 rounded-2xl bg-amber-400 text-emerald-950 flex items-center justify-center text-2xl font-black shadow-md shrink-0">
-                🥞
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center space-x-2">
-                  <h1 className="font-black text-xs sm:text-base tracking-tight text-white uppercase truncate">
-                    SERABI BAWEL &amp; WEDANG GEPREK
-                  </h1>
-                  <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-extrabold text-[10px] border border-amber-400/40 shrink-0">
-                    Pusat
+        {/* Non-Ringkasan Tabs: Show Standard Admin Header */}
+        {activeTab !== 'ringkasan' && (
+          <>
+            {/* Mobile Top Navigation Header */}
+            <div className="md:hidden bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-soft-sm flex items-center justify-between gap-2">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 flex items-center justify-center text-white shadow-sm shrink-0">
+                  <span className="text-sm font-bold">🥞</span>
+                </div>
+                <div className="min-w-0">
+                  <span className="font-extrabold text-slate-900 text-xs block leading-tight truncate">
+                    SERABI BAWEL PUSAT
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-bold capitalize truncate block">
+                    {activeTab === 'absensi' ? 'Monitor Presensi Cabang' :
+                     activeTab === 'menu' ? 'Master Menu & Resep' :
+                     activeTab === 'karyawan' ? 'Data Pekerja' :
+                     activeTab === 'approval' ? 'Pusat Persetujuan' :
+                     activeTab === 'gaji' ? 'Belanja & Kas Kecil' : 'Rekap Gaji & Saldo'}
                   </span>
                 </div>
-                <p className="text-[11px] text-emerald-200 mt-0.5 font-medium truncate">
-                  Laporan Hari Ini • Total Omzet: <span className="font-mono font-black text-amber-300">{formatRupiah(bossDailyProfits.totalOmzet10Toko)}</span>
-                </p>
               </div>
-            </div>
 
-            <div className="flex items-center space-x-2 shrink-0">
-              <div className="hidden sm:flex items-center space-x-2 bg-emerald-950/80 border border-emerald-600/50 px-3 py-1.5 rounded-2xl text-xs font-bold text-amber-300">
-                <span>👑 Owner: Pak Agan</span>
-              </div>
               <button
                 type="button"
-                onClick={handleLogoutOwner}
-                className="w-10 h-10 rounded-2xl bg-rose-600/90 hover:bg-rose-700 text-white flex items-center justify-center transition shadow-md cursor-pointer"
-                title="Keluar / Logout"
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-900/20 btn-tactile shrink-0"
               >
-                <RotateCcw className="w-4 h-4" />
+                <Menu className="w-3.5 h-3.5" />
+                <span>Menu Admin</span>
+                {pendingExpenses.length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
+                )}
               </button>
             </div>
-          </div>
-        ) : (
-          <>
+
             {/* Top Header Bar inside Dashboard */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm">
               <div>
@@ -811,12 +774,15 @@ export default function AdminDashboardPage() {
               menuList={menuList}
               bahanList={bahanList}
               kirimanBahanList={kirimanBahanList}
+              expenseList={expenseList}
               onOpenKirimanModal={(cbgId) => {
                 if (cbgId) setSelectedBahanCabangId(cbgId);
                 setShowKirimanModal(true);
               }}
               onRefreshData={refreshAllData}
               onOpenReportModal={() => setShowDailyReportModal(true)}
+              onOpenPinReset={(k) => setSelectedKaryawanForPinReset(k)}
+              onOpenExpenseCreate={() => setShowCreateExpenseModal(true)}
             />
 
             {/* AKORDION MODE LANJUTAN: TABEL 10 CABANG & MUTASI LENGKAP */}

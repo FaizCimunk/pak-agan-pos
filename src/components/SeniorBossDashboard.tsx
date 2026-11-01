@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import Image from 'next/image';
 import { 
   Building2, 
   Users, 
@@ -25,9 +24,16 @@ import {
   MessageCircle,
   ShieldCheck,
   MapPin,
-  Laptop
+  Laptop,
+  ShoppingBag,
+  RotateCcw,
+  Sparkles,
+  Lock,
+  KeyRound,
+  Store,
+  DollarSign
 } from 'lucide-react';
-import { Cabang, Transaksi, Karyawan, Absensi, MenuItem, BahanBaku, KirimanBahanPusat } from '@/lib/types';
+import { Cabang, Transaksi, Karyawan, Absensi, MenuItem, BahanBaku, KirimanBahanPusat, PengeluaranKasbon } from '@/lib/types';
 import { formatRupiah, formatNominal, parseNominal, formatWaktu } from '@/lib/utils';
 import { db } from '@/lib/db';
 
@@ -44,9 +50,12 @@ interface SeniorBossDashboardProps {
   menuList: MenuItem[];
   bahanList: BahanBaku[];
   kirimanBahanList: KirimanBahanPusat[];
+  expenseList?: PengeluaranKasbon[];
   onOpenKirimanModal: (cabangId?: string) => void;
   onRefreshData: () => Promise<void>;
   onOpenReportModal: () => void;
+  onOpenPinReset?: (karyawan: Karyawan) => void;
+  onOpenExpenseCreate?: () => void;
 }
 
 export default function SeniorBossDashboard({
@@ -62,15 +71,19 @@ export default function SeniorBossDashboard({
   menuList,
   bahanList,
   kirimanBahanList,
+  expenseList = [],
   onOpenKirimanModal,
   onRefreshData,
   onOpenReportModal,
+  onOpenPinReset,
+  onOpenExpenseCreate,
 }: SeniorBossDashboardProps) {
-  // Modal State for the 6 Big Action Buttons
-  const [activeModal, setActiveModal] = useState<null | 'toko' | 'gaji' | 'bahan' | 'menu' | 'riwayat' | 'laporan'>(null);
+  // Modal State for the 9 Big Action Buttons & Status Boxes
+  const [activeModal, setActiveModal] = useState<
+    null | 'toko' | 'gaji' | 'bahan' | 'menu' | 'riwayat' | 'posisi_uang' | 'uang_bersih_detail' | 'fixed_cost_detail' | 'variable_cost_detail' | 'kas_kecil' | 'akun'
+  >(null);
 
-  // Search in sub-modals
-  const [modalSearch, setModalSearch] = useState<string>('');
+  // Sub-tabs for Gaji modal
   const [gajiModalTab, setGajiModalTab] = useState<'absensi' | 'utang'>('absensi');
 
   // Editing state for direct Utang Karyawan in modal
@@ -135,9 +148,6 @@ export default function SeniorBossDashboard({
   }, [targetTrx]);
 
   // FIXED COST TOKO HARI INI:
-  // 1. Sewa Ruko (bulanan / 30)
-  // 2. Wi-Fi & Listrik (bulanan / 30)
-  // 3. Gaji Karyawan Toko Hadir Hari Ini
   const sewaHarian = useMemo(() => {
     return targetBranches.reduce((sum, c) => sum + Math.round((c.sewa_bulanan || 3500000) / 30), 0);
   }, [targetBranches]);
@@ -165,8 +175,7 @@ export default function SeniorBossDashboard({
 
   const totalFixedCostHarian = sewaHarian + wifiHarian + gajiStafHadir;
 
-  // VARIABLE COST HARI INI:
-  // HPP Bahan Baku Serabi & Wedang yang Laku di Kasir
+  // VARIABLE COST HARI INI (HPP Modal Porsi yang Terjual di Kasir):
   const menuHppMap = useMemo(() => {
     const map: Record<string, number> = {};
     menuList.forEach(m => {
@@ -231,51 +240,93 @@ export default function SeniorBossDashboard({
   };
 
   return (
-    <div className="space-y-4 max-w-4xl mx-auto w-full">
+    <div className="w-full max-w-md mx-auto space-y-3.5 select-none font-sans pb-6">
       
       {/* ========================================================================= */}
-      {/* 1. DATE PICKER TOOLBAR (DATA PER HARI, JANGAN HILANG & TERSIMPAN RAPI)    */}
+      {/* 1. TOP HEADER KUNING PERSIS SALSA LAUNDRY (media_1793195318661.png)       */}
       {/* ========================================================================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white p-3 rounded-2xl border border-slate-200/90 shadow-soft-sm">
+      <div className="bg-gradient-to-r from-amber-400 via-amber-500 to-amber-500 rounded-3xl p-4 text-slate-950 shadow-lg border-2 border-amber-300 relative overflow-hidden">
+        {/* Specular sheen */}
+        <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/20 rounded-full blur-md pointer-events-none" />
+
+        <div className="flex items-center justify-between">
+          {/* Logo Brand Emblem */}
+          <div className="flex items-center space-x-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-slate-950 text-white flex items-center justify-center text-xl shadow-md shrink-0">
+              🥞
+            </div>
+            <div>
+              <div className="flex items-center space-x-1.5">
+                <span className="bg-slate-950 text-amber-300 px-2 py-0.5 rounded-lg text-xs font-black tracking-tight">
+                  Serabi Bawel
+                </span>
+                <span className="font-extrabold text-xs text-slate-950">
+                  Wedang Geprek
+                </span>
+              </div>
+              <p className="text-[11px] font-bold text-amber-950 mt-0.5">
+                🇮🇩 Laporan Hari Ini : Total Omzet : <span className="font-black font-mono">{formatRupiah(omzetKotor)}</span>
+              </p>
+            </div>
+          </div>
+
+          <span className="text-[10px] font-mono font-black text-amber-950 bg-amber-300/80 px-2 py-1 rounded-xl">
+            10 Cabang
+          </span>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 2. SUB-BAR: AVATAR, LOGOUT, ROLE OWNER & DATE SELECTOR                    */}
+      {/* ========================================================================= */}
+      <div className="flex items-center justify-between gap-2 px-1">
         <div className="flex items-center space-x-2">
-          <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
-          <span className="text-xs font-bold text-slate-600">Pilih Tanggal Laporan:</span>
+          {/* Avatar Icon Circle */}
+          <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm shadow-sm font-bold">
+            👤
+          </div>
+
+          {/* Logout / Switch Role Circle */}
+          <button
+            type="button"
+            onClick={() => window.location.href = '/'}
+            className="w-9 h-9 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center text-sm shadow-sm transition-all cursor-pointer"
+            title="Keluar ke Halaman Utama"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+
+          {/* Yellow Pill: Owner Pak Agan */}
+          <div className="px-3.5 py-1.5 rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-sm flex items-center space-x-1 border border-amber-300">
+            <span>👑</span>
+            <span>Owner (Pak Agan)</span>
+          </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        {/* Tanggal Hari Ini & Tombol Kemarin */}
+        <div className="flex items-center space-x-1">
           <button
             type="button"
             onClick={handleSetYesterday}
-            className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
-            title="Lihat data kemarin"
+            className="px-2 py-1 rounded-xl bg-white border border-slate-200 text-slate-700 text-[10px] font-bold active:scale-95"
+            title="Kemarin"
           >
-            ◀ Kemarin
+            ◀
           </button>
-
-          <button
-            type="button"
-            onClick={handleSetToday}
-            className="px-2.5 py-1 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-extrabold transition-colors"
-            title="Lihat data hari ini (25 Okt 2026)"
-          >
-            Hari Ini
-          </button>
-
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => onDateChange(e.target.value)}
-            className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none cursor-pointer"
+            className="px-2 py-1 bg-white border border-slate-200 rounded-xl text-[11px] font-mono font-bold text-slate-800 outline-none cursor-pointer shadow-2xs"
           />
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. KARTU IDENTITAS TOKO ATAS (PERSIS CONTOH KASIR LAUNDRY DENGAN PENSIL)  */}
+      {/* 3. STORE CARD (PERSIS SALSA LAUNDRY DENGAN PENSIL KUNING DI KANAN ATAS)   */}
       {/* ========================================================================= */}
-      <div className="bg-white rounded-3xl p-4 sm:p-5 border-2 border-slate-200/90 shadow-soft-sm relative overflow-hidden">
-        
-        {/* Tombol Pensil Kuning di Kanan Atas */}
+      <div className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-soft-sm relative overflow-hidden">
+        {/* Tombol Pensil Kuning di Kanan Atas (Ubah Sewa & Wi-Fi) */}
         <button
           type="button"
           onClick={() => {
@@ -285,37 +336,37 @@ export default function SeniorBossDashboard({
               onEditCabang(cabangList[0]);
             }
           }}
-          className="absolute top-4 right-4 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-amber-400 hover:bg-amber-500 text-slate-950 flex items-center justify-center shadow-md transition-all active:scale-95"
-          title="Ubah data sewa ruko & Wi-Fi toko ini"
+          className="absolute top-3.5 right-3.5 w-9 h-9 rounded-full bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 flex items-center justify-center shadow-md transition-all cursor-pointer border border-amber-300"
+          title="Ubah Biaya Sewa Ruko & Wi-Fi Toko Ini"
         >
-          <Pencil className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900 fill-slate-900" />
+          <Pencil className="w-4 h-4 text-slate-900 fill-slate-900" />
         </button>
 
-        {/* Info Cabang Aktif */}
-        <div className="flex items-start space-x-3.5 pr-12">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white flex items-center justify-center text-2xl shadow-md shrink-0">
-            🥞
+        {/* Identitas Cabang Aktif */}
+        <div className="flex items-start space-x-3 pr-10">
+          <div className="w-12 h-12 rounded-2xl bg-amber-100/80 border border-amber-300 flex items-center justify-center text-2xl shadow-xs shrink-0">
+            🍵
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] uppercase font-black tracking-widest text-emerald-700 block">
+            <span className="text-[10px] uppercase font-black tracking-wider text-emerald-800 block">
               {isAllCabang ? 'KONSOLIDASI SELURUH GERAI' : `OUTLET #${activeCabang?.nomor || '1'} • ${activeCabang?.kode || 'CBG'}`}
             </span>
-            <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug truncate">
+            <h2 className="text-base font-black text-slate-900 leading-tight truncate">
               {isAllCabang ? 'Seluruh 10 Cabang Resmi (Pak Agan)' : (activeCabang?.nama || 'Cabang Resmi')}
             </h2>
-            <p className="text-xs text-slate-500 truncate mt-0.5">
-              {isAllCabang ? 'Rekapitulasi total 10 toko Serabi Bawel & Wedang Geprek' : (activeCabang?.alamat ? `${activeCabang.alamat} (${activeCabang.kota})` : activeCabang?.kota)}
+            <p className="text-[11px] text-slate-500 truncate mt-0.5">
+              {isAllCabang ? '10 Toko Aktif di Seluruh Wilayah' : (activeCabang?.alamat || activeCabang?.kota || 'Yogyakarta')}
             </p>
           </div>
         </div>
 
         {/* Dropdown Ganti Cabang Langsung di Bawah Nama Toko */}
-        <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center space-x-2">
-          <span className="text-xs font-bold text-slate-500 shrink-0">Ganti Cabang:</span>
+        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center space-x-2">
+          <span className="text-[11px] font-bold text-slate-500 shrink-0">Pilih Toko:</span>
           <select
             value={selectedCabangId}
             onChange={(e) => onSelectCabangId(e.target.value)}
-            className="flex-1 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-extrabold text-slate-900 outline-none cursor-pointer truncate shadow-2xs"
+            className="flex-1 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-xl text-xs font-black text-slate-900 outline-none cursor-pointer truncate shadow-2xs"
           >
             <option value="all">🏢 Konsolidasi Semua 10 Cabang</option>
             {cabangList.map(c => (
@@ -325,311 +376,243 @@ export default function SeniorBossDashboard({
             ))}
           </select>
         </div>
-
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. KARTU EMAS FINTECH: UANG BERSIH MASUK REKENING BOSS HARI INI           */}
+      {/* 4. 3 STATUS STAT BOXES (PERSIS 3 KOTAK KUNING SALSA LAUNDRY)              */}
       {/* ========================================================================= */}
-      <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 border-2 border-amber-400/50 p-5 sm:p-6 text-white shadow-xl relative overflow-hidden">
-        <div className="flex items-center justify-between border-b border-emerald-800/60 pb-3">
-          <div className="flex items-center space-x-2">
-            <span className="text-xl">💰</span>
-            <span className="text-xs sm:text-sm font-black tracking-wider uppercase text-amber-300">
-              Uang Bersih Masuk ke Rekening Boss Hari Ini
-            </span>
+      <div className="grid grid-cols-3 gap-2">
+        {/* Kotak 1: Uang Bersih Masuk BCA */}
+        <button
+          type="button"
+          onClick={() => setActiveModal('uang_bersih_detail')}
+          className="p-3 rounded-2xl bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black shadow-md text-center flex flex-col items-center justify-center active:scale-95 transition-transform border border-amber-300 cursor-pointer"
+        >
+          <div className="flex items-center space-x-1 text-[10px] uppercase tracking-wider text-amber-950">
+            <span>💰 Uang BCA</span>
           </div>
-          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-900/80 text-emerald-300 border border-emerald-700">
-            {selectedDate}
-          </span>
-        </div>
-
-        <div className="pt-3 space-y-1">
-          <div className="text-3xl sm:text-4xl font-mono font-black text-amber-400 tracking-tight">
+          <div className="text-xs sm:text-sm font-black font-mono tracking-tight text-slate-950 mt-0.5 truncate w-full">
             {formatRupiah(uangBersihBoss)}
           </div>
-          <div className="text-xs text-emerald-300 flex items-center space-x-1.5 font-bold">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Siap ditransfer ke rekening BCA: <strong>8820-192-881 a/n Pak Agan</strong></span>
+          <span className="text-[9px] text-amber-950/80 font-bold block">Pak Agan</span>
+        </button>
+
+        {/* Kotak 2: Fixed Cost Hari Ini */}
+        <button
+          type="button"
+          onClick={() => setActiveModal('fixed_cost_detail')}
+          className="p-3 rounded-2xl bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black shadow-md text-center flex flex-col items-center justify-center active:scale-95 transition-transform border border-amber-300 cursor-pointer"
+        >
+          <div className="flex items-center space-x-1 text-[10px] uppercase tracking-wider text-amber-950">
+            <span>🏢 Fixed Cost</span>
           </div>
-          <p className="text-[11px] text-slate-400 pt-1">
-            *Dihitung otomatis: Omzet Kasir ({formatRupiah(omzetKotor)}) dikurangi Fixed Cost ({formatRupiah(totalFixedCostHarian)}) &amp; Variable Cost ({formatRupiah(totalVariableCostHarian)}).
-          </p>
-        </div>
+          <div className="text-xs sm:text-sm font-black font-mono tracking-tight text-slate-950 mt-0.5 truncate w-full">
+            -{formatRupiah(totalFixedCostHarian)}
+          </div>
+          <span className="text-[9px] text-amber-950/80 font-bold block">Sewa &amp; Staf</span>
+        </button>
+
+        {/* Kotak 3: Variable Cost / HPP Modal */}
+        <button
+          type="button"
+          onClick={() => setActiveModal('variable_cost_detail')}
+          className="p-3 rounded-2xl bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black shadow-md text-center flex flex-col items-center justify-center active:scale-95 transition-transform border border-amber-300 cursor-pointer"
+        >
+          <div className="flex items-center space-x-1 text-[10px] uppercase tracking-wider text-amber-950">
+            <span>🥞 HPP Modal</span>
+          </div>
+          <div className="text-xs sm:text-sm font-black font-mono tracking-tight text-slate-950 mt-0.5 truncate w-full">
+            -{formatRupiah(totalVariableCostHarian)}
+          </div>
+          <span className="text-[9px] text-amber-950/80 font-bold block">Porsi Kasir</span>
+        </button>
       </div>
 
       {/* ========================================================================= */}
-      {/* 4. DUA KOTAK BIAYA HARIAN: FIXED COST (KIRI) vs VARIABLE COST (KANAN)     */}
+      {/* 5. THE 3x3 GRID OF 9 BIG SQUARE APP CARDS (PERSIS SALSA LAUNDRY 9 KOTAK)  */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-2.5 pt-1">
         
-        {/* KOTAK 1: FIXED COST TOKO HARI INI */}
-        <div className="p-4 rounded-3xl bg-white border border-slate-200/90 shadow-soft-sm space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <span className="text-xs font-black uppercase text-amber-900 flex items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-amber-600" />
-              <span>Fixed Cost Toko / Hari</span>
-            </span>
-            <span className="font-mono font-extrabold text-sm text-rose-600">
-              -{formatRupiah(totalFixedCostHarian)}
-            </span>
+        {/* KOTAK 1: 10 TOKO & SEWA */}
+        <button
+          type="button"
+          onClick={() => setActiveModal('toko')}
+          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
+            🏢
           </div>
+          <span className="font-black text-slate-900 text-xs block leading-tight">10 Toko</span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">Sewa &amp; Wi-Fi</span>
+        </button>
 
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between text-slate-600">
-              <span>• Sewa Ruko:</span>
-              <span className="font-mono font-bold text-slate-900">-{formatRupiah(sewaHarian)}/hr</span>
-            </div>
-            <div className="flex justify-between text-slate-600">
-              <span>• Wi-Fi &amp; Listrik:</span>
-              <span className="font-mono font-bold text-slate-900">-{formatRupiah(wifiHarian)}/hr</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setGajiModalTab('absensi');
-                setActiveModal('gaji');
-              }}
-              className="w-full flex justify-between items-center text-slate-900 font-bold bg-amber-50/80 hover:bg-amber-100 p-2 rounded-xl border border-amber-200/60 transition-colors text-left group cursor-pointer"
-            >
-              <span className="flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-emerald-700" />
-                <span>• Gaji Karyawan Toko:</span>
-                <span className="text-[10px] text-emerald-800 font-bold underline group-hover:text-emerald-950">(Lihat Absensi)</span>
-              </span>
-              <span className="font-mono text-rose-700">-{formatRupiah(gajiStafHadir)}/hr</span>
-            </button>
-            <span className="text-[10px] text-slate-500 block pt-0.5">
-              *{targetAbsensiToday.length} staf hadir tercatat dari absensi kasir ({selectedDate})
-            </span>
+        {/* KOTAK 2: PRESENSI & GAJI STAF */}
+        <button
+          type="button"
+          onClick={() => {
+            setGajiModalTab('absensi');
+            setActiveModal('gaji');
+          }}
+          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
+            👥
           </div>
-        </div>
+          <span className="font-black text-slate-900 text-xs block leading-tight">Presensi</span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">Hadir &amp; Utang</span>
+        </button>
 
-        {/* KOTAK 2: VARIABLE COST HARI INI */}
-        <div className="p-4 rounded-3xl bg-white border border-slate-200/90 shadow-soft-sm space-y-2">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <span className="text-xs font-black uppercase text-blue-900 flex items-center gap-1.5">
-              <Coffee className="w-4 h-4 text-blue-600" />
-              <span>Variable Cost Toko / Hari</span>
-            </span>
-            <span className="font-mono font-extrabold text-sm text-rose-600">
-              -{formatRupiah(totalVariableCostHarian)}
-            </span>
+        {/* KOTAK 3: STOK & KIRIM BAHAN */}
+        <button
+          type="button"
+          onClick={() => setActiveModal('bahan')}
+          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
+            📦
           </div>
+          <span className="font-black text-slate-900 text-xs block leading-tight">Stok Bahan</span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">Kasir &amp; Pusat</span>
+        </button>
 
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between text-slate-600">
-              <span>• Modal HPP Bahan Baku:</span>
-              <span className="font-mono font-bold text-slate-900">-{formatRupiah(totalHppBahan)}</span>
-            </div>
-            <p className="text-[11px] text-slate-500 leading-snug">
-              Modal bahan adonan serabi &amp; rempah wedang otomatis terpotong mengikuti porsi yang terjual di kasir hari ini.
-            </p>
-            <div className="pt-2 text-[10px] text-emerald-700 font-bold flex items-center space-x-1">
-              <Check className="w-3 h-3 text-emerald-600" />
-              <span>Modal HPP bisa diedit di tombol bawah</span>
-            </div>
+        {/* KOTAK 4: MENU & MODAL HPP */}
+        <button
+          type="button"
+          onClick={() => setActiveModal('menu')}
+          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
+            🥞
           </div>
-        </div>
+          <span className="font-black text-slate-900 text-xs block leading-tight">Menu &amp; HPP</span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">Modal Porsi</span>
+        </button>
+
+        {/* KOTAK 5: RIWAYAT KASIR & OJOL */}
+        <button
+          type="button"
+          onClick={() => setActiveModal('riwayat')}
+          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
+            🛵
+          </div>
+          <span className="font-black text-slate-900 text-xs block leading-tight">Riwayat</span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">Struk &amp; Ojol</span>
+        </button>
+
+        {/* KOTAK 6: LAPORAN RESMI & PDF */}
+        <button
+          type="button"
+          onClick={onOpenReportModal}
+          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
+            📊
+          </div>
+          <span className="font-black text-slate-900 text-xs block leading-tight">Laporan</span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">Cetak PDF A4</span>
+        </button>
+
+        {/* KOTAK 7: POSISI UANG (TUNAI, SHOPEE, GOJEK, GRAB) */}
+        <button
+          type="button"
+          onClick={() => setActiveModal('posisi_uang')}
+          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
+            💳
+          </div>
+          <span className="font-black text-slate-900 text-xs block leading-tight">Posisi Uang</span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">Laci &amp; Dompet</span>
+        </button>
+
+        {/* KOTAK 8: KAS KECIL & BELANJA */}
+        <button
+          type="button"
+          onClick={() => setActiveModal('kas_kecil')}
+          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
+            📝
+          </div>
+          <span className="font-black text-slate-900 text-xs block leading-tight">Kas Kecil</span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">Belanja Toko</span>
+        </button>
+
+        {/* KOTAK 9: KELOLA AKUN & PIN */}
+        <button
+          type="button"
+          onClick={() => setActiveModal('akun')}
+          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
+            ⚙️
+          </div>
+          <span className="font-black text-slate-900 text-xs block leading-tight">Akun &amp; PIN</span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">Sandi Tablet</span>
+        </button>
 
       </div>
 
       {/* ========================================================================= */}
-      {/* 5. POSISI UANGNYA ADA DI MANA HARI INI? (4 PIL WARNA)                     */}
+      {/* 6. BOTTOM STICKY BUTTON (PERSIS SALSA LAUNDRY TOMBOL KUNING TRANSAKSI)    */}
       {/* ========================================================================= */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-200/90 shadow-soft-sm space-y-2.5">
-        <span className="text-xs font-black uppercase tracking-wider text-slate-700 block">
-          Posisi Uang Omzet Hari Ini (Total {formatRupiah(omzetKotor)}):
-        </span>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          
-          {/* Tunai Laci */}
-          <div className="p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-0.5">
-            <div className="flex items-center space-x-1 text-[11px] font-bold">
-              <Banknote className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Tunai di Laci</span>
-            </div>
-            <div className="font-mono font-black text-sm text-emerald-800">
-              {formatRupiah(tunaiLaci)}
-            </div>
-            <span className="text-[9px] text-emerald-700 block">Uang fisik di kasir</span>
-          </div>
-
-          {/* ShopeePay */}
-          <div className="p-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 space-y-0.5">
-            <div className="flex items-center space-x-1 text-[11px] font-bold">
-              <span className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[8px] font-black">S</span>
-              <span>ShopeePay</span>
-            </div>
-            <div className="font-mono font-black text-sm text-amber-900">
-              {formatRupiah(shopeePay)}
-            </div>
-            <span className="text-[9px] text-amber-700 block">Saldo ShopeeFood</span>
-          </div>
-
-          {/* GoPay */}
-          <div className="p-2.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-950 space-y-0.5">
-            <div className="flex items-center space-x-1 text-[11px] font-bold">
-              <span className="w-3.5 h-3.5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[8px] font-black">G</span>
-              <span>GoPay / GoFood</span>
-            </div>
-            <div className="font-mono font-black text-sm text-rose-900">
-              {formatRupiah(goPay)}
-            </div>
-            <span className="text-[9px] text-rose-700 block">Saldo GoBiz</span>
-          </div>
-
-          {/* GrabFood */}
-          <div className="p-2.5 rounded-2xl bg-green-50 border border-green-200 text-green-950 space-y-0.5">
-            <div className="flex items-center space-x-1 text-[11px] font-bold">
-              <span className="w-3.5 h-3.5 rounded-full bg-green-600 text-white flex items-center justify-center text-[8px] font-black">G</span>
-              <span>GrabFood</span>
-            </div>
-            <div className="font-mono font-black text-sm text-green-900">
-              {formatRupiah(grabFood)}
-            </div>
-            <span className="text-[9px] text-green-700 block">Saldo GrabMerchant</span>
-          </div>
-
-        </div>
+      <div className="pt-2">
+        <button
+          type="button"
+          onClick={() => window.location.href = '/pos'}
+          className="w-full py-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-98 text-slate-950 font-black text-sm sm:text-base rounded-2xl shadow-lg border-2 border-amber-300 flex items-center justify-center gap-2 tracking-wide cursor-pointer"
+        >
+          <span className="text-xl">📟</span>
+          <span>BUKA LAYAR KASIR TOKO (POS TABLET)</span>
+        </button>
       </div>
 
       {/* ========================================================================= */}
-      {/* 6. MENU UTAMA KOTAK BESAR (GRID LAUNCHER ALA KASIR MINI LAUNDRY)          */}
-      {/* ========================================================================= */}
-      <div className="space-y-2 pt-1">
-        <span className="text-xs font-black uppercase tracking-wider text-slate-500 block px-1">
-          Menu Utama (Klik Langsung Muncul):
-        </span>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          
-          {/* TOMBOL 1: 10 TOKO & SEWA */}
-          <button
-            type="button"
-            onClick={() => setActiveModal('toko')}
-            className="p-4 bg-white hover:bg-slate-50 active:scale-95 rounded-3xl border-2 border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center text-2xl mb-2 group-hover:scale-105 transition-transform shadow-xs">
-              🏢
-            </div>
-            <span className="font-black text-slate-900 text-sm block">10 Toko &amp; Sewa</span>
-            <span className="text-[11px] text-slate-500 block mt-0.5">Atur ruko &amp; Wi-Fi</span>
-          </button>
-
-          {/* TOMBOL 2: ABSENSI & GAJI STAF */}
-          <button
-            type="button"
-            onClick={() => {
-              setGajiModalTab('absensi');
-              setActiveModal('gaji');
-            }}
-            className="p-4 bg-white hover:bg-slate-50 active:scale-95 rounded-3xl border-2 border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-2xl mb-2 group-hover:scale-105 transition-transform shadow-xs">
-              👥
-            </div>
-            <span className="font-black text-slate-900 text-sm block">Absensi &amp; Gaji Staf</span>
-            <span className="text-[11px] text-slate-500 block mt-0.5">Cek staf hadir &amp; utang</span>
-          </button>
-
-          {/* TOMBOL 3: STOK & KIRIM BAHAN */}
-          <button
-            type="button"
-            onClick={() => setActiveModal('bahan')}
-            className="p-4 bg-white hover:bg-slate-50 active:scale-95 rounded-3xl border-2 border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center text-2xl mb-2 group-hover:scale-105 transition-transform shadow-xs">
-              📦
-            </div>
-            <span className="font-black text-slate-900 text-sm block">Stok &amp; Kirim Bahan</span>
-            <span className="text-[11px] text-slate-500 block mt-0.5">Cek kasir &amp; kirim pusat</span>
-          </button>
-
-          {/* TOMBOL 4: MENU & MODAL HPP */}
-          <button
-            type="button"
-            onClick={() => setActiveModal('menu')}
-            className="p-4 bg-white hover:bg-slate-50 active:scale-95 rounded-3xl border-2 border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-amber-100/70 text-amber-900 flex items-center justify-center text-2xl mb-2 group-hover:scale-105 transition-transform shadow-xs">
-              🥞
-            </div>
-            <span className="font-black text-slate-900 text-sm block">Menu &amp; Modal HPP</span>
-            <span className="text-[11px] text-slate-500 block mt-0.5">Ketik modal per porsi</span>
-          </button>
-
-          {/* TOMBOL 5: RIWAYAT KASIR & OJOL */}
-          <button
-            type="button"
-            onClick={() => setActiveModal('riwayat')}
-            className="p-4 bg-white hover:bg-slate-50 active:scale-95 rounded-3xl border-2 border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-700 flex items-center justify-center text-2xl mb-2 group-hover:scale-105 transition-transform shadow-xs">
-              🛵
-            </div>
-            <span className="font-black text-slate-900 text-sm block">Riwayat Kasir</span>
-            <span className="text-[11px] text-slate-500 block mt-0.5">Tunai, Shopee, Gojek, Grab</span>
-          </button>
-
-          {/* TOMBOL 6: LAPORAN RESMI & PDF */}
-          <button
-            type="button"
-            onClick={onOpenReportModal}
-            className="p-4 bg-white hover:bg-slate-50 active:scale-95 rounded-3xl border-2 border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all group"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center text-2xl mb-2 group-hover:scale-105 transition-transform shadow-xs">
-              📊
-            </div>
-            <span className="font-black text-slate-900 text-sm block">Laporan PDF</span>
-            <span className="text-[11px] text-slate-500 block mt-0.5">Cetak rekap bulanan A4</span>
-          </button>
-
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 7. MODALS SIMPEL & BESAR UNTUK TIAP TOMBOL                                */}
+      {/* 7. MODALS SIMPEL & JELAS                                                  */}
       {/* ========================================================================= */}
 
       {/* MODAL 1: KELOLA 10 TOKO & SEWA */}
       {activeModal === 'toko' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-amber-50/60">
               <div className="flex items-center space-x-2">
                 <span className="text-xl">🏢</span>
-                <h3 className="font-black text-sm text-slate-900">Kelola 10 Toko &amp; Biaya Sewa/Wifi</h3>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900">10 Toko &amp; Biaya Sewa/Wifi</h3>
+                  <p className="text-[10px] text-slate-500">Ketik sewa ruko &amp; Wi-Fi untuk potong omzet harian</p>
+                </div>
               </div>
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 overflow-y-auto space-y-3 flex-1 text-xs">
+            <div className="p-4 overflow-y-auto space-y-2.5 flex-1 text-xs">
               {cabangList.map(c => (
-                <div key={c.id} className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-2">
+                <div key={c.id} className="p-3 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="font-mono font-bold text-[10px] text-slate-400">#{c.nomor} • {c.kode}</span>
                       <h4 className="font-extrabold text-xs text-slate-900">{c.nama}</h4>
-                      <p className="text-[11px] text-slate-500">{c.kota} • PJ: {c.pj_nama || 'Kepala Toko'}</p>
+                      <p className="text-[10px] text-slate-500">{c.kota} • PJ: {c.pj_nama || 'Kepala Toko'}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => onEditCabang(c)}
-                      className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold text-xs flex items-center space-x-1 shadow-sm"
+                      className="px-2.5 py-1 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs flex items-center space-x-1 shadow-xs cursor-pointer"
                     >
                       <Pencil className="w-3 h-3" />
-                      <span>Ubah Biaya</span>
+                      <span>Ubah</span>
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 text-[11px]">
+                  <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-200/60 text-[10px]">
                     <div>
                       <span className="text-slate-500 block">Sewa Ruko:</span>
                       <span className="font-mono font-bold text-slate-900">{formatRupiah(c.sewa_bulanan || 3500000)}/bln</span>
@@ -648,17 +631,16 @@ export default function SeniorBossDashboard({
         </div>
       )}
 
-      {/* MODAL 2: ABSENSI & GAJI STAF (CEK STAF HADIR & KETIK UTANG) */}
+      {/* MODAL 2: PRESENSI & GAJI STAF */}
       {activeModal === 'gaji' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
-            {/* Header Modal */}
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50/60">
               <div className="flex items-center space-x-2">
                 <span className="text-xl">👥</span>
                 <div>
-                  <h3 className="font-black text-sm text-slate-900">Monitor Absensi &amp; Gaji Karyawan</h3>
-                  <p className="text-[11px] text-slate-500">Cek siapa yang hadir kerja &amp; kelola utang pemotong gaji</p>
+                  <h3 className="font-black text-sm text-slate-900">Presensi &amp; Gaji Karyawan</h3>
+                  <p className="text-[10px] text-slate-500">Cek staf hadir &amp; kelola utang pemotong gaji</p>
                 </div>
               </div>
               <button
@@ -669,20 +651,19 @@ export default function SeniorBossDashboard({
               </button>
             </div>
 
-            {/* Sub-tab Pill: [ 📅 Staf Hadir Hari Ini ] vs [ 💰 Rekap Upah & Utang ] */}
-            <div className="p-3 bg-slate-100/90 border-b border-slate-200 flex items-center gap-2">
+            {/* Sub-tab Pill: [ 📅 Staf Hadir ] vs [ 💰 Rekap Upah & Utang ] */}
+            <div className="p-2.5 bg-slate-100 border-b border-slate-200 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setGajiModalTab('absensi')}
-                className={`flex-1 py-2 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-1.5 px-2 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   gajiModalTab === 'absensi'
-                    ? 'bg-emerald-700 text-white shadow-sm'
+                    ? 'bg-emerald-700 text-white shadow-xs'
                     : 'bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                <span>📅</span>
-                <span>Staf Hadir ({selectedDate})</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                <span>📅 Hadir Hari Ini</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                   gajiModalTab === 'absensi' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
                 }`}>
                   {targetAbsensiToday.length}
@@ -692,66 +673,57 @@ export default function SeniorBossDashboard({
               <button
                 type="button"
                 onClick={() => setGajiModalTab('utang')}
-                className={`flex-1 py-2 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-1.5 px-2 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   gajiModalTab === 'utang'
-                    ? 'bg-emerald-700 text-white shadow-sm'
+                    ? 'bg-emerald-700 text-white shadow-xs'
                     : 'bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                <span>💰</span>
-                <span>Rekap Upah &amp; Ketik Utang</span>
+                <span>💰 Rekap &amp; Utang</span>
               </button>
             </div>
 
             {/* TAB 1: ABSENSI MASUK HARI INI */}
             {gajiModalTab === 'absensi' && (
-              <div className="p-4 overflow-y-auto space-y-3 flex-1 text-xs">
-                <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl flex items-center justify-between">
+              <div className="p-3.5 overflow-y-auto space-y-2.5 flex-1 text-xs">
+                <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-2xl flex items-center justify-between">
                   <div>
                     <span className="font-extrabold text-xs text-emerald-950 block">
-                      Total {targetAbsensiToday.length} Karyawan Masuk Kerja
+                      Total {targetAbsensiToday.length} Staf Hadir Kerja
                     </span>
-                    <span className="text-[11px] text-emerald-800">
-                      Otomatis memotong Fixed Cost: -{formatRupiah(gajiStafHadir)}/hari
+                    <span className="text-[10px] text-emerald-800">
+                      Fixed Cost Toko: -{formatRupiah(gajiStafHadir)}/hari
                     </span>
                   </div>
-                  <span className="font-mono font-bold text-xs bg-emerald-200/70 text-emerald-900 px-2.5 py-1 rounded-xl">
+                  <span className="font-mono font-bold text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-lg">
                     {selectedDate}
                   </span>
                 </div>
 
                 {targetAbsensiToday.length === 0 ? (
-                  <div className="text-center py-10 space-y-2">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xl">
-                      📅
-                    </div>
-                    <p className="font-bold text-slate-700 text-sm">Belum ada staf yang clock-in pada tanggal ini</p>
-                    <p className="text-slate-400 text-xs max-w-sm mx-auto">
-                      Presensi staf tercatat otomatis saat kasir membuka shift di menu POS tablet.
-                    </p>
+                  <div className="text-center py-8 space-y-1 text-slate-400">
+                    <p className="font-bold text-slate-700 text-xs">Belum ada staf yang clock-in hari ini</p>
+                    <p className="text-[10px]">Presensi staf masuk otomatis saat shift kasir dibuka.</p>
                   </div>
                 ) : (
                   targetAbsensiToday.map(abs => {
                     const kar = karyawanList.find(k => k.id === abs.karyawan_id);
                     const cbg = cabangList.find(c => c.id === abs.cabang_id);
                     return (
-                      <div key={abs.id} className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/60 flex items-center justify-between hover:bg-white transition-colors">
+                      <div key={abs.id} className="p-3 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between">
                         <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-extrabold text-sm text-slate-900">{abs.karyawan_nama || kar?.nama}</h4>
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-extrabold text-xs text-slate-900">{abs.karyawan_nama || kar?.nama}</h4>
+                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-bold">
                               🟢 {abs.status}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                            {cbg?.nama || abs.cabang_nama || 'Cabang'} • Jam Masuk: <span className="font-mono font-bold text-slate-800">{abs.jam_masuk || '08:00'}</span> {abs.jam_pulang ? ` s/d ${abs.jam_pulang}` : ''}
+                          <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                            {cbg?.nama || 'Outlet'} • Jam: <span className="font-mono font-bold text-slate-800">{abs.jam_masuk || '08:00'}</span>
                           </p>
-                          {abs.catatan && (
-                            <span className="text-[10px] text-slate-400 block italic mt-0.5">Catatan: {abs.catatan}</span>
-                          )}
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] text-slate-400 block">Upah Harian:</span>
+                          <span className="text-[9px] text-slate-400 block">Upah Harian:</span>
                           <span className="font-mono font-black text-xs text-emerald-800">
                             {formatRupiah(abs.upah_harian_terhitung || kar?.gaji_harian || 100000)}
                           </span>
@@ -765,7 +737,7 @@ export default function SeniorBossDashboard({
 
             {/* TAB 2: REKAP HARI KERJA & KETIK UTANG */}
             {gajiModalTab === 'utang' && (
-              <div className="p-4 overflow-y-auto space-y-3 flex-1 text-xs">
+              <div className="p-3.5 overflow-y-auto space-y-2.5 flex-1 text-xs">
                 {karyawanList.filter(k => k.role !== 'owner').map(kar => {
                   const branch = cabangList.find(c => c.id === kar.cabang_id);
                   const absensiCount = absensiList.filter(a => a.karyawan_id === kar.id && (a.status === 'hadir' || a.status === 'setengah_hari')).length;
@@ -775,12 +747,12 @@ export default function SeniorBossDashboard({
                   const isEditingThis = editingUtangKaryawanId === kar.id;
 
                   return (
-                    <div key={kar.id} className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-2">
+                    <div key={kar.id} className="p-3 rounded-2xl border border-slate-200 bg-slate-50 space-y-1.5">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h4 className="font-extrabold text-sm text-slate-900">{kar.nama}</h4>
-                          <p className="text-[11px] text-slate-500 font-medium">
-                            {branch?.nama || 'Outlet'} • {kar.role} • {kar.telepon}
+                          <h4 className="font-extrabold text-xs text-slate-900">{kar.nama}</h4>
+                          <p className="text-[10px] text-slate-500 font-medium">
+                            {branch?.nama || 'Outlet'} • {kar.role}
                           </p>
                         </div>
                         <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
@@ -788,9 +760,9 @@ export default function SeniorBossDashboard({
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 bg-white p-2.5 rounded-xl border border-slate-200 text-[11px]">
+                      <div className="grid grid-cols-3 gap-1 bg-white p-2 rounded-xl border border-slate-200 text-[10px]">
                         <div>
-                          <span className="text-slate-400 block">Upah Kotor:</span>
+                          <span className="text-slate-400 block">Upah:</span>
                           <span className="font-mono font-bold text-slate-900">{formatRupiah(upahTotal)}</span>
                         </div>
 
@@ -804,15 +776,15 @@ export default function SeniorBossDashboard({
                                 value={utangInputValue === 0 ? '' : formatNominal(utangInputValue)}
                                 onChange={(e) => setUtangInputValue(parseNominal(e.target.value))}
                                 placeholder="0"
-                                className="w-20 px-1.5 py-0.5 border border-rose-300 rounded font-mono font-bold text-xs"
+                                className="w-16 px-1 py-0.5 border border-rose-300 rounded font-mono font-bold text-[10px]"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleSaveUtang(kar.id)}
                                 disabled={savingUtang}
-                                className="px-2 py-0.5 bg-rose-600 text-white rounded text-[10px] font-bold"
+                                className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[9px] font-bold"
                               >
-                                {savingUtang ? '...' : 'Simpan'}
+                                OK
                               </button>
                             </div>
                           ) : (
@@ -824,9 +796,9 @@ export default function SeniorBossDashboard({
                                   setEditingUtangKaryawanId(kar.id);
                                   setUtangInputValue(currentUtang);
                                 }}
-                                className="text-amber-700 hover:text-amber-900 font-bold text-[10px] underline ml-1 cursor-pointer"
+                                className="text-amber-700 hover:text-amber-900 font-bold text-[9px] underline ml-0.5 cursor-pointer"
                               >
-                                Ketik Utang
+                                Edit
                               </button>
                             </div>
                           )}
@@ -834,7 +806,7 @@ export default function SeniorBossDashboard({
 
                         <div>
                           <span className="text-emerald-700 font-bold block">Gaji Bersih:</span>
-                          <span className="font-mono font-black text-emerald-800 text-xs">{formatRupiah(gajiBersih)}</span>
+                          <span className="font-mono font-black text-emerald-800">{formatRupiah(gajiBersih)}</span>
                         </div>
                       </div>
                     </div>
@@ -848,29 +820,29 @@ export default function SeniorBossDashboard({
 
       {/* MODAL 3: STOK BAHAN KASIR + TOMBOL KIRIM PUSAT */}
       {activeModal === 'bahan' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div>
-                <h3 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
-                  <span>📦</span>
-                  <span>Stok Bahan Toko &amp; Kirim Pusat</span>
-                </h3>
-                <p className="text-[11px] text-slate-500">Cek rekap fisik dari kasir + Boss bisa tambah kiriman bahan kapan saja</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-amber-50/60">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">📦</span>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900">Stok Bahan Toko &amp; Kirim Pusat</h3>
+                  <p className="text-[10px] text-slate-500">Cek rekap fisik kasir + tambah pasokan pusat</p>
+                </div>
               </div>
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Tombol Besar Tambah Pasokan Kiriman Bahan dari Pusat */}
-            <div className="p-4 bg-emerald-50/80 border-b border-emerald-200 flex items-center justify-between">
+            <div className="p-3 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between">
               <div>
-                <span className="font-extrabold text-xs text-emerald-950 block">Pusat Mau Kirim Bahan ke Cabang?</span>
-                <span className="text-[10px] text-emerald-800">Catat pasokan adonan serabi, jahe, kinca durian dll</span>
+                <span className="font-extrabold text-xs text-emerald-950 block">Kirim Pasokan dari Pusat?</span>
+                <span className="text-[10px] text-emerald-800">Catat pasokan adonan serabi &amp; rempah</span>
               </div>
               <button
                 type="button"
@@ -878,72 +850,66 @@ export default function SeniorBossDashboard({
                   setActiveModal(null);
                   onOpenKirimanModal(selectedCabangId !== 'all' ? selectedCabangId : undefined);
                 }}
-                className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-sm flex items-center space-x-1.5"
+                className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow-xs flex items-center space-x-1 cursor-pointer"
               >
-                <Plus className="w-4 h-4" />
-                <span>+ Kirim Bahan ke Cabang</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Kirim Bahan</span>
               </button>
             </div>
 
-            <div className="p-4 overflow-y-auto space-y-2 flex-1 text-xs">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">Daftar Bahan Pokok &amp; Rekap Kasir:</span>
-              {bahanList.map(bhn => {
-                return (
-                  <div key={bhn.id} className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
-                    <div>
-                      <span className="font-mono text-[10px] text-slate-400">{bhn.kode}</span>
-                      <h4 className="font-bold text-slate-900 text-xs">{bhn.nama}</h4>
-                      <span className="text-[10px] text-slate-500 capitalize">Kategori: {bhn.kategori} • Satuan: {bhn.satuan}</span>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
-                        ✓ Stok Terpantau
-                      </span>
-                    </div>
+            <div className="p-3.5 overflow-y-auto space-y-2 flex-1 text-xs">
+              {bahanList.map(bhn => (
+                <div key={bhn.id} className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="font-mono text-[9px] text-slate-400">{bhn.kode}</span>
+                    <h4 className="font-bold text-slate-900 text-xs">{bhn.nama}</h4>
+                    <span className="text-[10px] text-slate-500 capitalize">{bhn.kategori} • {bhn.satuan}</span>
                   </div>
-                );
-              })}
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
+                    ✓ Terpantau
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL 4: MENU & MODAL HPP (BISA KETIK LANGSUNG HPP PER PORSI) */}
+      {/* MODAL 4: MENU & MODAL HPP */}
       {activeModal === 'menu' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-orange-50/60">
               <div className="flex items-center space-x-2">
                 <span className="text-xl">🥞</span>
                 <div>
-                  <h3 className="font-black text-sm text-slate-900">Atur Modal HPP Menu Serabi &amp; Wedang</h3>
-                  <p className="text-[11px] text-slate-500">Ketik modal per porsi, omzet kasir langsung otomatis terpotong HPP ini</p>
+                  <h3 className="font-black text-sm text-slate-900">Modal HPP Menu Serabi &amp; Wedang</h3>
+                  <p className="text-[10px] text-slate-500">Ketik modal per porsi untuk memotong omzet harian</p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 overflow-y-auto space-y-2.5 flex-1 text-xs">
+            <div className="p-3.5 overflow-y-auto space-y-2 flex-1 text-xs">
               {menuList.map(item => {
                 const isEditingThis = editingMenuHppId === item.id;
                 const currentHpp = item.hpp || (item.kategori_id === 'kat-wg' ? 4000 : 5000);
 
                 return (
-                  <div key={item.id} className="p-3 rounded-2xl border border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <div key={item.id} className="p-2.5 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between">
                     <div>
-                      <span className="font-mono text-[10px] text-slate-400">{item.kode} • {item.kategori_nama || 'Menu'}</span>
+                      <span className="font-mono text-[9px] text-slate-400">{item.kode} • {item.kategori_nama || 'Menu'}</span>
                       <h4 className="font-extrabold text-xs text-slate-900">{item.nama}</h4>
-                      <span className="text-[11px] font-mono text-slate-600">Harga Jual: {formatRupiah(item.harga)}</span>
+                      <span className="text-[10px] font-mono text-slate-600">Jual: {formatRupiah(item.harga)}</span>
                     </div>
 
                     <div className="text-right">
-                      <span className="text-[10px] text-slate-400 block">Modal HPP:</span>
+                      <span className="text-[9px] text-slate-400 block">Modal HPP:</span>
                       {isEditingThis ? (
                         <div className="flex items-center space-x-1 mt-0.5">
                           <input
@@ -951,15 +917,15 @@ export default function SeniorBossDashboard({
                             value={hppInputValue === 0 ? '' : formatNominal(hppInputValue)}
                             onChange={(e) => setHppInputValue(parseNominal(e.target.value))}
                             placeholder="0"
-                            className="w-20 px-1.5 py-0.5 border border-emerald-400 rounded font-mono font-bold text-xs"
+                            className="w-16 px-1 py-0.5 border border-emerald-400 rounded font-mono font-bold text-[10px]"
                           />
                           <button
                             type="button"
                             onClick={() => handleSaveHpp(item.id)}
                             disabled={savingHpp}
-                            className="px-2 py-0.5 bg-emerald-700 text-white rounded text-[10px] font-bold"
+                            className="px-1.5 py-0.5 bg-emerald-700 text-white rounded text-[9px] font-bold"
                           >
-                            {savingHpp ? '...' : 'Simpan'}
+                            OK
                           </button>
                         </div>
                       ) : (
@@ -971,9 +937,9 @@ export default function SeniorBossDashboard({
                               setEditingMenuHppId(item.id);
                               setHppInputValue(currentHpp);
                             }}
-                            className="text-amber-700 hover:text-amber-900 font-bold text-[10px] underline ml-1"
+                            className="text-amber-700 hover:text-amber-900 font-bold text-[9px] underline ml-0.5 cursor-pointer"
                           >
-                            Ubah HPP
+                            Edit
                           </button>
                         </div>
                       )}
@@ -986,56 +952,49 @@ export default function SeniorBossDashboard({
         </div>
       )}
 
-      {/* MODAL 5: RIWAYAT KASIR & OJOL (BISA GANTI TANGGAL & FILTER CHANNEL) */}
+      {/* MODAL 5: RIWAYAT KASIR & OJOL */}
       {activeModal === 'riwayat' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div>
-                <h3 className="font-black text-sm text-slate-900 flex items-center gap-1.5">
-                  <span>🛵</span>
-                  <span>Riwayat Transaksi Kasir &amp; Ojol</span>
-                </h3>
-                <p className="text-[11px] text-slate-500">Filter transaksi Tunai, ShopeeFood, GoFood, GrabFood per tanggal</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-rose-50/60">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">🛵</span>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900">Riwayat Struk Kasir &amp; Ojol</h3>
+                  <p className="text-[10px] text-slate-500">Filter transaksi Tunai, Shopee, Gojek, Grab</p>
+                </div>
               </div>
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Filter Tanggal & Channel Bar */}
-            <div className="p-3 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="flex items-center space-x-1">
-                <span className="text-[11px] text-slate-500 font-bold">Channel:</span>
-                <select
-                  value={channelFilter}
-                  onChange={(e) => setChannelFilter(e.target.value as any)}
-                  className="px-2 py-1 bg-white border border-slate-200 rounded-lg font-bold"
-                >
-                  <option value="all">Semua Channel</option>
-                  <option value="tunai">💵 Tunai (Laci)</option>
-                  <option value="shopeefood">🟠 ShopeeFood</option>
-                  <option value="gofood">🛵 GoFood</option>
-                  <option value="grabfood">🟢 GrabFood</option>
-                </select>
-              </div>
-
-              <span className="font-mono text-[11px] text-slate-500 font-bold">
-                Tanggal: {selectedDate}
-              </span>
+            <div className="p-2.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between text-xs">
+              <select
+                value={channelFilter}
+                onChange={(e) => setChannelFilter(e.target.value as any)}
+                className="px-2 py-1 bg-white border border-slate-200 rounded-lg font-bold text-xs"
+              >
+                <option value="all">Semua Channel</option>
+                <option value="tunai">💵 Tunai (Laci)</option>
+                <option value="shopeefood">🟠 ShopeeFood</option>
+                <option value="gofood">🛵 GoFood</option>
+                <option value="grabfood">🟢 GrabFood</option>
+              </select>
+              <span className="font-mono text-[11px] text-slate-500 font-bold">{selectedDate}</span>
             </div>
 
-            <div className="p-4 overflow-y-auto space-y-2.5 flex-1 text-xs">
+            <div className="p-3.5 overflow-y-auto space-y-2 flex-1 text-xs">
               {targetTrx.filter(t => {
                 if (channelFilter === 'all') return true;
                 if (channelFilter === 'tunai') return t.metode_bayar === 'tunai' || !t.metode_bayar;
                 return t.metode_bayar === channelFilter;
               }).length === 0 ? (
-                <div className="p-8 text-center text-slate-400">
-                  Belum ada transaksi di channel/tanggal ini.
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  Belum ada transaksi pada channel ini.
                 </div>
               ) : (
                 targetTrx.filter(t => {
@@ -1045,26 +1004,380 @@ export default function SeniorBossDashboard({
                 }).map(trx => {
                   const itemsStr = trx.items.map(it => `${it.qty}x ${it.nama_menu}`).join(', ');
                   return (
-                    <div key={trx.id} className="p-3 rounded-2xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                    <div key={trx.id} className="p-2.5 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between">
                       <div className="min-w-0 flex-1 pr-2">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-mono font-bold text-[10px] text-slate-400">#{trx.invoice_no}</span>
-                          <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-slate-200 text-slate-800">
+                        <div className="flex items-center space-x-1.5">
+                          <span className="font-mono font-bold text-[9px] text-slate-400">#{trx.invoice_no}</span>
+                          <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-slate-200 text-slate-800">
                             {trx.metode_bayar || 'Tunai'}
                           </span>
                         </div>
                         <p className="font-extrabold text-xs text-slate-900 truncate mt-0.5">{itemsStr}</p>
-                        <span className="text-[10px] text-slate-400 font-mono block">{formatWaktu(trx.waktu)}</span>
+                        <span className="text-[9px] text-slate-400 font-mono block">{formatWaktu(trx.waktu)}</span>
                       </div>
-
                       <div className="text-right shrink-0">
                         <span className="font-mono font-black text-xs text-slate-900 block">{formatRupiah(trx.total)}</span>
-                        <span className="text-[10px] text-emerald-700 font-bold">✓ Sukses</span>
+                        <span className="text-[9px] text-emerald-700 font-bold">✓ Sukses</span>
                       </div>
                     </div>
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: POSISI UANG (LACI & DOMPET DIGITAL) */}
+      {activeModal === 'posisi_uang' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50/60">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">💳</span>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900">Posisi Uang Penjualan Hari Ini</h3>
+                  <p className="text-[10px] text-slate-500">Uang omzet tersimpan di laci fisik &amp; akun ojol</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 flex-1 overflow-y-auto text-xs">
+              {/* Tunai Laci */}
+              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-2xl">💵</span>
+                  <div>
+                    <span className="font-black text-xs text-emerald-950 block">Tunai di Laci Kasir</span>
+                    <span className="text-[10px] text-emerald-700">Uang fisik cash di meja kasir</span>
+                  </div>
+                </div>
+                <span className="font-mono font-black text-sm text-emerald-900">{formatRupiah(tunaiLaci)}</span>
+              </div>
+
+              {/* ShopeePay */}
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-2xl">🟠</span>
+                  <div>
+                    <span className="font-black text-xs text-amber-950 block">ShopeePay / ShopeeFood</span>
+                    <span className="text-[10px] text-amber-700">Saldo dompet merchant Shopee</span>
+                  </div>
+                </div>
+                <span className="font-mono font-black text-sm text-amber-900">{formatRupiah(shopeePay)}</span>
+              </div>
+
+              {/* GoPay */}
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-2xl">🛵</span>
+                  <div>
+                    <span className="font-black text-xs text-rose-950 block">GoPay / GoFood</span>
+                    <span className="text-[10px] text-rose-700">Saldo GoBiz merchant</span>
+                  </div>
+                </div>
+                <span className="font-mono font-black text-sm text-rose-900">{formatRupiah(goPay)}</span>
+              </div>
+
+              {/* GrabFood */}
+              <div className="p-3 rounded-2xl bg-green-50 border border-green-200 flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-2xl">🟢</span>
+                  <div>
+                    <span className="font-black text-xs text-green-950 block">GrabFood / OVO</span>
+                    <span className="text-[10px] text-green-700">Saldo GrabMerchant</span>
+                  </div>
+                </div>
+                <span className="font-mono font-black text-sm text-green-900">{formatRupiah(grabFood)}</span>
+              </div>
+
+              <div className="pt-2 border-t border-slate-200 flex justify-between items-center font-black">
+                <span className="text-slate-700">Total Omzet Kasir:</span>
+                <span className="font-mono text-slate-900 text-sm">{formatRupiah(omzetKotor)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: RINCIAN UANG BERSIH MASUK REKENING BCA PAK AGAN */}
+      {activeModal === 'uang_bersih_detail' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">💰</span>
+                <div>
+                  <h3 className="font-black text-sm">Rincian Bersih Masuk Rekening BCA</h3>
+                  <p className="text-[10px] text-amber-950 font-bold">Otomatis terhitung per hari</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-950/20 text-slate-950 flex items-center justify-center cursor-pointer font-bold"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 flex-1 overflow-y-auto text-xs">
+              <div className="p-3.5 bg-slate-50 rounded-2xl space-y-2 border border-slate-200">
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Total Omzet Penjualan Kasir:</span>
+                  <span className="font-mono font-bold text-slate-900">+{formatRupiah(omzetKotor)}</span>
+                </div>
+                <div className="flex justify-between items-center text-rose-600">
+                  <span>Fixed Cost (Sewa, Wi-Fi, Gaji Staf):</span>
+                  <span className="font-mono font-bold">-{formatRupiah(totalFixedCostHarian)}</span>
+                </div>
+                <div className="flex justify-between items-center text-rose-600">
+                  <span>Variable Cost (Modal Bahan HPP):</span>
+                  <span className="font-mono font-bold">-{formatRupiah(totalVariableCostHarian)}</span>
+                </div>
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
+                  <span className="font-black text-slate-900">Uang Bersih Boss:</span>
+                  <span className="font-mono font-black text-base text-amber-600">{formatRupiah(uangBersihBoss)}</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 space-y-1">
+                <div className="flex items-center space-x-1.5 font-bold text-xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Rekening Tujuan Transfer:</span>
+                </div>
+                <p className="font-mono font-black text-sm text-slate-900 pl-5">
+                  BCA 8820-192-881
+                </p>
+                <p className="text-[11px] text-slate-600 pl-5">
+                  a/n Pak Agan
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 8: RINCIAN FIXED COST DETAIL */}
+      {activeModal === 'fixed_cost_detail' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-amber-50">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">🏢</span>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900">Rincian Fixed Cost Toko / Hari</h3>
+                  <p className="text-[10px] text-slate-500">Biaya sewa, Wi-Fi, dan gaji karyawan toko hadir</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 flex-1 overflow-y-auto text-xs">
+              <div className="p-3 bg-slate-50 rounded-2xl space-y-2 border border-slate-200">
+                <div className="flex justify-between items-center text-slate-700">
+                  <span>• Sewa Ruko Cabang:</span>
+                  <span className="font-mono font-bold text-slate-900">-{formatRupiah(sewaHarian)}/hr</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-700">
+                  <span>• Wi-Fi &amp; Listrik Toko:</span>
+                  <span className="font-mono font-bold text-slate-900">-{formatRupiah(wifiHarian)}/hr</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-700">
+                  <span>• Gaji Staf Hadir ({targetAbsensiToday.length} staf):</span>
+                  <span className="font-mono font-bold text-rose-600">-{formatRupiah(gajiStafHadir)}/hr</span>
+                </div>
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-center font-black">
+                  <span className="text-slate-900">Total Fixed Cost:</span>
+                  <span className="font-mono text-rose-600 text-sm">-{formatRupiah(totalFixedCostHarian)}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveModal(null);
+                  if (activeCabang) onEditCabang(activeCabang);
+                }}
+                className="w-full py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Ubah Biaya Sewa &amp; Wi-Fi Toko</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: RINCIAN VARIABLE COST / HPP MODAL */}
+      {activeModal === 'variable_cost_detail' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-orange-50">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">🥞</span>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900">Rincian Variable Cost (Modal Bahan HPP)</h3>
+                  <p className="text-[10px] text-slate-500">Otomatis terpotong sesuai porsi yang terjual di kasir</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 flex-1 overflow-y-auto text-xs">
+              <div className="p-3 bg-slate-50 rounded-2xl space-y-2 border border-slate-200">
+                <div className="flex justify-between items-center text-slate-700">
+                  <span>Modal HPP Bahan Terpakai:</span>
+                  <span className="font-mono font-black text-rose-600 text-sm">-{formatRupiah(totalHppBahan)}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-snug">
+                  Dihitung otomatis per porsi serabi bakar tanah liat dan wedang rempah yang terjual hari ini.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveModal('menu');
+                }}
+                className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Atur Modal HPP Menu Serabi &amp; Wedang</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 10: KAS KECIL & BELANJA TOKO */}
+      {activeModal === 'kas_kecil' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-teal-50">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">📝</span>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900">Belanja Toko &amp; Kas Kecil</h3>
+                  <p className="text-[10px] text-slate-500">Persetujuan belanja darurat kasir cabang</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-teal-50/80 border-b border-teal-200 flex items-center justify-between">
+              <div>
+                <span className="font-black text-xs text-teal-950 block">Catat Belanja Operasional</span>
+                <span className="text-[10px] text-teal-700">Gas elpiji, plastik kresek, es batu, dll</span>
+              </div>
+              {onOpenExpenseCreate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveModal(null);
+                    onOpenExpenseCreate();
+                  }}
+                  className="px-3 py-1.5 bg-teal-700 text-white rounded-xl text-xs font-black shadow-xs cursor-pointer"
+                >
+                  + Tambah
+                </button>
+              )}
+            </div>
+
+            <div className="p-3.5 overflow-y-auto space-y-2 flex-1 text-xs">
+              {expenseList.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  Belum ada pengajuan kas kecil hari ini.
+                </div>
+              ) : (
+                expenseList.slice(0, 10).map(exp => (
+                  <div key={exp.id} className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                    <div>
+                      <span className="font-mono text-[9px] text-slate-400">{exp.id}</span>
+                      <h4 className="font-bold text-slate-900 text-xs">{exp.keperluan}</h4>
+                      <span className="text-[10px] text-slate-500">{exp.pemohon_nama} • {exp.cabang_nama}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-mono font-black text-xs text-slate-900 block">{formatRupiah(exp.nominal)}</span>
+                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded ${
+                        exp.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
+                        exp.status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                      }`}>
+                        {exp.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 11: KELOLA AKUN & PIN */}
+      {activeModal === 'akun' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-indigo-50">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">⚙️</span>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900">Kelola Akun, Sandi &amp; PIN</h3>
+                  <p className="text-[10px] text-slate-500">Reset PIN tablet kasir &amp; kunci keamanan</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3.5 overflow-y-auto space-y-2.5 flex-1 text-xs">
+              <span className="text-[10px] font-black uppercase text-slate-400 block">Daftar Akun Karyawan &amp; Kasir:</span>
+              {karyawanList.map(kar => (
+                <div key={kar.id} className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-extrabold text-xs text-slate-900">{kar.nama}</h4>
+                    <p className="text-[10px] text-slate-500 font-mono">
+                      ID: {kar.username || kar.telepon} • Role: {kar.role}
+                    </p>
+                  </div>
+                  {onOpenPinReset && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveModal(null);
+                        onOpenPinReset(kar);
+                      }}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                    >
+                      Reset PIN
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
