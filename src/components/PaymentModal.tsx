@@ -6,12 +6,11 @@ import {
   X, 
   Banknote, 
   QrCode, 
-  CreditCard, 
   CheckCircle2, 
   Printer, 
-  ArrowRight,
   ShieldCheck,
-  AlertCircle
+  Smartphone,
+  Bike
 } from 'lucide-react';
 import { PaymentMethod, Cabang } from '@/lib/types';
 import { formatRupiah, formatNominal, parseNominal } from '@/lib/utils';
@@ -56,14 +55,14 @@ export default function PaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
           <div>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Pembayaran Kasir</span>
-            <h3 className="text-base font-extrabold text-slate-900">Pilih Metode & Selesaikan</h3>
+            <h3 className="text-base font-extrabold text-slate-900">Pilih Metode Pembayaran</h3>
           </div>
           <button
             onClick={onClose}
@@ -74,7 +73,7 @@ export default function PaymentModal({
         </div>
 
         {/* Total Tagihan Card */}
-        <div className="px-6 py-4 bg-brand-subtle/60 border-b border-brand-light/50 flex items-center justify-between">
+        <div className="px-5 py-3.5 bg-brand-subtle/60 border-b border-brand-light/50 flex items-center justify-between">
           <div>
             <span className="text-xs text-brand-dark font-medium">Total Tagihan Pesanan:</span>
             <div className="text-2xl font-mono font-extrabold text-brand-dark tabular-nums tracking-tight">
@@ -86,56 +85,91 @@ export default function PaymentModal({
           </div>
         </div>
 
-        {/* Payment Method Tabs */}
-        <div className="px-6 pt-4">
-          <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1 rounded-xl">
+        {/* 4 Metode Utama: Tunai, ShopeeFood, GoFood, GrabFood (+ QRIS) */}
+        <div className="px-5 pt-3">
+          <label className="text-[11px] font-bold text-slate-500 block mb-1.5 uppercase tracking-wider">
+            Pilih Channel / Posisi Uang Masuk:
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            
+            {/* 1. TUNAI */}
             <button
+              type="button"
               onClick={() => { setMethod('tunai'); setBayarInput(total); }}
-              className={`flex items-center justify-center space-x-1.5 py-2.5 rounded-lg text-xs font-bold transition-all btn-tactile ${
+              className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center transition-all ${
                 method === 'tunai'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-sm ring-2 ring-emerald-500/20'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <Banknote className="w-4 h-4 text-emerald-600" />
-              <span>Tunai</span>
+              <Banknote className="w-5 h-5 text-emerald-600 mb-1" />
+              <span className="text-xs font-black">Tunai</span>
+              <span className="text-[9px] text-slate-400">Kas Laci Meja</span>
             </button>
 
+            {/* 2. SHOPEEFOOD / SHOPEEPAY */}
             <button
-              onClick={() => { setMethod('qris'); setBayarInput(total); }}
-              className={`flex items-center justify-center space-x-1.5 py-2.5 rounded-lg text-xs font-bold transition-all btn-tactile ${
-                method === 'qris'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+              type="button"
+              onClick={() => { setMethod('shopeefood'); setBayarInput(total); }}
+              className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center transition-all ${
+                method === 'shopeefood'
+                  ? 'bg-amber-50 border-amber-500 text-amber-950 shadow-sm ring-2 ring-amber-500/20'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <QrCode className="w-4 h-4 text-accent-gold" />
-              <span>QRIS Statis</span>
+              <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] font-black mb-1">
+                S
+              </div>
+              <span className="text-xs font-black">ShopeeFood</span>
+              <span className="text-[9px] text-slate-400">ShopeePay</span>
             </button>
 
+            {/* 3. GOFOOD / GOPAY */}
             <button
-              onClick={() => { setMethod('transfer'); setBayarInput(total); }}
-              className={`flex items-center justify-center space-x-1.5 py-2.5 rounded-lg text-xs font-bold transition-all btn-tactile ${
-                method === 'transfer'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+              type="button"
+              onClick={() => { setMethod('gofood'); setBayarInput(total); }}
+              className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center transition-all ${
+                method === 'gofood'
+                  ? 'bg-rose-50 border-rose-500 text-rose-950 shadow-sm ring-2 ring-rose-500/20'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <CreditCard className="w-4 h-4 text-blue-600" />
-              <span>Transfer</span>
+              <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-black mb-1">
+                G
+              </div>
+              <span className="text-xs font-black">GoFood</span>
+              <span className="text-[9px] text-slate-400">GoBiz / GoPay</span>
             </button>
+
+            {/* 4. GRABFOOD / OVO */}
+            <button
+              type="button"
+              onClick={() => { setMethod('grabfood'); setBayarInput(total); }}
+              className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center transition-all ${
+                method === 'grabfood'
+                  ? 'bg-green-50 border-green-500 text-green-950 shadow-sm ring-2 ring-green-500/20'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <div className="w-5 h-5 rounded-full bg-green-600 text-white flex items-center justify-center text-[10px] font-black mb-1">
+                G
+              </div>
+              <span className="text-xs font-black">GrabFood</span>
+              <span className="text-[9px] text-slate-400">GrabMerchant</span>
+            </button>
+
           </div>
         </div>
 
         {/* Tab Contents */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+        <div className="p-5 overflow-y-auto flex-1 space-y-3 text-xs">
           
           {/* TAB 1: TUNAI */}
           {method === 'tunai' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  Nominal Uang Diterima dari Pelanggan
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Nominal Uang Fisik Diterima dari Pelanggan
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-sm">
@@ -152,31 +186,37 @@ export default function PaymentModal({
                       }
                     }}
                     placeholder="0"
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 font-mono font-bold text-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+                    className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-300 font-mono font-bold text-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                     autoFocus
                   />
                 </div>
               </div>
 
               {/* Quick Cash Buttons */}
-              <div className="flex flex-wrap gap-2">
-                {quickCashOptions.map((opt, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSelectQuickCash(opt.value)}
-                    className={`px-3 py-2 rounded-xl text-xs font-mono font-bold border transition-all btn-tactile ${
-                      bayarInput === opt.value
-                        ? 'bg-brand-primary text-white border-brand-primary shadow-sm'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div>
+                <span className="text-[10px] text-slate-500 font-semibold block mb-1">
+                  Pilihan Cepat Uang Pas:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {quickCashOptions.map(opt => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => handleSelectQuickCash(opt.value)}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold transition-all ${
+                        bayarInput === opt.value
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Kembalian Box */}
-              <div className={`p-4 rounded-2xl border transition-all ${
+              {/* Change/Short Notice */}
+              <div className={`p-3 rounded-xl border font-mono ${
                 isKurang
                   ? 'bg-rose-50 border-rose-200 text-rose-800'
                   : kembali === 0
@@ -187,7 +227,7 @@ export default function PaymentModal({
                   <span className="text-xs font-bold">
                     {isKurang ? 'Uang Masih Kurang:' : kembali === 0 ? 'Uang Pas Diterima' : 'Kembalian Pelanggan:'}
                   </span>
-                  <span className="text-lg font-mono font-extrabold tabular-nums">
+                  <span className="text-base font-extrabold tabular-nums">
                     {isKurang ? formatRupiah(total - bayarInput) : formatRupiah(kembali)}
                   </span>
                 </div>
@@ -195,82 +235,76 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* TAB 2: QRIS STATIS */}
-          {method === 'qris' && (
-            <div className="flex flex-col items-center text-center space-y-3">
-              <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-md">
-                <Image
-                  src={cabang.qris_image_url || 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020101021226610014ID.LINKAJA.WWW01189360091100000000005204581253033605802ID5927MINUMAN+HERBAL+PAK+AGAN'}
-                  alt="QRIS Minuman Herbal Pak Agan"
-                  width={220}
-                  height={220}
-                  className="rounded-lg"
-                />
+          {/* TAB 2: SHOPEEFOOD / SHOPEEPAY */}
+          {method === 'shopeefood' && (
+            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-amber-950 space-y-2 text-center">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-lg font-black mx-auto shadow-sm">
+                S
               </div>
-
-              <div className="space-y-1">
-                <h4 className="font-extrabold text-slate-800 text-sm">
-                  {cabang.qris_merchant_name}
-                </h4>
-                <div className="text-xl font-mono font-extrabold text-brand-dark tabular-nums">
-                  {formatRupiah(total)}
-                </div>
-                <p className="text-[11px] text-slate-500 max-w-xs mt-1">
-                  Minta pembeli scan barcode di atas melalui aplikasi BCA, Livin, GoPay, OVO, atau ShopeePay. Kasir wajib memeriksa notifikasi sukses di layar HP pembeli.
-                </p>
-              </div>
-
-              <div className="w-full p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium flex items-center justify-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-accent-gold" />
-                <span>QRIS Statis Toko Resmi (Bebas Biaya MDR)</span>
+              <h4 className="font-extrabold text-sm">Pesanan Masuk via ShopeeFood / ShopeePay</h4>
+              <p className="text-[11px] text-amber-800 leading-snug">
+                Pembayaran otomatis lunas melalui saldo merchant Shopee. Kasir tidak memegang uang fisik. Pendapatan ini otomatis tercatat di rekap <strong>ShopeePay</strong> di dashboard Boss.
+              </p>
+              <div className="font-mono font-black text-base text-amber-900 pt-1">
+                Total Tagihan: {formatRupiah(total)}
               </div>
             </div>
           )}
 
-          {/* TAB 3: TRANSFER BANK */}
-          {method === 'transfer' && (
-            <div className="space-y-3">
-              <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 text-blue-900 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase">Rekening Resmi Pak Agan</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-200 text-blue-800">BCA</span>
-                </div>
-                <div className="font-mono font-bold text-lg text-slate-900">
-                  8830-1928-3011
-                </div>
-                <div className="text-xs text-slate-600">
-                  a.n. <strong className="text-slate-900">AGAN HERBAL NUSANTARA</strong>
-                </div>
+          {/* TAB 3: GOFOOD / GOBIZ */}
+          {method === 'gofood' && (
+            <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-200 text-rose-950 space-y-2 text-center">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center text-lg font-black mx-auto shadow-sm">
+                G
               </div>
-
-              <p className="text-xs text-slate-500">
-                Pilihan transfer bank ini biasanya digunakan untuk pesanan dalam jumlah besar, katering, atau rombongan kantor.
+              <h4 className="font-extrabold text-sm">Pesanan Masuk via GoFood / GoBiz</h4>
+              <p className="text-[11px] text-rose-800 leading-snug">
+                Pembayaran otomatis lunas melalui saldo GoBiz / GoPay. Kasir tidak memegang uang fisik. Pendapatan ini otomatis tercatat di rekap <strong>GoFood / GoPay</strong> di dashboard Boss.
               </p>
+              <div className="font-mono font-black text-base text-rose-900 pt-1">
+                Total Tagihan: {formatRupiah(total)}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: GRABFOOD / GRABMERCHANT */}
+          {method === 'grabfood' && (
+            <div className="p-4 rounded-2xl bg-green-50/70 border border-green-200 text-green-950 space-y-2 text-center">
+              <div className="w-10 h-10 rounded-2xl bg-green-600 text-white flex items-center justify-center text-lg font-black mx-auto shadow-sm">
+                G
+              </div>
+              <h4 className="font-extrabold text-sm">Pesanan Masuk via GrabFood / GrabMerchant</h4>
+              <p className="text-[11px] text-green-800 leading-snug">
+                Pembayaran otomatis lunas melalui saldo GrabMerchant / OVO. Kasir tidak memegang uang fisik. Pendapatan ini otomatis tercatat di rekap <strong>GrabFood</strong> di dashboard Boss.
+              </p>
+              <div className="font-mono font-black text-base text-green-900 pt-1">
+                Total Tagihan: {formatRupiah(total)}
+              </div>
             </div>
           )}
 
           {/* Print Checkbox */}
-          <div className="pt-2 flex items-center space-x-2.5">
+          <div className="pt-2 flex items-center space-x-2 border-t border-slate-100">
             <input
               type="checkbox"
               id="auto-print"
               checked={autoPrint}
               onChange={(e) => setAutoPrint(e.target.checked)}
-              className="w-4 h-4 text-brand-primary rounded border-slate-300 focus:ring-brand-primary cursor-pointer"
+              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
             />
             <label htmlFor="auto-print" className="text-xs font-semibold text-slate-700 flex items-center space-x-1.5 cursor-pointer">
               <Printer className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Cetak Struk Otomatis ke Printer Kasir</span>
+              <span>Cetak Struk Thermal 58mm Kasir</span>
             </label>
           </div>
 
         </div>
 
         {/* Modal Actions */}
-        <div className="p-6 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end space-x-3">
+        <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end space-x-2">
           <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/80 transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
           >
             Batal
           </button>
@@ -278,14 +312,14 @@ export default function PaymentModal({
           <button
             onClick={handleConfirm}
             disabled={isKurang}
-            className={`px-6 py-2.5 rounded-xl font-extrabold text-xs flex items-center space-x-2 transition-all btn-tactile ${
+            className={`px-5 py-2.5 rounded-xl font-extrabold text-xs flex items-center space-x-1.5 transition-all btn-tactile ${
               isKurang
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-md shadow-emerald-900/20 active:scale-95'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-700/20'
             }`}
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>Selesaikan &amp; Cetak Struk</span>
+            <span>Selesaikan &amp; Cetak</span>
           </button>
         </div>
 

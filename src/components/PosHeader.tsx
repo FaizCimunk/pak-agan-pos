@@ -18,7 +18,8 @@ import {
   X,
   ChevronRight,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  PackageCheck
 } from 'lucide-react';
 import { Cabang, Shift } from '@/lib/types';
 import { printerService } from '@/lib/printer';
@@ -33,6 +34,7 @@ interface PosHeaderProps {
   onCloseShiftClick: () => void;
   onExpenseClick: () => void;
   onAttendanceClick?: () => void;
+  onMaterialStockClick?: () => void;
   onDailyReportClick?: () => void;
   onDeviceSettingsClick: () => void;
 }
@@ -44,6 +46,7 @@ export default function PosHeader({
   onCloseShiftClick,
   onExpenseClick,
   onAttendanceClick,
+  onMaterialStockClick,
   onDailyReportClick,
   onDeviceSettingsClick,
 }: PosHeaderProps) {
@@ -411,11 +414,36 @@ export default function PosHeader({
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-black text-emerald-950 text-xs sm:text-sm truncate">Presensi Staf</span>
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-200/70 text-emerald-900 border border-emerald-300 shrink-0">
-                        Langsung Gaji
+                        Tulis Nama
                       </span>
                     </div>
                     <p className="text-[11px] sm:text-xs text-emerald-900/80 font-normal leading-relaxed">
-                      Absensi kehadiran harian, uang makan, &amp; upah kehadiran staf.
+                      Absensi kehadiran harian, tulis nama staf, &amp; upah hari ini.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Tile 3.5: Absensi Bahan Harian Kasir */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onMaterialStockClick?.();
+                  }}
+                  className="flex items-start p-3.5 sm:p-4 rounded-2xl bg-teal-50 hover:bg-teal-100/80 border border-teal-200 text-left transition-all btn-tactile group shadow-soft-sm"
+                >
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-teal-700 text-white flex items-center justify-center shrink-0 mr-3 shadow-md shadow-teal-800/20">
+                    <PackageCheck className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-black text-teal-950 text-xs sm:text-sm truncate">Absensi Bahan</span>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-teal-200/70 text-teal-900 border border-teal-300 shrink-0">
+                        ⚡ Dari Kasir
+                      </span>
+                    </div>
+                    <p className="text-[11px] sm:text-xs text-teal-900/80 font-normal leading-relaxed">
+                      Cek stok bahan, pemakaian otomatis dari kasir, &amp; selisih dapur.
                     </p>
                   </div>
                 </button>

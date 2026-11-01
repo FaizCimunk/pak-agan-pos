@@ -319,7 +319,7 @@ export default function PinResetModal({
           <div className="flex items-start space-x-2 text-[11px] text-amber-900 bg-amber-50/90 p-3 rounded-2xl border border-amber-200">
             <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <span className="leading-relaxed">
-              Master Admin (Pak Agan) memegang kendali penuh atas kredensial seluruh staf 9 cabang. Jika staf lupa sandi atau terjadi rotasi kasir, Admin Pusat dapat menggantinya langsung.
+              Master Admin (Pak Agan) memegang kendali penuh atas kredensial seluruh staf 10 cabang. Jika staf lupa sandi atau terjadi rotasi kasir, Admin Pusat dapat menggantinya langsung.
             </span>
           </div>
 

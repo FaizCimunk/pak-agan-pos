@@ -1,4 +1,15 @@
-import { Cabang, KategoriMenu, MenuItem, Karyawan, PengeluaranKasbon, Transaksi, Absensi } from './types';
+import { 
+  Cabang, 
+  KategoriMenu, 
+  MenuItem, 
+  Karyawan, 
+  PengeluaranKasbon, 
+  Transaksi, 
+  Absensi,
+  BahanBaku,
+  KirimanBahanPusat,
+  AbsensiBahanHarian
+} from './types';
 
 export const INITIAL_CABANG: Cabang[] = [
   {
@@ -183,6 +194,26 @@ export const INITIAL_CABANG: Cabang[] = [
     kasir_password_plain: 'Kasir@Cbg9!',
     pj_nama: 'Fajar Hidayat (PJ Bandung)',
     pj_telepon: '0812-1000-0909',
+  },
+  {
+    id: 'cbg-10',
+    nomor: 10,
+    kode: 'CBG-10',
+    nama: 'Cabang 10 - Gubeng Raya',
+    alamat: 'Jl. Raya Gubeng No. 58, Gubeng',
+    kota: 'Surabaya',
+    telepon: '0812-1000-1010',
+    target_omzet_bulanan: 46000000,
+    sewa_bulanan: 4200000,
+    listrik_air_bulanan: 850000,
+    iuran_kebersihan_bulanan: 220000,
+    qris_merchant_name: 'Minuman Herbal Pak Agan - Surabaya',
+    is_active: true,
+    kasir_username: 'kasir_cbg10',
+    kasir_pin: '888010',
+    kasir_password_plain: 'Kasir@Cbg10!',
+    pj_nama: 'Eko Prasetyo (PJ Surabaya)',
+    pj_telepon: '0812-1000-1010',
   },
 ];
 
@@ -409,6 +440,94 @@ export const INITIAL_MENU: MenuItem[] = [
   },
 ];
 
+// -----------------------------------------------------------------------------
+// MASTER BAHAN BAKU & RESEP PEMAKAIAN MENU
+// -----------------------------------------------------------------------------
+export const INITIAL_BAHAN_BAKU: BahanBaku[] = [
+  { id: 'bh-1', kode: 'BH-01', nama: 'Adonan Serabi Beras Kelapa', satuan: 'porsi', kategori: 'serabi', stok_minimum: 30 },
+  { id: 'bh-2', kode: 'BH-02', nama: 'Kinca Durian Montong Asli', satuan: 'porsi', kategori: 'serabi', stok_minimum: 15 },
+  { id: 'bh-3', kode: 'BH-03', nama: 'Keju Cheddar Parut Premium', satuan: 'porsi', kategori: 'serabi', stok_minimum: 20 },
+  { id: 'bh-4', kode: 'BH-04', nama: 'Tumis Oncom Pedas Priangan', satuan: 'porsi', kategori: 'serabi', stok_minimum: 15 },
+  { id: 'bh-5', kode: 'BH-05', nama: 'Meises Cokelat Butir', satuan: 'porsi', kategori: 'serabi', stok_minimum: 20 },
+  { id: 'bh-6', kode: 'BH-06', nama: 'Telur Ayam & Sosis Sapi', satuan: 'porsi', kategori: 'serabi', stok_minimum: 15 },
+  { id: 'bh-7', kode: 'BH-07', nama: 'Jahe Emprit Segar Bakar', satuan: 'porsi', kategori: 'wedang', stok_minimum: 25 },
+  { id: 'bh-8', kode: 'BH-08', nama: 'Rempah Uwuh Komplit (Secang/Cengkeh)', satuan: 'bungkus', kategori: 'wedang', stok_minimum: 25 },
+  { id: 'bh-9', kode: 'BH-09', nama: 'Gula Aren Kawung Asli', satuan: 'porsi', kategori: 'umum', stok_minimum: 30 },
+  { id: 'bh-10', kode: 'BH-10', nama: 'Susu Sapi & Madu Murni', satuan: 'porsi', kategori: 'wedang', stok_minimum: 20 },
+  { id: 'bh-11', kode: 'BH-11', nama: 'Cup & Kemasan Takeaway', satuan: 'pcs', kategori: 'kemasan', stok_minimum: 50 },
+];
+
+export const MENU_BAHAN_RESEP: Record<string, { bahan_id: string; qty: number }[]> = {
+  'sb-1': [{ bahan_id: 'bh-1', qty: 1 }, { bahan_id: 'bh-2', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+  'sb-2': [{ bahan_id: 'bh-1', qty: 1 }, { bahan_id: 'bh-3', qty: 1 }, { bahan_id: 'bh-5', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+  'sb-3': [{ bahan_id: 'bh-1', qty: 1 }, { bahan_id: 'bh-4', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+  'sb-4': [{ bahan_id: 'bh-1', qty: 1 }, { bahan_id: 'bh-9', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+  'sb-5': [{ bahan_id: 'bh-1', qty: 1 }, { bahan_id: 'bh-6', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+  'wg-1': [{ bahan_id: 'bh-7', qty: 1 }, { bahan_id: 'bh-9', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+  'wg-2': [{ bahan_id: 'bh-8', qty: 1 }, { bahan_id: 'bh-9', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+  'wg-3': [{ bahan_id: 'bh-7', qty: 1 }, { bahan_id: 'bh-10', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+  'wg-4': [{ bahan_id: 'bh-7', qty: 1 }, { bahan_id: 'bh-9', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+  'wg-5': [{ bahan_id: 'bh-7', qty: 1 }, { bahan_id: 'bh-9', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+  'm-14': [{ bahan_id: 'bh-3', qty: 1 }, { bahan_id: 'bh-11', qty: 1 }],
+};
+
+export const INITIAL_KIRIMAN_BAHAN: KirimanBahanPusat[] = [
+  {
+    id: 'krm-01',
+    cabang_id: 'cbg-1',
+    cabang_nama: 'Cabang 01 - Malioboro Pusat',
+    bahan_id: 'bh-1',
+    bahan_nama: 'Adonan Serabi Beras Kelapa',
+    jumlah: 100,
+    satuan: 'porsi',
+    tanggal: '2026-10-25',
+    dikirim_oleh: 'Admin Pusat (Pak Agan)',
+    catatan: 'Pengiriman batch pagi jam 06:00',
+    created_at: '2026-10-25T06:00:00.000Z',
+  },
+  {
+    id: 'krm-02',
+    cabang_id: 'cbg-1',
+    cabang_nama: 'Cabang 01 - Malioboro Pusat',
+    bahan_id: 'bh-2',
+    bahan_nama: 'Kinca Durian Montong Asli',
+    jumlah: 50,
+    satuan: 'porsi',
+    tanggal: '2026-10-25',
+    dikirim_oleh: 'Admin Pusat (Pak Agan)',
+    catatan: 'Durian montong segar kupas',
+    created_at: '2026-10-25T06:00:00.000Z',
+  },
+  {
+    id: 'krm-03',
+    cabang_id: 'cbg-1',
+    cabang_nama: 'Cabang 01 - Malioboro Pusat',
+    bahan_id: 'bh-7',
+    bahan_nama: 'Jahe Emprit Segar Bakar',
+    jumlah: 60,
+    satuan: 'porsi',
+    tanggal: '2026-10-25',
+    dikirim_oleh: 'Admin Pusat (Pak Agan)',
+    catatan: 'Jahe bakar wangi khas',
+    created_at: '2026-10-25T06:00:00.000Z',
+  },
+  {
+    id: 'krm-04',
+    cabang_id: 'cbg-2',
+    cabang_nama: 'Cabang 02 - Seturan Premium',
+    bahan_id: 'bh-1',
+    bahan_nama: 'Adonan Serabi Beras Kelapa',
+    jumlah: 80,
+    satuan: 'porsi',
+    tanggal: '2026-10-25',
+    dikirim_oleh: 'Admin Pusat (Pak Agan)',
+    catatan: 'Batch pagi Seturan',
+    created_at: '2026-10-25T06:30:00.000Z',
+  },
+];
+
+export const INITIAL_ABSENSI_BAHAN: AbsensiBahanHarian[] = [];
+
 // Hash for PIN 1234
 export const DEFAULT_PIN_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
 
@@ -517,6 +636,23 @@ export const DEMO_WEEK_KARYAWAN: Karyawan[] = [
     gaji_pokok: 1900000,
     tunjangan: 0,
     plafon_kasbon: 400000,
+    is_active: true,
+  },
+  {
+    id: 'kar-10',
+    cabang_id: 'cbg-10',
+    username: 'eko',
+    nama: 'Eko Prasetyo',
+    role: 'kasir',
+    telepon: '0812-1000-1010',
+    pin_hash: DEFAULT_PIN_HASH,
+    password_plain: 'Eko@Surabaya101',
+    is_locked: false,
+    tipe_gaji: 'harian',
+    gaji_harian: 95000,
+    gaji_pokok: 2100000,
+    tunjangan: 0,
+    plafon_kasbon: 500000,
     is_active: true,
   },
 ];

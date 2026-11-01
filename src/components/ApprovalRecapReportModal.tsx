@@ -16,7 +16,7 @@ interface ApprovalRecapReportModalProps {
 export default function ApprovalRecapReportModal({
   expenses,
   periodeLabel = 'Semua Periode',
-  cabangLabel = 'Seluruh 9 Cabang',
+  cabangLabel = 'Seluruh 10 Cabang',
   statusLabel = 'Semua Status',
   onClose,
 }: ApprovalRecapReportModalProps) {
@@ -204,7 +204,7 @@ export default function ApprovalRecapReportModal({
                 </span>
               </div>
               <p className="text-xs text-slate-600 font-medium">
-                Pusat Pengawasan Operasional &amp; Pembukuan Kas Multi-Cabang (9 Cabang Resmi)
+                Pusat Pengawasan Operasional &amp; Pembukuan Kas Multi-Cabang (10 Cabang Resmi)
               </p>
               <p className="text-[10px] text-slate-400">
                 Kantor Pusat: Jl. Malioboro No. 45, D.I. Yogyakarta • Kontak Hotline: 0812-3456-7890 • Email: admin@pakagan.id
@@ -400,7 +400,7 @@ export default function ApprovalRecapReportModal({
                 <span className="text-[11px] text-slate-500 block">Diverifikasi Oleh,</span>
                 <div>
                   <span className="font-bold text-slate-900 border-b border-slate-900 pb-1 block">Kepala Operasional</span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">Pengawas 9 Cabang</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Pengawas 10 Cabang</span>
                 </div>
               </div>
 

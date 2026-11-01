@@ -19,7 +19,7 @@ export default function PayrollRecapReportModal({
   month = 10,
   year = 2026,
   periodeLabel,
-  cabangLabel = 'Seluruh 9 Cabang',
+  cabangLabel = 'Seluruh 10 Cabang',
   onClose,
 }: PayrollRecapReportModalProps) {
   const bulanNames = [

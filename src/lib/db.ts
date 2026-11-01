@@ -12,7 +12,11 @@ import {
   PengeluaranKasbon, 
   Payroll,
   MetodePencairan,
-  Absensi
+  Absensi,
+  BahanBaku,
+  KirimanBahanPusat,
+  AbsensiBahanHarian,
+  FixedCostHarianCabang
 } from './types';
 import { 
   INITIAL_CABANG, 
@@ -22,6 +26,10 @@ import {
   INITIAL_EXPENSES, 
   INITIAL_TRANSAKSI,
   INITIAL_ABSENSI,
+  INITIAL_BAHAN_BAKU,
+  MENU_BAHAN_RESEP,
+  INITIAL_KIRIMAN_BAHAN,
+  INITIAL_ABSENSI_BAHAN,
   DEMO_WEEK_KARYAWAN,
   DEMO_WEEK_EXPENSES,
   DEMO_WEEK_TRANSAKSI,
@@ -40,6 +48,9 @@ const STORAGE_KEYS = {
   EXPENSES: 'pak_agan_expenses_v5_demo_week',
   PAYROLL: 'pak_agan_payroll_v5_demo_week',
   ABSENSI: 'pak_agan_absensi_v5_demo_week',
+  BAHAN_BAKU: 'pak_agan_bahan_baku_v5_demo_week',
+  KIRIMAN_BAHAN: 'pak_agan_kiriman_bahan_v5_demo_week',
+  ABSENSI_BAHAN: 'pak_agan_absensi_bahan_v5_demo_week',
   ACTIVE_SHIFT_PREFIX: 'pak_agan_active_shift_v5_demo_week_',
 };
 
@@ -67,7 +78,7 @@ function saveLocal<T>(key: string, val: T): void {
 
 export class PosDatabase {
   // --------------------------------------------------------------------------
-  // CABANG (9 CABANG RESMI)
+  // CABANG (10 CABANG RESMI)
   // --------------------------------------------------------------------------
   async getCabangList(): Promise<Cabang[]> {
     if (isSupabaseConfigured && supabase) {
@@ -78,7 +89,17 @@ export class PosDatabase {
         console.warn('Fallback to local cabang data:', e);
       }
     }
-    return loadLocal<Cabang[]>(STORAGE_KEYS.CABANG, INITIAL_CABANG);
+    const local = loadLocal<Cabang[]>(STORAGE_KEYS.CABANG, INITIAL_CABANG);
+    // Jika data lokal masih di bawah 10 cabang, sinkronkan cabang yang kurang
+    if (local.length < INITIAL_CABANG.length) {
+      for (const initCbg of INITIAL_CABANG) {
+        if (!local.some(c => c.id === initCbg.id)) {
+          local.push(initCbg);
+        }
+      }
+      saveLocal(STORAGE_KEYS.CABANG, local);
+    }
+    return local;
   }
 
   async getAllCabang(): Promise<Cabang[]> {
@@ -444,35 +465,38 @@ export class PosDatabase {
 
   async createKaryawan(data: {
     nama: string;
-    username: string;
+    username?: string;
     role: 'kasir' | 'kitchen' | 'helper' | 'owner' | 'supervisor';
     cabang_id: string;
-    telepon: string;
-    pin: string;
+    telepon?: string;
+    pin?: string;
     password_plain?: string;
     tipe_gaji?: 'harian' | 'bulanan';
     gaji_harian?: number;
     gaji_pokok?: number;
+    tunjangan?: number;
     plafon_kasbon?: number;
   }): Promise<Karyawan> {
     const list = await this.getAllKaryawan();
     const pinHashed = await hashPin(data.pin || '1234');
+    const autoUsername = (data.username || data.nama.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'staf') + Math.floor(10 + Math.random() * 90);
     const newK: Karyawan = {
       id: 'kar-' + Date.now(),
       nama: data.nama,
-      username: data.username.toLowerCase(),
+      username: autoUsername,
       role: data.role,
       cabang_id: data.cabang_id,
-      telepon: data.telepon,
+      telepon: data.telepon || '0812-0000-0000',
       pin_hash: pinHashed,
       password_plain: data.password_plain || data.pin || '1234',
       tipe_gaji: data.tipe_gaji || 'harian',
       gaji_harian: data.gaji_harian || 100000,
       gaji_pokok: data.gaji_pokok || 2200000,
-      tunjangan: 0,
+      tunjangan: data.tunjangan || 0,
       plafon_kasbon: data.plafon_kasbon || 500000,
       is_locked: false,
       is_active: true,
+      created_at: new Date().toISOString(),
     };
     list.push(newK);
     saveLocal(STORAGE_KEYS.KARYAWAN, list);
@@ -504,6 +528,20 @@ export class PosDatabase {
     const list = await this.getAllKaryawan();
     const updated = list.map(k => k.id === karyawanId ? { ...k, ...data } : k);
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
+    return true;
+  }
+
+  async updateKaryawanUtang(karyawanId: string, utang: number): Promise<boolean> {
+    const list = await this.getAllKaryawan();
+    const updated = list.map(k => k.id === karyawanId ? { ...k, utang_nominal: utang } : k);
+    saveLocal(STORAGE_KEYS.KARYAWAN, updated);
+    return true;
+  }
+
+  async updateMenuHpp(menuId: string, hpp: number): Promise<boolean> {
+    const list = await this.getMenuList();
+    const updated = list.map(m => m.id === menuId ? { ...m, hpp } : m);
+    saveLocal(STORAGE_KEYS.MENU, updated);
     return true;
   }
 
@@ -1070,6 +1108,234 @@ export class PosDatabase {
   }
 
   // --------------------------------------------------------------------------
+  // MASTER BAHAN BAKU & RESEP
+  // --------------------------------------------------------------------------
+  async getBahanBakuList(): Promise<BahanBaku[]> {
+    return loadLocal<BahanBaku[]>(STORAGE_KEYS.BAHAN_BAKU, INITIAL_BAHAN_BAKU);
+  }
+
+  async createBahanBaku(bahan: Omit<BahanBaku, 'id' | 'kode'> & { kode?: string }): Promise<BahanBaku> {
+    const list = await this.getBahanBakuList();
+    const nextNomor = list.length + 1;
+    const newBahan: BahanBaku = {
+      ...bahan,
+      id: 'bh-' + nextNomor,
+      kode: bahan.kode || `BH-${String(nextNomor).padStart(2, '0')}`,
+    };
+    list.push(newBahan);
+    saveLocal(STORAGE_KEYS.BAHAN_BAKU, list);
+    return newBahan;
+  }
+
+  // --------------------------------------------------------------------------
+  // KIRIMAN BAHAN DARI PUSAT KE CABANG (SATU PER SATU)
+  // --------------------------------------------------------------------------
+  async getKirimanBahanList(cabangId?: string, tanggal?: string): Promise<KirimanBahanPusat[]> {
+    const all = loadLocal<KirimanBahanPusat[]>(STORAGE_KEYS.KIRIMAN_BAHAN, INITIAL_KIRIMAN_BAHAN);
+    return all.filter(k => {
+      if (cabangId && cabangId !== 'all' && k.cabang_id !== cabangId) return false;
+      if (tanggal && k.tanggal !== tanggal) return false;
+      return true;
+    });
+  }
+
+  async createKirimanBahan(data: Omit<KirimanBahanPusat, 'id' | 'created_at'>): Promise<KirimanBahanPusat> {
+    const all = loadLocal<KirimanBahanPusat[]>(STORAGE_KEYS.KIRIMAN_BAHAN, INITIAL_KIRIMAN_BAHAN);
+    const newKiriman: KirimanBahanPusat = {
+      ...data,
+      id: 'krm-' + Date.now(),
+      created_at: new Date().toISOString(),
+    };
+    all.unshift(newKiriman);
+    saveLocal(STORAGE_KEYS.KIRIMAN_BAHAN, all);
+    return newKiriman;
+  }
+
+  // --------------------------------------------------------------------------
+  // ABSENSI BAHAN HARIAN (DITARIK DARI DATA KASIR DI TEMPAT)
+  // --------------------------------------------------------------------------
+  async calculateBahanTerpakaiDariKasir(cabangId: string, tanggal: string): Promise<Record<string, number>> {
+    const transactions = await this.getTransaksiList(cabangId);
+    const dayTransactions = transactions.filter(t => 
+      t.status === 'completed' && t.waktu.startsWith(tanggal)
+    );
+
+    const terpakaiMap: Record<string, number> = {};
+
+    for (const trx of dayTransactions) {
+      for (const it of trx.items) {
+        const resepList = MENU_BAHAN_RESEP[it.menu_id];
+        if (resepList && resepList.length > 0) {
+          for (const r of resepList) {
+            terpakaiMap[r.bahan_id] = (terpakaiMap[r.bahan_id] || 0) + (r.qty * it.qty);
+          }
+        } else {
+          // Default fallback pemakaian bahan berdasarkan kategori:
+          if (it.nama_menu.toLowerCase().includes('serabi')) {
+            terpakaiMap['bh-1'] = (terpakaiMap['bh-1'] || 0) + it.qty; // Adonan serabi
+            terpakaiMap['bh-11'] = (terpakaiMap['bh-11'] || 0) + it.qty; // Kemasan
+          } else if (it.nama_menu.toLowerCase().includes('wedang') || it.nama_menu.toLowerCase().includes('jahe')) {
+            terpakaiMap['bh-7'] = (terpakaiMap['bh-7'] || 0) + it.qty; // Jahe emprit
+            terpakaiMap['bh-11'] = (terpakaiMap['bh-11'] || 0) + it.qty; // Kemasan
+          }
+        }
+      }
+    }
+
+    return terpakaiMap;
+  }
+
+  async getAbsensiBahanHarian(cabangId: string, tanggal: string): Promise<AbsensiBahanHarian[]> {
+    const bahanList = await this.getBahanBakuList();
+    const kirimanList = await this.getKirimanBahanList(cabangId, tanggal);
+    const terpakaiMap = await this.calculateBahanTerpakaiDariKasir(cabangId, tanggal);
+    const savedAbsensi = loadLocal<AbsensiBahanHarian[]>(STORAGE_KEYS.ABSENSI_BAHAN, INITIAL_ABSENSI_BAHAN);
+
+    const cabang = await this.getCabangById(cabangId);
+    const cabangNama = cabang ? cabang.nama : cabangId;
+
+    return bahanList.map(bahan => {
+      // Cari jika sudah pernah diabsen kasir
+      const exist = savedAbsensi.find(a => 
+        a.cabang_id === cabangId && 
+        a.tanggal === tanggal && 
+        a.bahan_id === bahan.id
+      );
+
+      // Total kiriman dari pusat untuk bahan ini di tanggal ini
+      const totalKiriman = kirimanList
+        .filter(k => k.bahan_id === bahan.id)
+        .reduce((sum, k) => sum + k.jumlah, 0);
+
+      // Terpakai otomatis dari transaksi kasir hari ini
+      const terpakai = terpakaiMap[bahan.id] || 0;
+
+      // Stok awal default (atau dari exist)
+      const stokAwal = exist ? exist.stok_awal : (bahan.stok_minimum || 20);
+      const sisaSistem = stokAwal + totalKiriman - terpakai;
+      const sisaFisik = exist ? exist.sisa_fisik : sisaSistem;
+      const selisih = sisaFisik - sisaSistem;
+
+      return {
+        id: exist?.id || `abs-bh-${cabangId}-${bahan.id}-${tanggal}`,
+        cabang_id: cabangId,
+        cabang_nama: cabangNama,
+        tanggal,
+        bahan_id: bahan.id,
+        bahan_nama: bahan.nama,
+        satuan: bahan.satuan,
+        stok_awal: stokAwal,
+        kiriman_pusat: totalKiriman,
+        terpakai_kasir: terpakai,
+        sisa_sistem: sisaSistem,
+        sisa_fisik: sisaFisik,
+        selisih,
+        status: selisih === 0 ? 'cocok' : 'selisih',
+        kasir_nama: exist?.kasir_nama || '',
+        catatan: exist?.catatan || '',
+        updated_at: exist?.updated_at || undefined,
+      };
+    });
+  }
+
+  async saveAbsensiBahanHarian(records: AbsensiBahanHarian[]): Promise<boolean> {
+    const all = loadLocal<AbsensiBahanHarian[]>(STORAGE_KEYS.ABSENSI_BAHAN, INITIAL_ABSENSI_BAHAN);
+
+    for (const r of records) {
+      const idx = all.findIndex(a => 
+        a.cabang_id === r.cabang_id && 
+        a.tanggal === r.tanggal && 
+        a.bahan_id === r.bahan_id
+      );
+      const updatedRecord: AbsensiBahanHarian = {
+        ...r,
+        updated_at: new Date().toISOString(),
+      };
+      if (idx !== -1) {
+        all[idx] = updatedRecord;
+      } else {
+        all.unshift(updatedRecord);
+      }
+    }
+
+    saveLocal(STORAGE_KEYS.ABSENSI_BAHAN, all);
+    return true;
+  }
+
+  // --------------------------------------------------------------------------
+  // FIXED COST TOKO HARIAN & PERHITUNGAN UANG BERSIH MASUK REKENING BOSS
+  // --------------------------------------------------------------------------
+  async calculateFixedCostHarian(cabangId: string, tanggal: string): Promise<FixedCostHarianCabang> {
+    const cabang = await this.getCabangById(cabangId);
+    const cabangNama = cabang ? cabang.nama : cabangId;
+
+    // 1. Fixed Cost Harian Toko (Bulanan / 30 hari)
+    const sewaBulanan = cabang?.sewa_bulanan || 3000000;
+    const listrikAirBulanan = cabang?.listrik_air_bulanan || 600000;
+    const iuranBulanan = cabang?.iuran_kebersihan_bulanan || 150000;
+
+    const sewaHarian = Math.round(sewaBulanan / 30);
+    const wifiListrikHarian = Math.round(listrikAirBulanan / 30);
+    const iuranHarian = Math.round(iuranBulanan / 30);
+
+    // 2. Gaji Karyawan yang Hadir Hari Ini (Tulis Nama)
+    const absensiHariIni = await this.getAbsensiList(undefined, cabangId, tanggal);
+    const totalGajiKaryawan = absensiHariIni.reduce((sum, a) => sum + (a.upah_harian_terhitung || 0), 0);
+
+    // 3. Omzet Kotor Kasir & Total HPP Bahan Baku Terpakai Hari Ini
+    const transactions = await this.getTransaksiList(cabangId);
+    const dayTransactions = transactions.filter(t => 
+      t.status === 'completed' && t.waktu.startsWith(tanggal)
+    );
+
+    let omzetKotor = 0;
+    let totalHppBahan = 0;
+
+    const allMenus = await this.getMenuList();
+    const menuHppMap: Record<string, number> = {};
+    allMenus.forEach(m => { menuHppMap[m.id] = m.hpp || 4000; });
+
+    for (const trx of dayTransactions) {
+      omzetKotor += trx.total;
+      for (const it of trx.items) {
+        const itemHpp = menuHppMap[it.menu_id] || 4000;
+        totalHppBahan += (itemHpp * it.qty);
+      }
+    }
+
+    // 4. Belanja Laci Darurat Approved Hari Ini
+    const expenses = await this.getPengeluaranList(cabangId);
+    const dayExpenses = expenses.filter(e => 
+      e.status === 'approved' && 
+      e.jenis === 'belanja' && 
+      e.metode_pencairan === 'laci' && 
+      e.tanggal.startsWith(tanggal)
+    );
+    const totalBelanjaLaci = dayExpenses.reduce((sum, e) => sum + e.nominal, 0);
+
+    // Total Potongan Harian = Sewa Ruko + Wifi/Listrik + Iuran + Gaji Karyawan + HPP Bahan (+ Belanja Laci)
+    const totalPotonganHarian = sewaHarian + wifiListrikHarian + iuranHarian + totalGajiKaryawan + totalHppBahan + totalBelanjaLaci;
+
+    // Uang Bersih Masuk Rekening Boss = Omzet Kotor - Total Potongan Harian
+    const uangBersihRekeningBoss = omzetKotor - totalPotonganHarian;
+
+    return {
+      cabang_id: cabangId,
+      cabang_nama: cabangNama,
+      tanggal,
+      sewa_harian: sewaHarian,
+      wifi_listrik_harian: wifiListrikHarian,
+      iuran_harian: iuranHarian,
+      total_gaji_karyawan: totalGajiKaryawan,
+      total_hpp_bahan: totalHppBahan,
+      total_belanja_laci: totalBelanjaLaci,
+      total_potongan_harian: totalPotonganHarian,
+      omzet_kotor: omzetKotor,
+      uang_bersih_rekening_boss: uangBersihRekeningBoss,
+    };
+  }
+
+  // --------------------------------------------------------------------------
   // RESET DATA DARI 0 (MURNI TANPA TRANSAKSI, EXPENSES, MAUPUN KASIR DEMO)
   // --------------------------------------------------------------------------
   async resetDatabaseToZero(): Promise<void> {
@@ -1086,6 +1352,9 @@ export class PosDatabase {
       }
       saveLocal(STORAGE_KEYS.CABANG, INITIAL_CABANG);
       saveLocal(STORAGE_KEYS.MENU, INITIAL_MENU);
+      saveLocal(STORAGE_KEYS.BAHAN_BAKU, INITIAL_BAHAN_BAKU);
+      saveLocal(STORAGE_KEYS.KIRIMAN_BAHAN, []);
+      saveLocal(STORAGE_KEYS.ABSENSI_BAHAN, []);
       // Murni hanya Master Owner Pak Agan
       const pureOwnerOnly: Karyawan[] = [
         {
@@ -1133,6 +1402,9 @@ export class PosDatabase {
       }
       saveLocal(STORAGE_KEYS.CABANG, INITIAL_CABANG);
       saveLocal(STORAGE_KEYS.MENU, INITIAL_MENU);
+      saveLocal(STORAGE_KEYS.BAHAN_BAKU, INITIAL_BAHAN_BAKU);
+      saveLocal(STORAGE_KEYS.KIRIMAN_BAHAN, INITIAL_KIRIMAN_BAHAN);
+      saveLocal(STORAGE_KEYS.ABSENSI_BAHAN, INITIAL_ABSENSI_BAHAN);
       saveLocal(STORAGE_KEYS.KARYAWAN, DEMO_WEEK_KARYAWAN);
       saveLocal(STORAGE_KEYS.EXPENSES, DEMO_WEEK_EXPENSES);
       saveLocal(STORAGE_KEYS.TRANSAKSI, DEMO_WEEK_TRANSAKSI);

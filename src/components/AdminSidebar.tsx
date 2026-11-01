@@ -15,12 +15,13 @@ import {
   UserCheck,
   ShoppingBag,
   Coins,
+  PackageCheck,
   X
 } from 'lucide-react';
 
 interface AdminSidebarProps {
-  activeTab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'payroll' | 'menu' | 'karyawan';
-  onTabChange: (tab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'payroll' | 'menu' | 'karyawan') => void;
+  activeTab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan';
+  onTabChange: (tab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan') => void;
   pendingCount: number;
   onLogout: () => void;
   isMobileOpen?: boolean;
@@ -39,20 +40,26 @@ export default function AdminSidebar({
   const operasionalItems = [
     {
       id: 'ringkasan',
-      label: 'Ringkasan & Mutasi',
-      sub: 'Omzet cabang & buku kas',
+      label: 'Ringkasan & 10 Cabang',
+      sub: 'Hub rinci 10 toko & uang Boss',
       icon: Receipt,
     },
     {
       id: 'absensi',
       label: 'Monitor Presensi Cabang',
-      sub: 'Kehadiran harian 9 cabang',
+      sub: 'Presensi tulis nama 10 cabang',
       icon: CalendarCheck,
+    },
+    {
+      id: 'bahan',
+      label: 'Absensi Bahan 10 Toko',
+      sub: 'Rekap stok & kirim pasokan',
+      icon: PackageCheck,
     },
     {
       id: 'menu',
       label: 'Master Menu & Resep',
-      sub: 'Kunci harga dari pusat',
+      sub: 'Kunci harga & HPP porsi',
       icon: Coffee,
     },
   ];

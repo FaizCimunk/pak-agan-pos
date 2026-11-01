@@ -6,14 +6,13 @@ import {
   CalendarCheck, 
   Clock, 
   Calendar, 
-  AlertCircle,
   Save,
-  Building2,
-  MessageCircle,
-  ShieldCheck,
+  UserPlus,
+  Trash2,
+  DollarSign,
   CheckCircle2,
-  UserCheck,
-  Info
+  AlertCircle,
+  Users
 } from 'lucide-react';
 import { Cabang, Karyawan, Absensi, Shift } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -36,7 +35,6 @@ interface WorkerAttendanceState {
   jam_masuk: string;
   jam_pulang: string;
   catatan: string;
-  is_plotted?: boolean;
 }
 
 export default function BranchAttendanceModal({
@@ -47,12 +45,19 @@ export default function BranchAttendanceModal({
 }: BranchAttendanceModalProps) {
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-  const [workers, setWorkers] = useState<Karyawan[]>([]);
-  const [attendanceMap, setAttendanceMap] = useState<Record<string, WorkerAttendanceState>>({});
+  const [workersList, setWorkersList] = useState<WorkerAttendanceState[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
-  // Load workers for this branch (and any staff plotted by Admin Pusat)
+  // Form Tulis Nama Staf Baru / Tambahan Hari Ini (Simpel & Cepat)
+  const [isAddingNewName, setIsAddingNewName] = useState<boolean>(false);
+  const [newNama, setNewNama] = useState<string>('');
+  const [newRole, setNewRole] = useState<string>('Kitchen Serabi');
+  const [newUpah, setNewUpah] = useState<number>(100000);
+  const [newJamMasuk, setNewJamMasuk] = useState<string>('08:00');
+  const [newJamPulang, setNewJamPulang] = useState<string>('16:00');
+
+  // Load workers for this branch & records on selected date
   const loadBranchData = async () => {
     setLoading(true);
     try {
@@ -61,39 +66,45 @@ export default function BranchAttendanceModal({
         db.getAbsensiList(undefined, cabang.id, selectedDate),
       ]);
 
-      // Branch staff assigned by Admin Pusat
       const branchStaff = allStaff.filter(k => k.cabang_id === cabang.id && k.role !== 'owner');
 
-      // Staff from other branches that have been officially plotted / assigned attendance here by Admin Pusat
-      const plottedStaffFromRecords = allStaff.filter(k => 
-        k.cabang_id !== cabang.id && 
-        k.role !== 'owner' && 
-        existingRecords.some(r => r.karyawan_id === k.id)
-      );
+      // Ambil seluruh nama dari existing records (termasuk staf yang ditulis manual sebelumnya)
+      const list: WorkerAttendanceState[] = [];
 
-      const combinedWorkers = [...branchStaff, ...plottedStaffFromRecords];
-      setWorkers(combinedWorkers);
-
-      const map: Record<string, WorkerAttendanceState> = {};
-      combinedWorkers.forEach(w => {
-        const exist = existingRecords.find(r => r.karyawan_id === w.id);
-        const isPlotted = w.cabang_id !== cabang.id;
-
-        map[w.id] = {
-          karyawan_id: w.id,
-          karyawan_nama: w.nama,
-          role: w.role,
-          tipe_gaji: w.tipe_gaji || 'harian',
-          gaji_harian: w.gaji_harian || (w.tipe_gaji === 'harian' ? 100000 : Math.round(w.gaji_pokok / 26)),
-          status: exist?.status || 'hadir',
-          jam_masuk: exist?.jam_masuk || '08:00',
-          jam_pulang: exist?.jam_pulang || (exist?.status === 'hadir' ? '16:00' : ''),
-          catatan: exist?.catatan || (isPlotted ? 'Ploting Bantuan (Admin Pusat)' : 'Shift reguler'),
-          is_plotted: isPlotted,
-        };
+      // 1. Masukkan staf yang sudah punya catatan absensi di tanggal ini
+      existingRecords.forEach(rec => {
+        const staffObj = allStaff.find(s => s.id === rec.karyawan_id);
+        list.push({
+          karyawan_id: rec.karyawan_id,
+          karyawan_nama: rec.karyawan_nama || staffObj?.nama || 'Staf Harian',
+          role: staffObj?.role || 'helper',
+          tipe_gaji: 'harian',
+          gaji_harian: rec.upah_harian_terhitung || staffObj?.gaji_harian || 100000,
+          status: rec.status || 'hadir',
+          jam_masuk: rec.jam_masuk || '08:00',
+          jam_pulang: rec.jam_pulang || '16:00',
+          catatan: rec.catatan || '',
+        });
       });
 
-      setAttendanceMap(map);
+      // 2. Tambahkan staf cabang reguler yang belum masuk ke absensi hari ini
+      branchStaff.forEach(st => {
+        if (!list.some(item => item.karyawan_id === st.id)) {
+          list.push({
+            karyawan_id: st.id,
+            karyawan_nama: st.nama,
+            role: st.role,
+            tipe_gaji: 'harian',
+            gaji_harian: st.gaji_harian || (st.tipe_gaji === 'harian' ? 100000 : Math.round(st.gaji_pokok / 26)),
+            status: 'hadir',
+            jam_masuk: '08:00',
+            jam_pulang: '16:00',
+            catatan: 'Hadir reguler',
+          });
+        }
+      });
+
+      setWorkersList(list);
     } finally {
       setLoading(false);
     }
@@ -103,40 +114,77 @@ export default function BranchAttendanceModal({
     loadBranchData();
   }, [cabang.id, selectedDate]);
 
-  const updateWorkerStatus = (workerId: string, status: 'hadir' | 'setengah_hari' | 'izin' | 'sakit' | 'alpa') => {
-    setAttendanceMap(prev => {
-      const current = prev[workerId];
-      if (!current) return prev;
-      return {
-        ...prev,
-        [workerId]: {
-          ...current,
-          status,
-          jam_masuk: status === 'hadir' || status === 'setengah_hari' ? (current.jam_masuk || '08:00') : '',
-          jam_pulang: status === 'hadir' ? (current.jam_pulang || '16:00') : status === 'setengah_hari' ? '12:00' : '',
-        },
-      };
-    });
+  // Tambah Nama Staf Baru / Tambahan Hari Ini (Tulis Nama Simpel)
+  const handleAddNewWorker = async () => {
+    if (!newNama.trim()) {
+      alert('Silakan tulis nama staf terlebih dahulu!');
+      return;
+    }
+
+    const tempId = 'staf-' + Date.now();
+    const newWorkerEntry: WorkerAttendanceState = {
+      karyawan_id: tempId,
+      karyawan_nama: newNama.trim(),
+      role: newRole,
+      tipe_gaji: 'harian',
+      gaji_harian: Number(newUpah) || 100000,
+      status: 'hadir',
+      jam_masuk: newJamMasuk || '08:00',
+      jam_pulang: newJamPulang || '16:00',
+      catatan: 'Staf Tambahan Harian',
+    };
+
+    // Buat juga master profil karyawan baru agar tercatat permanen di sistem & payroll
+    try {
+      await db.createKaryawan({
+        cabang_id: cabang.id,
+        nama: newNama.trim(),
+        role: (newRole.toLowerCase().includes('kasir') ? 'kasir' : newRole.toLowerCase().includes('dapur') || newRole.toLowerCase().includes('serabi') ? 'kitchen' : 'helper') as any,
+        telepon: '0812-0000-0000',
+        tipe_gaji: 'harian',
+        gaji_harian: Number(newUpah) || 100000,
+        gaji_pokok: (Number(newUpah) || 100000) * 26,
+        tunjangan: 0,
+        plafon_kasbon: 300000,
+      });
+    } catch (e) {
+      console.warn('Simpan master staf:', e);
+    }
+
+    setWorkersList(prev => [...prev, newWorkerEntry]);
+    setNewNama('');
+    setIsAddingNewName(false);
   };
 
-  const updateWorkerField = (workerId: string, field: 'jam_masuk' | 'jam_pulang' | 'catatan', val: string) => {
-    setAttendanceMap(prev => {
-      const current = prev[workerId];
-      if (!current) return prev;
+  const updateWorkerStatus = (karyawanId: string, status: 'hadir' | 'setengah_hari' | 'izin' | 'sakit' | 'alpa') => {
+    setWorkersList(prev => prev.map(w => {
+      if (w.karyawan_id !== karyawanId) return w;
       return {
-        ...prev,
-        [workerId]: {
-          ...current,
-          [field]: val,
-        },
+        ...w,
+        status,
+        jam_masuk: status === 'hadir' || status === 'setengah_hari' ? (w.jam_masuk || '08:00') : '',
+        jam_pulang: status === 'hadir' ? (w.jam_pulang || '16:00') : status === 'setengah_hari' ? '12:00' : '',
       };
-    });
+    }));
+  };
+
+  const updateWorkerField = (karyawanId: string, field: keyof WorkerAttendanceState, val: any) => {
+    setWorkersList(prev => prev.map(w => {
+      if (w.karyawan_id !== karyawanId) return w;
+      return { ...w, [field]: val };
+    }));
+  };
+
+  const handleRemoveWorker = (karyawanId: string, nama: string) => {
+    if (confirm(`Hapus ${nama} dari daftar absensi hari ini?`)) {
+      setWorkersList(prev => prev.filter(w => w.karyawan_id !== karyawanId));
+    }
   };
 
   const handleSaveAttendance = async () => {
     setSaving(true);
     try {
-      const entries = Object.values(attendanceMap).map(w => ({
+      const entries = workersList.map(w => ({
         karyawan_id: w.karyawan_id,
         karyawan_nama: w.karyawan_nama,
         cabang_id: cabang.id,
@@ -145,13 +193,13 @@ export default function BranchAttendanceModal({
         jam_masuk: w.jam_masuk || '08:00',
         jam_pulang: w.jam_pulang || null,
         status: w.status,
-        upah_harian: w.gaji_harian,
+        upah_harian: Number(w.gaji_harian) || 100000,
         catatan: w.catatan,
         recorded_by: activeShift?.karyawan_nama || 'Kasir Outlet',
       }));
 
       await db.saveBranchAttendance(entries);
-      alert(`Presensi kehadiran ${entries.length} staf ${cabang.nama} untuk tanggal ${selectedDate} berhasil disimpan!`);
+      alert(`Presensi ${entries.length} staf ${cabang.nama} untuk tanggal ${selectedDate} berhasil disimpan!\nTotal upah harian otomatis tercatat ke Fixed Cost Toko.`);
       onSuccess();
     } catch (err: any) {
       alert('Gagal menyimpan presensi: ' + err.message);
@@ -160,9 +208,12 @@ export default function BranchAttendanceModal({
     }
   };
 
-  // WhatsApp link to Admin Pusat
-  const adminWaText = `Halo Admin Pusat Pak Agan,\n\nAda karyawan baru / staf bantuan yang disuruh bertugas di ${cabang.nama} (${cabang.kode}) untuk tanggal ${selectedDate}, namun namanya belum tercatat di Buku Absensi Cabang.\n\nMohon bantuannya untuk melakukan ploting / pendaftaran staf ke cabang ini melalui Dashboard Pusat.\n\nTerima kasih.\n(Pelapor: ${activeShift?.karyawan_nama || 'Kasir Outlet'})`;
-  const adminWaUrl = `https://wa.me/6281234567890?text=${encodeURIComponent(adminWaText)}`;
+  // Kalkulasi total upah yang hadir hari ini
+  const totalHadirCount = workersList.filter(w => w.status === 'hadir' || w.status === 'setengah_hari').length;
+  const totalUpahHariIni = workersList.reduce((sum, w) => {
+    const mult = w.status === 'hadir' ? 1 : w.status === 'setengah_hari' ? 0.5 : 0;
+    return sum + (Number(w.gaji_harian) * mult);
+  }, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
@@ -177,14 +228,14 @@ export default function BranchAttendanceModal({
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-extrabold text-slate-900">
-                  Presensi Kehadiran Staf Cabang
+                  Presensi &amp; Absensi Karyawan Toko
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
                   {cabang.kode}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-medium">
-                Outlet: <strong>{cabang.nama}</strong> • Dicatat oleh: <strong>{activeShift?.karyawan_nama || 'Kasir Outlet'}</strong>
+                Outlet: <strong>{cabang.nama}</strong> • Tulis nama karyawan yang hadir hari ini
               </p>
             </div>
           </div>
@@ -197,11 +248,11 @@ export default function BranchAttendanceModal({
           </button>
         </div>
 
-        {/* Date Selector Toolbar */}
+        {/* Date Selector & Tombol Tulis Nama Staf */}
         <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center space-x-2">
-            <Calendar className="w-4 h-4 text-brand-primary" />
-            <span className="font-bold text-slate-700">Tanggal Absensi:</span>
+            <Calendar className="w-4 h-4 text-brand-primary shrink-0" />
+            <span className="font-bold text-slate-700">Tanggal:</span>
             <input
               type="date"
               value={selectedDate}
@@ -210,221 +261,291 @@ export default function BranchAttendanceModal({
             />
           </div>
 
-          {/* WhatsApp Direct Button to Admin Pusat */}
-          <a
-            href={adminWaUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-black text-xs shadow-xs transition-colors btn-tactile w-fit"
-            title="Kirim pesan WhatsApp ke Admin Pusat jika ada staf baru yang belum terdaftar di absensi"
+          {/* Tombol Simpel Tulis Nama Staf */}
+          <button
+            type="button"
+            onClick={() => setIsAddingNewName(!isAddingNewName)}
+            className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow-sm transition-all btn-tactile w-fit"
           >
-            <MessageCircle className="w-3.5 h-3.5 fill-white" />
-            <span>Hubungi Admin Pusat</span>
-          </a>
+            <UserPlus className="w-4 h-4" />
+            <span>{isAddingNewName ? 'Tutup Input Nama' : '+ Tulis Nama Staf'}</span>
+          </button>
         </div>
 
-        {/* Official Notice: Ploting Admin Pusat Notice Card */}
-        <div className="px-6 pt-3 pb-1">
-          <div className="p-3.5 bg-amber-50/90 border border-amber-200/90 rounded-2xl flex items-start space-x-3 text-xs">
-            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm shadow-amber-600/20">
-              <Building2 className="w-4 h-4" />
-            </div>
-            <div className="flex-1">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
-                <span className="font-black text-amber-950">
-                  Catatan Penugasan &amp; Ploting Karyawan:
+        {/* Form Cepat: Tulis Nama Staf Baru / Bantuan */}
+        {isAddingNewName && (
+          <div className="px-6 py-4 bg-emerald-50/60 border-b border-emerald-200/60 animate-fadeIn">
+            <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-soft-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                  <UserPlus className="w-4 h-4 text-emerald-700" />
+                  Tulis Nama Karyawan / Staf Hadir Hari Ini:
                 </span>
-                <span className="inline-flex items-center text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300 w-fit">
-                  Wewenang Admin Pusat
+                <span className="text-[10px] text-slate-400">
+                  Langsung tersimpan tanpa ploting rumit
                 </span>
               </div>
-              <p className="text-amber-900/90 text-[11px] leading-relaxed">
-                Ploting penempatan karyawan antar-cabang dikelola langsung oleh <strong>Admin Pusat</strong>. Jika ada karyawan baru atau staf bantuan yang disuruh bertugas ke outlet ini namun <strong>belum masuk di buku absensi</strong>, mohon segera hubungi Admin Pusat agar didaftarkan ke sistem.
-              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Nama Lengkap Karyawan *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Mas Joko / Mbak Rini"
+                    value={newNama}
+                    onChange={(e) => setNewNama(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 outline-none focus:border-brand-primary focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Tugas / Posisi
+                  </label>
+                  <select
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 outline-none focus:border-brand-primary"
+                  >
+                    <option value="Kitchen Serabi">Dapur / Tukang Bakar Serabi</option>
+                    <option value="Wedang Barista">Barista Wedang Geprek</option>
+                    <option value="Kasir Toko">Kasir Toko</option>
+                    <option value="Helper & Cuci">Helper &amp; Cuci Piring</option>
+                    <option value="Staf Serabutan">Staf Serabutan / Bantuan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Upah Kehadiran Harian (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    value={newUpah}
+                    onChange={(e) => setNewUpah(Number(e.target.value))}
+                    step={5000}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-emerald-700 outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Jam Masuk
+                    </label>
+                    <input
+                      type="text"
+                      value={newJamMasuk}
+                      onChange={(e) => setNewJamMasuk(e.target.value)}
+                      placeholder="08:00"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-center text-slate-800 outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Jam Pulang
+                    </label>
+                    <input
+                      type="text"
+                      value={newJamPulang}
+                      onChange={(e) => setNewJamPulang(e.target.value)}
+                      placeholder="16:00"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-center text-slate-800 outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={handleAddNewWorker}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all btn-tactile"
+                >
+                  + Tambahkan ke Daftar Absensi
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Workers Attendance List */}
-        <div className="p-6 overflow-y-auto space-y-4 flex-1">
+        {/* Daftar Karyawan Hadir Hari Ini */}
+        <div className="p-6 overflow-y-auto space-y-3.5 flex-1">
           {loading ? (
             <div className="text-center py-8 text-slate-400 text-xs">
-              Memuat data staf cabang...
+              Memuat data absensi staf...
             </div>
-          ) : workers.length === 0 ? (
+          ) : workersList.length === 0 ? (
             <div className="text-center py-8 text-slate-500 text-xs bg-slate-50 rounded-2xl p-6 space-y-3 border border-dashed border-slate-200">
+              <Users className="w-8 h-8 text-slate-300 mx-auto" />
               <p className="font-bold text-slate-700">
-                Belum ada staf yang terdaftar atau di-ploting di {cabang.nama}.
+                Belum ada staf yang dicatat untuk tanggal ini.
               </p>
-              <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-                Silakan hubungi Admin Pusat untuk melakukan ploting penempatan staf ke outlet ini.
+              <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                Klik tombol <strong>&quot;+ Tulis Nama Staf&quot;</strong> di atas untuk langsung menulis nama karyawan atau tenaga bantuan yang hadir hari ini.
               </p>
-              <a
-                href={adminWaUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center space-x-1.5 px-4 py-2 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-extrabold text-xs rounded-xl transition-all shadow-sm"
+              <button
+                type="button"
+                onClick={() => setIsAddingNewName(true)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm inline-flex items-center space-x-1.5"
               >
-                <MessageCircle className="w-4 h-4 fill-white" />
-                <span>Minta Ploting ke Admin Pusat</span>
-              </a>
+                <UserPlus className="w-4 h-4" />
+                <span>+ Tulis Nama Staf Sekarang</span>
+              </button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {workers.map(worker => {
-                const state = attendanceMap[worker.id];
-                if (!state) return null;
-                const isPlotted = state.is_plotted || worker.cabang_id !== cabang.id;
-
-                return (
-                  <div 
-                    key={worker.id}
-                    className={`p-4 rounded-2xl border transition-all shadow-soft-sm space-y-3 ${
-                      isPlotted 
-                        ? 'border-emerald-300 bg-emerald-50/30' 
-                        : 'border-slate-200 bg-white hover:border-brand-primary/40'
-                    }`}
-                  >
-                    {/* Worker Info Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                      <div className="flex items-center space-x-2.5">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-extrabold text-xs ${
-                          isPlotted ? 'bg-emerald-600 text-white' : 'bg-brand-subtle text-brand-dark'
-                        }`}>
-                          {worker.nama.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <span className="font-extrabold text-slate-900 text-xs sm:text-sm">
-                              {worker.nama}
-                            </span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
-                              {worker.role}
-                            </span>
-                            {isPlotted && (
-                              <span className="inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                <span>📌 Di-ploting Pusat</span>
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
-                            <span>Skema: <strong className="text-slate-700 capitalize">{worker.tipe_gaji || 'Harian'}</strong></span>
-                            <span>•</span>
-                            <span>Upah: <strong className="font-mono text-emerald-700">{formatRupiah(state.gaji_harian)}/hari</strong></span>
-                          </div>
-                        </div>
+            workersList.map((worker) => {
+              return (
+                <div 
+                  key={worker.karyawan_id}
+                  className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-emerald-500/40 transition-all shadow-soft-sm space-y-3"
+                >
+                  {/* Top Bar Staf */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-xs">
+                        {worker.karyawan_nama.charAt(0).toUpperCase()}
                       </div>
-
-                      {/* Status Badges */}
-                      <div className="flex items-center space-x-1">
-                        {(['hadir', 'setengah_hari', 'izin', 'sakit', 'alpa'] as const).map(st => {
-                          const isSelected = state.status === st;
-                          let activeStyle = '';
-                          let label = '';
-                          if (st === 'hadir') {
-                            activeStyle = 'bg-emerald-600 text-white shadow-sm';
-                            label = 'Hadir';
-                          } else if (st === 'setengah_hari') {
-                            activeStyle = 'bg-sky-600 text-white shadow-sm';
-                            label = '1/2 Hari';
-                          } else if (st === 'izin') {
-                            activeStyle = 'bg-amber-500 text-white shadow-sm';
-                            label = 'Izin';
-                          } else if (st === 'sakit') {
-                            activeStyle = 'bg-indigo-600 text-white shadow-sm';
-                            label = 'Sakit';
-                          } else {
-                            activeStyle = 'bg-rose-600 text-white shadow-sm';
-                            label = 'Alpa';
-                          }
-
-                          return (
-                            <button
-                              key={st}
-                              type="button"
-                              onClick={() => updateWorkerStatus(worker.id, st)}
-                              className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold transition-all btn-tactile ${
-                                isSelected 
-                                  ? activeStyle 
-                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-extrabold text-slate-900 text-sm">
+                            {worker.karyawan_nama}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
+                            {worker.role}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
+                          <span>Upah: </span>
+                          <input
+                            type="number"
+                            value={worker.gaji_harian}
+                            onChange={(e) => updateWorkerField(worker.karyawan_id, 'gaji_harian', Number(e.target.value))}
+                            step={5000}
+                            className="w-24 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded font-mono font-bold text-emerald-800 text-xs"
+                          />
+                          <span className="text-slate-400">/hari</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Hours & Notes Row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
-                          Jam Masuk
-                        </label>
-                        <input
-                          type="time"
-                          value={state.jam_masuk}
-                          onChange={(e) => updateWorkerField(worker.id, 'jam_masuk', e.target.value)}
-                          disabled={state.status === 'alpa' || state.status === 'sakit' || state.status === 'izin'}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-xs text-slate-800 disabled:opacity-40"
-                        />
-                      </div>
+                    {/* Status Presensi */}
+                    <div className="flex items-center space-x-1">
+                      {(['hadir', 'setengah_hari', 'izin', 'sakit', 'alpa'] as const).map(st => {
+                        const isSelected = worker.status === st;
+                        let activeStyle = '';
+                        let label = '';
+                        if (st === 'hadir') {
+                          activeStyle = 'bg-emerald-600 text-white shadow-xs';
+                          label = 'Hadir';
+                        } else if (st === 'setengah_hari') {
+                          activeStyle = 'bg-sky-600 text-white shadow-xs';
+                          label = '1/2 Hari';
+                        } else if (st === 'izin') {
+                          activeStyle = 'bg-amber-500 text-white shadow-xs';
+                          label = 'Izin';
+                        } else if (st === 'sakit') {
+                          activeStyle = 'bg-indigo-600 text-white shadow-xs';
+                          label = 'Sakit';
+                        } else {
+                          activeStyle = 'bg-rose-600 text-white shadow-xs';
+                          label = 'Alpa';
+                        }
 
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
-                          Jam Pulang
-                        </label>
-                        <input
-                          type="time"
-                          value={state.jam_pulang}
-                          onChange={(e) => updateWorkerField(worker.id, 'jam_pulang', e.target.value)}
-                          disabled={state.status === 'alpa' || state.status === 'sakit' || state.status === 'izin'}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-xs text-slate-800 disabled:opacity-40"
-                        />
-                      </div>
+                        return (
+                          <button
+                            key={st}
+                            type="button"
+                            onClick={() => updateWorkerStatus(worker.karyawan_id, st)}
+                            className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold transition-all btn-tactile ${
+                              isSelected 
+                                ? activeStyle 
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
 
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
-                          Catatan Shift
-                        </label>
-                        <input
-                          type="text"
-                          value={state.catatan}
-                          onChange={(e) => updateWorkerField(worker.id, 'catatan', e.target.value)}
-                          placeholder="Keterangan..."
-                          className="w-full px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-800"
-                        />
-                      </div>
+                      {/* Tombol Hapus */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveWorker(worker.karyawan_id, worker.karyawan_nama)}
+                        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-1"
+                        title="Hapus dari daftar hari ini"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Jam Kerja & Catatan */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[11px] text-slate-400 font-medium">Jam:</span>
+                      <input
+                        type="text"
+                        value={worker.jam_masuk}
+                        onChange={(e) => updateWorkerField(worker.karyawan_id, 'jam_masuk', e.target.value)}
+                        placeholder="08:00"
+                        className="w-16 px-2 py-1 text-center bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-800 text-[11px]"
+                      />
+                      <span className="text-slate-300">-</span>
+                      <input
+                        type="text"
+                        value={worker.jam_pulang}
+                        onChange={(e) => updateWorkerField(worker.karyawan_id, 'jam_pulang', e.target.value)}
+                        placeholder="16:00"
+                        className="w-16 px-2 py-1 text-center bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-800 text-[11px]"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <input
+                        type="text"
+                        placeholder="Catatan tugas (opsional, misal: lembur 1 jam)"
+                        value={worker.catatan}
+                        onChange={(e) => updateWorkerField(worker.karyawan_id, 'catatan', e.target.value)}
+                        className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-[11px] placeholder:text-slate-400 outline-none focus:border-brand-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-          <div className="text-[11px] text-slate-500">
-            Total Staf di Outlet: <strong>{workers.length} Staf</strong>
+        {/* Footer Summary & Save */}
+        <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center space-x-3 text-xs">
+            <div className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold">
+              Total Hadir: <span className="font-extrabold text-emerald-700">{totalHadirCount} staf</span>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 font-bold">
+              Total Upah Hari Ini: <span className="font-mono font-extrabold text-emerald-800">{formatRupiah(totalUpahHariIni)}</span>
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">
             <button
+              type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-100 transition-colors"
             >
-              Batal
+              Tutup
             </button>
             <button
+              type="button"
               onClick={handleSaveAttendance}
-              disabled={saving || loading || workers.length === 0}
-              className="px-5 py-2 rounded-xl font-extrabold text-xs bg-brand-primary hover:bg-brand-dark text-white shadow-md shadow-brand-dark/20 btn-tactile flex items-center space-x-1.5 transition-all"
+              disabled={saving}
+              className="px-5 py-2.5 rounded-xl bg-brand-primary hover:bg-emerald-800 text-white font-black text-xs shadow-md shadow-emerald-900/20 transition-all btn-tactile flex items-center space-x-1.5 disabled:opacity-50"
             >
-              <Save className="w-3.5 h-3.5" />
-              <span>{saving ? 'Menyimpan...' : 'Simpan Presensi Kehadiran'}</span>
+              <Save className="w-4 h-4" />
+              <span>{saving ? 'Menyimpan...' : 'Simpan Presensi Hari Ini'}</span>
             </button>
           </div>
         </div>

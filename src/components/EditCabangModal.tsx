@@ -180,7 +180,7 @@ export default function EditCabangModal({
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-extrabold text-slate-900">
-                  {isNew ? 'Tambah Cabang Outlet Baru' : 'Ubah Nama & Data Cabang'}
+                  {isNew ? 'Tambah Cabang Outlet Baru' : 'Ubah Data Cabang & Biaya Tetap (Fixed Cost)'}
                 </h3>
                 {cabang && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -189,7 +189,7 @@ export default function EditCabangModal({
                 )}
               </div>
               <p className="text-[11px] text-slate-500 font-medium">
-                Sesuaikan nama cabang resmi (contoh: Cabang Cihampelas, Tebet, Dago, dll)
+                Sesuaikan nama cabang, sewa ruko, Wi-Fi &amp; listrik, PIN kasir, dan penanggung jawab
               </p>
             </div>
           </div>
@@ -446,17 +446,20 @@ export default function EditCabangModal({
             <div className="flex items-center justify-between">
               <label className="font-extrabold text-amber-950 flex items-center space-x-1.5 text-xs">
                 <Building2 className="w-4 h-4 text-accent-gold" />
-                <span>Beban Tetap Operasional Outlet (Fixed Costs)</span>
+                <span>Beban Tetap Toko (Fixed Cost: Sewa Ruko, Wi-Fi &amp; Listrik)</span>
               </label>
               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-white text-amber-800 border border-amber-200">
                 P&amp;L Eksekutif Boss
               </span>
             </div>
+            <p className="text-[10px] text-amber-900 leading-snug">
+              Biaya operasional ini otomatis dibagi 30 hari untuk memotong omzet harian toko saat menghitung <strong>Uang Bersih Masuk Rekening Boss</strong>.
+            </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
               <div>
                 <span className="text-[10px] font-bold text-slate-700 block mb-1">
-                  1. Sewa Tempat / Kios (Rp):
+                  1. Sewa Ruko / Kios (Rp/bln):
                 </span>
                 <input
                   type="text"
@@ -465,11 +468,14 @@ export default function EditCabangModal({
                   placeholder="3.500.000"
                   className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-bold text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
                 />
+                <span className="text-[9px] text-slate-400 mt-0.5 block font-mono">
+                  ≈ {formatRupiah(Math.round(sewaBulanan / 30))}/hari
+                </span>
               </div>
 
               <div>
                 <span className="text-[10px] font-bold text-slate-700 block mb-1">
-                  2. Listrik &amp; Air (Rp):
+                  2. Listrik, Air &amp; Wi-Fi (Rp/bln):
                 </span>
                 <input
                   type="text"
@@ -478,11 +484,14 @@ export default function EditCabangModal({
                   placeholder="650.000"
                   className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-bold text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
                 />
+                <span className="text-[9px] text-slate-400 mt-0.5 block font-mono">
+                  ≈ {formatRupiah(Math.round(listrikAirBulanan / 30))}/hari
+                </span>
               </div>
 
               <div>
                 <span className="text-[10px] font-bold text-slate-700 block mb-1">
-                  3. Iuran &amp; Retribusi (Rp):
+                  3. Iuran &amp; Retribusi (Rp/bln):
                 </span>
                 <input
                   type="text"
@@ -491,12 +500,20 @@ export default function EditCabangModal({
                   placeholder="150.000"
                   className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-bold text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
                 />
+                <span className="text-[9px] text-slate-400 mt-0.5 block font-mono">
+                  ≈ {formatRupiah(Math.round(iuranKebersihanBulanan / 30))}/hari
+                </span>
               </div>
             </div>
 
-            <div className="flex justify-between items-center pt-2 border-t border-amber-200/60 text-[11px] font-extrabold text-amber-900">
-              <span>Total Beban Tetap Cabang / Bulan:</span>
-              <span className="font-mono text-sm">{formatRupiah(sewaBulanan + listrikAirBulanan + iuranKebersihanBulanan)}</span>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center pt-2 border-t border-amber-200/60 text-[11px] font-extrabold text-amber-900 gap-1">
+              <span>Total Beban Tetap Cabang:</span>
+              <div className="flex items-center space-x-2">
+                <span className="font-mono text-xs">{formatRupiah(sewaBulanan + listrikAirBulanan + iuranKebersihanBulanan)}/bln</span>
+                <span className="px-1.5 py-0.5 rounded bg-amber-200/70 text-amber-950 font-mono text-[10px]">
+                  Potongan: {formatRupiah(Math.round((sewaBulanan + listrikAirBulanan + iuranKebersihanBulanan) / 30))}/hari
+                </span>
+              </div>
             </div>
           </div>
 

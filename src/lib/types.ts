@@ -41,6 +41,7 @@ export interface Karyawan {
   gaji_pokok: number;
   tunjangan: number;
   plafon_kasbon: number;
+  utang_nominal?: number; // Nominal utang/kasbon staf yang diatur langsung oleh Boss dari pusat
   is_active: boolean;
   created_at?: string;
 }
@@ -104,7 +105,7 @@ export interface Shift {
   created_at?: string;
 }
 
-export type PaymentMethod = 'tunai' | 'qris' | 'transfer';
+export type PaymentMethod = 'tunai' | 'shopeefood' | 'gofood' | 'grabfood' | 'qris' | 'transfer';
 
 export interface TransaksiItem {
   id?: string;
@@ -197,4 +198,68 @@ export interface Payroll {
   karyawan_telepon?: string;
   keterangan?: string;
   kasbon_details?: PengeluaranKasbon[];
+}
+
+export interface BahanBaku {
+  id: string;
+  kode: string;
+  nama: string;
+  satuan: string; // 'kg' | 'liter' | 'porsi' | 'bungkus' | 'butir' | 'pcs'
+  kategori: 'serabi' | 'wedang' | 'kemasan' | 'umum';
+  stok_minimum?: number;
+}
+
+export interface ResepMenuBahan {
+  menu_id: string;
+  bahan_id: string;
+  jumlah_per_porsi: number;
+}
+
+export interface KirimanBahanPusat {
+  id: string;
+  cabang_id: string;
+  cabang_nama?: string;
+  bahan_id: string;
+  bahan_nama: string;
+  jumlah: number;
+  satuan: string;
+  tanggal: string; // YYYY-MM-DD
+  dikirim_oleh: string;
+  catatan?: string;
+  created_at?: string;
+}
+
+export interface AbsensiBahanHarian {
+  id: string;
+  cabang_id: string;
+  cabang_nama?: string;
+  tanggal: string; // YYYY-MM-DD
+  bahan_id: string;
+  bahan_nama: string;
+  satuan: string;
+  stok_awal: number;
+  kiriman_pusat: number;
+  terpakai_kasir: number; // Ditarik otomatis dari transaksi kasir di tempat
+  sisa_sistem: number;   // (stok_awal + kiriman_pusat - terpakai_kasir)
+  sisa_fisik: number;    // Diisi kasir di tempat saat absensi bahan
+  selisih: number;       // (sisa_fisik - sisa_sistem)
+  status: 'cocok' | 'selisih';
+  kasir_nama?: string;
+  catatan?: string;
+  updated_at?: string;
+}
+
+export interface FixedCostHarianCabang {
+  cabang_id: string;
+  cabang_nama: string;
+  tanggal: string;
+  sewa_harian: number;           // sewa_bulanan / 30
+  wifi_listrik_harian: number;   // utilitas bulanan / 30
+  iuran_harian: number;          // iuran bulanan / 30
+  total_gaji_karyawan: number;   // dari absensi staf hadir hari ini
+  total_hpp_bahan: number;       // total hpp menu terjual dari kasir
+  total_belanja_laci: number;    // belanja laci approved hari ini
+  total_potongan_harian: number; // jumlah seluruh fixed cost & beban
+  omzet_kotor: number;           // total penjualan hari ini
+  uang_bersih_rekening_boss: number; // omzet_kotor - total_potongan_harian
 }

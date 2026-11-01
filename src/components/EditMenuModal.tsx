@@ -141,7 +141,7 @@ export default function EditMenuModal({
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-medium">
-                Kasir tablet 9 cabang berstatus Read-Only dan tidak bisa mengubah menu ini
+                Kasir tablet 10 cabang berstatus Read-Only dan tidak bisa mengubah menu ini
               </p>
             </div>
           </div>

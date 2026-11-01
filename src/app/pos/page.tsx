@@ -12,6 +12,7 @@ import ExpenseRequestModal from '@/components/ExpenseRequestModal';
 import DeviceSetupModal from '@/components/DeviceSetupModal';
 import BranchAttendanceModal from '@/components/BranchAttendanceModal';
 import DailyBranchReportModal from '@/components/DailyBranchReportModal';
+import DailyMaterialStockModal from '@/components/DailyMaterialStockModal';
 
 import { 
   Cabang, 
@@ -54,6 +55,7 @@ export default function PosPage() {
   const [isAttendanceOpen, setIsAttendanceOpen] = useState<boolean>(false);
   const [isDeviceSetupOpen, setIsDeviceSetupOpen] = useState<boolean>(false);
   const [isDailyReportOpen, setIsDailyReportOpen] = useState<boolean>(false);
+  const [isMaterialStockOpen, setIsMaterialStockOpen] = useState<boolean>(false);
   const [transaksiList, setTransaksiList] = useState<Transaksi[]>([]);
   const [expenseList, setExpenseList] = useState<PengeluaranKasbon[]>([]);
   const [lastTransaksi, setLastTransaksi] = useState<Transaksi | null>(null);
@@ -272,6 +274,7 @@ export default function PosPage() {
         onCloseShiftClick={() => setIsShiftCloseOpen(true)}
         onExpenseClick={() => setIsExpenseOpen(true)}
         onAttendanceClick={() => setIsAttendanceOpen(true)}
+        onMaterialStockClick={() => setIsMaterialStockOpen(true)}
         onDailyReportClick={() => setIsDailyReportOpen(true)}
         onDeviceSettingsClick={() => setIsDeviceSetupOpen(true)}
       />
@@ -475,6 +478,14 @@ export default function PosPage() {
           defaultCabangId={currentCabang.id}
           defaultDate="2026-10-25"
           onClose={() => setIsDailyReportOpen(false)}
+        />
+      )}
+
+      {isMaterialStockOpen && currentCabang && (
+        <DailyMaterialStockModal
+          cabang={currentCabang}
+          activeShift={activeShift}
+          onClose={() => setIsMaterialStockOpen(false)}
         />
       )}
 

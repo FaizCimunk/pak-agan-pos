@@ -184,7 +184,7 @@ export default function BranchPnlStatement({
       const avgLabor = totalOmzet > 0 ? Math.round((totalGaji / totalOmzet) * 100) : 0;
 
       return {
-        nama: 'Konsolidasi Seluruh 9 Cabang',
+        nama: 'Konsolidasi Seluruh 10 Cabang',
         kode: 'ALL-OUTLET',
         omzet: totalOmzet,
         hppBahan: totalHpp,
@@ -486,7 +486,7 @@ export default function BranchPnlStatement({
           }`}
         >
           <PieChart className="w-4 h-4" />
-          <span>Matriks Laba Rugi 9 Cabang</span>
+          <span>Matriks Laba Rugi 10 Cabang</span>
         </button>
 
         <button
@@ -515,7 +515,7 @@ export default function BranchPnlStatement({
       </div>
 
       {/* ========================================================================= */}
-      {/* SUB-VIEW 1: MATRIKS KOMPARASI LABA RUGI 9 CABANG (PRESENTASI BOSS) */}
+      {/* SUB-VIEW 1: MATRIKS KOMPARASI LABA RUGI 10 CABANG (PRESENTASI BOSS) */}
       {/* ========================================================================= */}
       {activeSubTab === 'pnl' && (
         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden">
@@ -524,7 +524,7 @@ export default function BranchPnlStatement({
               <div className="flex items-center space-x-2">
                 <PieChart className="w-4 h-4 text-brand-primary" />
                 <h3 className="text-sm font-extrabold text-slate-900">
-                  Matriks Laba Rugi 9 Cabang Serabi Bawel &amp; Wedang Geprek
+                  Matriks Laba Rugi 10 Cabang Serabi Bawel &amp; Wedang Geprek
                 </h3>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -631,7 +631,7 @@ export default function BranchPnlStatement({
               <tfoot className="bg-slate-900 text-white font-extrabold text-xs border-t-2 border-emerald-500">
                 <tr>
                   <td className="py-3.5 px-4 uppercase tracking-wider text-[11px] text-emerald-300">
-                    Total 9 Cabang Konsolidasi
+                    Total 10 Cabang Konsolidasi
                   </td>
                   <td className="py-3.5 px-4 text-right font-mono text-emerald-400 tabular-nums">
                     {formatRupiah(branchPnlMatrix.reduce((s, b) => s + b.omzet, 0))}
@@ -696,7 +696,7 @@ export default function BranchPnlStatement({
                 onChange={(e) => onSelectCabang(e.target.value)}
                 className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-brand-primary"
               >
-                <option value="all">Konsolidasi Seluruh 9 Cabang</option>
+                <option value="all">Konsolidasi Seluruh 10 Cabang</option>
                 {cabangList.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.kode} - {c.nama}
@@ -912,7 +912,7 @@ export default function BranchPnlStatement({
             )}
           </div>
 
-          {/* GRID BEBAN TETAP 9 CABANG */}
+          {/* GRID BEBAN TETAP 10 CABANG */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {cabangList.map(c => {
               const sewa = c.sewa_bulanan || 2500000;
@@ -968,7 +968,7 @@ export default function BranchPnlStatement({
           <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200 flex items-center justify-between text-xs text-blue-950 font-bold">
             <div className="flex items-center space-x-2">
               <Building2 className="w-4 h-4 text-blue-700" />
-              <span>Total Beban Tetap Seluruh 9 Cabang per Bulan:</span>
+              <span>Total Beban Tetap Seluruh 10 Cabang per Bulan:</span>
             </div>
             <span className="font-mono text-sm font-black text-blue-900">
               {formatRupiah(cabangList.reduce((s, c) => s + (c.sewa_bulanan || 2500000) + (c.listrik_air_bulanan || 650000) + (c.iuran_kebersihan_bulanan || 150000), 0))}

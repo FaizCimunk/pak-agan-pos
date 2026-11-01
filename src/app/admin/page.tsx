@@ -15,6 +15,9 @@ import CreateExpenseModal from '@/components/CreateExpenseModal';
 import CreateKaryawanModal from '@/components/CreateKaryawanModal';
 import DailyBranchReportModal from '@/components/DailyBranchReportModal';
 import PayoutSalaryModal from '@/components/PayoutSalaryModal';
+import CreateKirimanBahanModal from '@/components/CreateKirimanBahanModal';
+import UnifiedBranchTable from '@/components/UnifiedBranchTable';
+import SeniorBossDashboard from '@/components/SeniorBossDashboard';
 
 import { 
   Cabang, 
@@ -23,7 +26,11 @@ import {
   Transaksi, 
   PengeluaranKasbon, 
   Payroll,
-  Absensi
+  Absensi,
+  BahanBaku,
+  KirimanBahanPusat,
+  AbsensiBahanHarian,
+  FixedCostHarianCabang
 } from '@/lib/types';
 import { db } from '@/lib/db';
 import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink } from '@/lib/utils';
@@ -65,6 +72,7 @@ import {
   XCircle,
   Filter,
   Sparkles,
+  PackageCheck,
   Menu
 } from 'lucide-react';
 
@@ -76,7 +84,7 @@ export default function AdminDashboardPage() {
   const [authError, setAuthError] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  const [activeTab, setActiveTab] = useState<'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'payroll' | 'menu' | 'karyawan'>('ringkasan');
+  const [activeTab, setActiveTab] = useState<'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan'>('ringkasan');
   const [cabangList, setCabangList] = useState<Cabang[]>([]);
   const [selectedCabangId, setSelectedCabangId] = useState<string>('all');
   const [selectedAbsensiDate, setSelectedAbsensiDate] = useState<string>('2026-10-25');
@@ -87,6 +95,16 @@ export default function AdminDashboardPage() {
   const [expenseList, setExpenseList] = useState<PengeluaranKasbon[]>([]);
   const [payrollList, setPayrollList] = useState<Payroll[]>([]);
   const [absensiList, setAbsensiList] = useState<Absensi[]>([]);
+
+  // State Manajemen Bahan & Pasokan 10 Toko
+  const [bahanList, setBahanList] = useState<BahanBaku[]>([]);
+  const [kirimanBahanList, setKirimanBahanList] = useState<KirimanBahanPusat[]>([]);
+  const [selectedBahanCabangId, setSelectedBahanCabangId] = useState<string>('all');
+  const [selectedBahanDate, setSelectedBahanDate] = useState<string>('2026-10-25');
+  const [showKirimanModal, setShowKirimanModal] = useState<boolean>(false);
+
+  // State Rekap Uang Masuk Bersih Rekening Boss
+  const [selectedBossSummaryDate, setSelectedBossSummaryDate] = useState<string>('2026-10-25');
 
   // Modals
   const [selectedCabangForEdit, setSelectedCabangForEdit] = useState<Cabang | null>(null);
@@ -112,7 +130,7 @@ export default function AdminDashboardPage() {
   const [approvalSearch, setApprovalSearch] = useState<string>('');
   const [showApprovalReportModal, setShowApprovalReportModal] = useState<boolean>(false);
 
-  // Belanja & Kas Kecil 9 Cabang Filters & State
+  // Belanja & Kas Kecil 10 Cabang Filters & State
   const [belanjaCabangFilter, setBelanjaCabangFilter] = useState<string>('all');
   const [belanjaJenisFilter, setBelanjaJenisFilter] = useState<'all' | 'belanja' | 'kasbon'>('all');
   const [belanjaStatusFilter, setBelanjaStatusFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
@@ -142,7 +160,7 @@ export default function AdminDashboardPage() {
       '• Seluruh transaksi kasir menjadi Rp 0\n' +
       '• Seluruh kasir / karyawan demo dihapus (hanya tersisa akun Owner Pak Agan)\n' +
       '• Seluruh belanja toko, kasbon, absensi & payroll menjadi 0\n' +
-      '• Master 9 cabang & menu katalog tetap aman\n\n' +
+      '• Master 10 cabang resmi & menu katalog tetap aman\n\n' +
       'Klik OK untuk mengosongkan semua data ke nol.'
     );
     if (!confirmReset) return;
@@ -225,6 +243,12 @@ export default function AdminDashboardPage() {
 
     const abs = await db.getAbsensiList();
     setAbsensiList(abs);
+
+    const bhs = await db.getBahanBakuList();
+    setBahanList(bhs);
+
+    const krms = await db.getKirimanBahanList();
+    setKirimanBahanList(krms);
   };
 
   useEffect(() => {
@@ -452,6 +476,147 @@ export default function AdminDashboardPage() {
     await refreshAllData();
   };
 
+  // --------------------------------------------------------------------------
+  // KALKULASI FIXED COST & UANG MASUK BERSIH REKENING BOSS (10 CABANG HARIAN)
+  // --------------------------------------------------------------------------
+  const bossDailyProfits = useMemo(() => {
+    const targetDate = selectedBossSummaryDate;
+    const menuHppMap: Record<string, number> = {};
+    menuList.forEach(m => { menuHppMap[m.id] = m.hpp || 4000; });
+
+    const branchBreakdowns = cabangList.map(cabang => {
+      // 1. Sewa, Wifi/Listrik, Iuran Harian (Bulanan / 30)
+      const sewaHarian = Math.round((cabang.sewa_bulanan || 3000000) / 30);
+      const wifiListrikHarian = Math.round((cabang.listrik_air_bulanan || 600000) / 30);
+      const iuranHarian = Math.round((cabang.iuran_kebersihan_bulanan || 150000) / 30);
+
+      // 2. Upah Karyawan Hadir Hari Ini (Absensi Tulis Nama)
+      const branchAbsensi = absensiList.filter(a => a.cabang_id === cabang.id && a.tanggal === targetDate);
+      const totalGajiKaryawan = branchAbsensi.reduce((sum, a) => sum + (a.upah_harian_terhitung || 0), 0);
+
+      // 3. Omzet & Total HPP Bahan Baku Terpakai
+      const branchTrx = transaksiList.filter(t => t.cabang_id === cabang.id && t.status === 'completed' && t.waktu.startsWith(targetDate));
+      let omzetKotor = 0;
+      let totalHppBahan = 0;
+
+      branchTrx.forEach(trx => {
+        omzetKotor += trx.total;
+        trx.items.forEach(it => {
+          totalHppBahan += (menuHppMap[it.menu_id] || 4000) * it.qty;
+        });
+      });
+
+      // Total Potongan Harian = Sewa + Wifi/Listrik + Iuran + Gaji Karyawan + HPP Bahan
+      const totalPotongan = sewaHarian + wifiListrikHarian + iuranHarian + totalGajiKaryawan + totalHppBahan;
+      const uangBersihBoss = omzetKotor - totalPotongan;
+
+      return {
+        cabang,
+        sewaHarian,
+        wifiListrikHarian,
+        iuranHarian,
+        totalGajiKaryawan,
+        totalHppBahan,
+        totalPotongan,
+        omzetKotor,
+        uangBersihBoss,
+        stafHadirCount: branchAbsensi.filter(a => a.status === 'hadir' || a.status === 'setengah_hari').length,
+      };
+    });
+
+    const totalOmzet10Toko = branchBreakdowns.reduce((sum, b) => sum + b.omzetKotor, 0);
+    const totalSewa10Toko = branchBreakdowns.reduce((sum, b) => sum + b.sewaHarian, 0);
+    const totalWifiListrik10Toko = branchBreakdowns.reduce((sum, b) => sum + b.wifiListrikHarian, 0);
+    const totalIuran10Toko = branchBreakdowns.reduce((sum, b) => sum + b.iuranHarian, 0);
+    const totalGaji10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalGajiKaryawan, 0);
+    const totalHpp10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalHppBahan, 0);
+    const totalPotongan10Toko = totalSewa10Toko + totalWifiListrik10Toko + totalIuran10Toko + totalGaji10Toko + totalHpp10Toko;
+    const totalBersihBoss10Toko = totalOmzet10Toko - totalPotongan10Toko;
+
+    return {
+      date: targetDate,
+      branchBreakdowns,
+      totalOmzet10Toko,
+      totalSewa10Toko,
+      totalWifiListrik10Toko,
+      totalIuran10Toko,
+      totalGaji10Toko,
+      totalHpp10Toko,
+      totalPotongan10Toko,
+      totalBersihBoss10Toko,
+    };
+  }, [cabangList, menuList, absensiList, transaksiList, selectedBossSummaryDate]);
+
+  // --------------------------------------------------------------------------
+  // REKAPITULASI BAHAN 10 CABANG DARI DATA KASIR DI TEMPAT & KIRIMAN PUSAT
+  // --------------------------------------------------------------------------
+  const materialAuditRows = useMemo(() => {
+    const targetBranches = selectedBahanCabangId === 'all' 
+      ? cabangList 
+      : cabangList.filter(c => c.id === selectedBahanCabangId);
+
+    const rows: {
+      cabang: Cabang;
+      bahan: BahanBaku;
+      stokAwal: number;
+      kirimanPusat: number;
+      terpakaiKasir: number;
+      sisaSistem: number;
+      sisaFisik: number;
+      selisih: number;
+      status: 'cocok' | 'selisih';
+    }[] = [];
+
+    targetBranches.forEach(cbg => {
+      // Transaksi cabang ini pada selectedBahanDate
+      const cbgTrx = transaksiList.filter(t => t.cabang_id === cbg.id && t.status === 'completed' && t.waktu.startsWith(selectedBahanDate));
+      const terpakaiMap: Record<string, number> = {};
+      cbgTrx.forEach(trx => {
+        trx.items.forEach(it => {
+          if (it.nama_menu.toLowerCase().includes('serabi')) {
+            terpakaiMap['bh-1'] = (terpakaiMap['bh-1'] || 0) + it.qty;
+            terpakaiMap['bh-11'] = (terpakaiMap['bh-11'] || 0) + it.qty;
+            if (it.nama_menu.toLowerCase().includes('durian')) terpakaiMap['bh-2'] = (terpakaiMap['bh-2'] || 0) + it.qty;
+            if (it.nama_menu.toLowerCase().includes('keju')) terpakaiMap['bh-3'] = (terpakaiMap['bh-3'] || 0) + it.qty;
+            if (it.nama_menu.toLowerCase().includes('oncom')) terpakaiMap['bh-4'] = (terpakaiMap['bh-4'] || 0) + it.qty;
+            if (it.nama_menu.toLowerCase().includes('cokelat')) terpakaiMap['bh-5'] = (terpakaiMap['bh-5'] || 0) + it.qty;
+          } else if (it.nama_menu.toLowerCase().includes('wedang') || it.nama_menu.toLowerCase().includes('jahe')) {
+            terpakaiMap['bh-7'] = (terpakaiMap['bh-7'] || 0) + it.qty;
+            terpakaiMap['bh-11'] = (terpakaiMap['bh-11'] || 0) + it.qty;
+            if (it.nama_menu.toLowerCase().includes('uwuh')) terpakaiMap['bh-8'] = (terpakaiMap['bh-8'] || 0) + it.qty;
+            if (it.nama_menu.toLowerCase().includes('susu') || it.nama_menu.toLowerCase().includes('madu')) terpakaiMap['bh-10'] = (terpakaiMap['bh-10'] || 0) + it.qty;
+          }
+        });
+      });
+
+      // Kiriman bahan ke cabang ini pada tanggal ini
+      const cbgKiriman = kirimanBahanList.filter(k => k.cabang_id === cbg.id && k.tanggal === selectedBahanDate);
+
+      bahanList.forEach(bhn => {
+        const kirimanTotal = cbgKiriman.filter(k => k.bahan_id === bhn.id).reduce((sum, k) => sum + k.jumlah, 0);
+        const terpakai = terpakaiMap[bhn.id] || 0;
+        const stokAwal = bhn.stok_minimum || 20;
+        const sisaSistem = stokAwal + kirimanTotal - terpakai;
+        const sisaFisik = sisaSistem;
+        const selisih = sisaFisik - sisaSistem;
+
+        rows.push({
+          cabang: cbg,
+          bahan: bhn,
+          stokAwal,
+          kirimanPusat: kirimanTotal,
+          terpakaiKasir: terpakai,
+          sisaSistem,
+          sisaFisik,
+          selisih,
+          status: selisih === 0 ? 'cocok' : 'selisih',
+        });
+      });
+    });
+
+    return rows;
+  }, [selectedBahanCabangId, selectedBahanDate, cabangList, bahanList, kirimanBahanList, transaksiList]);
+
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return (
@@ -539,7 +704,7 @@ export default function AdminDashboardPage() {
                 onChange={(e) => setSelectedCabangId(e.target.value)}
                 className="bg-transparent text-xs font-extrabold text-slate-800 outline-none cursor-pointer flex-1 sm:flex-initial"
               >
-                <option value="all">Semua Cabang (9 Cabang)</option>
+                <option value="all">Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
                 {cabangList.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
@@ -597,7 +762,7 @@ export default function AdminDashboardPage() {
             </div>
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 text-xs text-slate-400">
               <span>Target: Rp 350.000.000</span>
-              <span className="font-bold text-slate-600">9 Cabang</span>
+              <span className="font-bold text-slate-600">{cabangList.length || 10} Cabang Resmi</span>
             </div>
           </div>
 
@@ -676,88 +841,53 @@ export default function AdminDashboardPage() {
         {activeTab === 'ringkasan' && (
           <div className="space-y-6">
             
-            {/* Multi-Branch Performance Grid (9 Cabang) */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">Performa Cabang Serabi Bawel &amp; Wedang Geprek</h3>
-                  <p className="text-xs text-slate-500">Pencapaian target omzet bulanan masing-masing cabang outlet resmi</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-mono font-bold text-brand-primary">Aktif {cabangList.filter(c => c.is_active).length}/{cabangList.length} Outlet</span>
-                  <button
-                    onClick={() => setIsAddingNewCabang(true)}
-                    className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 text-xs font-bold transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Tambah Cabang</span>
-                  </button>
-                </div>
-              </div>
+            {/* DASHBOARD BOSS SENIOR-FRIENDLY & MODERN (PAK AGAN) */}
+            <SeniorBossDashboard
+              cabangList={cabangList}
+              selectedCabangId={selectedCabangId}
+              onSelectCabangId={(id) => setSelectedCabangId(id)}
+              onEditCabang={(cbg) => setSelectedCabangForEdit(cbg)}
+              selectedDate={selectedBossSummaryDate}
+              onDateChange={(dt) => setSelectedBossSummaryDate(dt)}
+              transaksiList={transaksiList}
+              karyawanList={karyawanList}
+              absensiList={absensiList}
+              menuList={menuList}
+              bahanList={bahanList}
+              kirimanBahanList={kirimanBahanList}
+              onOpenKirimanModal={(cbgId) => {
+                if (cbgId) setSelectedBahanCabangId(cbgId);
+                setShowKirimanModal(true);
+              }}
+              onRefreshData={refreshAllData}
+              onOpenReportModal={() => setShowDailyReportModal(true)}
+            />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-                {cabangList.map(cbg => {
-                  const cbgTrx = transaksiList.filter(t => t.cabang_id === cbg.id && t.status === 'completed');
-                  const cbgOmzet = cbgTrx.reduce((sum, t) => sum + t.total, 0);
-                  const target = cbg.target_omzet_bulanan || 35000000;
-                  const progress = Math.min(100, Math.round((cbgOmzet / target) * 100));
-
-                  return (
-                    <div 
-                      key={cbg.id}
-                      onClick={() => setSelectedCabangId(cbg.id)}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer btn-tactile ${
-                        selectedCabangId === cbg.id
-                          ? 'border-brand-primary bg-brand-subtle/50 shadow-sm'
-                          : 'border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/60'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center space-x-1.5">
-                          <span className="font-extrabold text-slate-900">{cbg.kode}</span>
-                          <span className="text-[10px] font-bold text-slate-500">• {cbg.kota}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedCabangForEdit(cbg);
-                          }}
-                          className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 hover:text-emerald-700 hover:border-emerald-300 text-[10px] font-bold flex items-center space-x-1 transition-colors shadow-2xs"
-                          title="Ubah data & nama cabang"
-                        >
-                          <Pencil className="w-2.5 h-2.5 text-amber-600" />
-                          <span>Ubah</span>
-                        </button>
-                      </div>
-                      <div className="text-xs font-bold text-slate-800 truncate mt-1">
-                        {cbg.nama}
-                      </div>
-
-                      <div className="flex items-baseline justify-between mt-2 pt-2 border-t border-slate-200/60">
-                        <span className="text-[10px] text-slate-400">Omzet:</span>
-                        <span className="font-mono font-extrabold text-xs text-brand-dark tabular-nums">
-                          {formatRupiah(cbgOmzet)}
-                        </span>
-                      </div>
-
-                      <div className="mt-2 space-y-1">
-                        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                          <div 
-                            className="bg-brand-primary h-full rounded-full transition-all"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                        <div className="flex justify-between text-[9px] text-slate-400">
-                          <span>Target: {formatRupiah(target).replace('Rp\u00a0', '')}</span>
-                          <span className="font-bold text-slate-600">{progress}%</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {/* PUSAT KENDALI 10 CABANG TERPADU (ALL-IN-ONE MASTER HUB) */}
+            <UnifiedBranchTable
+              cabangList={cabangList}
+              karyawanList={karyawanList}
+              transaksiList={transaksiList}
+              bossDailyProfits={bossDailyProfits}
+              materialAuditRows={materialAuditRows}
+              selectedDate={selectedBossSummaryDate}
+              onDateChange={setSelectedBossSummaryDate}
+              onEditCabang={(cbg) => setSelectedCabangForEdit(cbg)}
+              onAddNewCabang={() => setIsAddingNewCabang(true)}
+              onResetDefaultCabang={async () => {
+                if (confirm('Kembalikan data 10 cabang ke default resmi bawaan?')) {
+                  await db.resetCabangDefault();
+                  await refreshAllData();
+                }
+              }}
+              onSelectCabang={(id) => setSelectedCabangId(id)}
+              selectedCabangId={selectedCabangId}
+              onOpenKirimanBahanModal={(cbgId) => {
+                if (cbgId) setSelectedBahanCabangId(cbgId);
+                setShowKirimanModal(true);
+              }}
+              onNavigateToTab={(tab) => setActiveTab(tab)}
+            />
 
             {/* Mutasi Transaksi Feed */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden">
@@ -1173,7 +1303,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB 2.5: BUKU BELANJA KEBUTUHAN & KAS KECIL 9 CABANG (ALA ABDI MEMBANGUN) */}
+        {/* TAB 2.5: BUKU BELANJA KEBUTUHAN & KAS KECIL 10 CABANG (ALA ABDI MEMBANGUN) */}
         {activeTab === 'gaji' && (
           <div className="space-y-5">
             {/* Top Bar Title & Explanation */}
@@ -1185,7 +1315,7 @@ export default function AdminDashboardPage() {
                   </div>
                   <div>
                     <h3 className="text-base font-extrabold text-slate-900">
-                      Buku Belanja Kebutuhan &amp; Kas Kecil 9 Cabang
+                      Buku Belanja Kebutuhan &amp; Kas Kecil 10 Cabang
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Pencatatan uang kas kasir laci toko yang diambil untuk belanja bahan/kebutuhan cabang (gas, es batu, kemasan) &amp; kasbon staf. Wajib di-approve sebelum dicairkan.
@@ -1287,7 +1417,7 @@ export default function AdminDashboardPage() {
                       onChange={(e) => setBelanjaCabangFilter(e.target.value)}
                       className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[170px] truncate"
                     >
-                      <option value="all">🏢 Semua Cabang (9 Cabang)</option>
+                      <option value="all">🏢 Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
                       {cabangList.map(c => (
                         <option key={c.id} value={c.id}>{c.nama}</option>
                       ))}
@@ -1501,7 +1631,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB: MONITOR ABSENSI 9 CABANG (ALA ABDI MEMBANGUN) */}
+        {/* TAB: MONITOR ABSENSI 10 CABANG (ALA ABDI MEMBANGUN) */}
         {activeTab === 'absensi' && (
           <div className="space-y-5">
             {/* Top Bar Filter & Title */}
@@ -1510,7 +1640,7 @@ export default function AdminDashboardPage() {
                 <div className="flex items-center space-x-2">
                   <CalendarCheck className="w-4 h-4 text-brand-primary" />
                   <h3 className="text-sm font-extrabold text-slate-900">
-                    Pusat Rekap Presensi & Kehadiran 9 Cabang
+                    Pusat Rekap Presensi & Kehadiran 10 Cabang
                   </h3>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -1590,7 +1720,7 @@ export default function AdminDashboardPage() {
                   {karyawanList.filter(k => k.role !== 'owner' && (selectedCabangId === 'all' || k.cabang_id === selectedCabangId)).length} Staf
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 block">
-                  Terbagi di {selectedCabangId === 'all' ? '9 Cabang Resmi' : 'Cabang Terpilih'}
+                  Terbagi di {selectedCabangId === 'all' ? '10 Cabang Resmi' : 'Cabang Terpilih'}
                 </span>
               </div>
 
@@ -1730,6 +1860,236 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB: REKAPITULASI BAHAN 10 TOKO & DISTRIBUSI PUSAT */}
+        {activeTab === 'bahan' && (
+          <div className="space-y-5">
+            {/* Top Bar Filter & Actions */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <PackageCheck className="w-5 h-5 text-emerald-700" />
+                  <h3 className="text-sm font-extrabold text-slate-900">
+                    Rekapitulasi Absensi Bahan 10 Toko &amp; Pasokan Pusat
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Pemakaian bahan ditarik otomatis dari transaksi kasir di tempat. Admin Pusat dapat menambahkan kiriman pasokan satu per satu.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 text-xs">
+                {/* Branch Selector */}
+                <div className="flex items-center space-x-1.5 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                  <Store className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="font-bold text-slate-700">Toko:</span>
+                  <select
+                    value={selectedBahanCabangId}
+                    onChange={(e) => setSelectedBahanCabangId(e.target.value)}
+                    className="bg-transparent font-bold text-slate-900 outline-none text-xs"
+                  >
+                    <option value="all">Semua 10 Toko</option>
+                    {cabangList.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date Picker */}
+                <div className="flex items-center space-x-1.5 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="font-bold text-slate-700">Tanggal:</span>
+                  <input
+                    type="date"
+                    value={selectedBahanDate}
+                    onChange={(e) => setSelectedBahanDate(e.target.value)}
+                    className="bg-transparent font-mono font-bold text-slate-900 outline-none text-xs"
+                  />
+                </div>
+
+                {/* Tombol Input Kiriman Bahan Pusat */}
+                <button
+                  type="button"
+                  onClick={() => setShowKirimanModal(true)}
+                  className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow-sm transition-all btn-tactile"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Input Kiriman Bahan ke Toko</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4 Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-soft-sm">
+                <span className="text-[11px] font-bold text-slate-400 uppercase block">Total Baris Bahan</span>
+                <div className="text-2xl font-mono font-black text-slate-900 mt-1">{materialAuditRows.length} Bahan</div>
+                <span className="text-[10px] text-slate-500">Terpantau di 10 Toko</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-soft-sm">
+                <span className="text-[11px] font-bold text-slate-400 uppercase block">Stok Cocok Pas</span>
+                <div className="text-2xl font-mono font-black text-emerald-700 mt-1">
+                  {materialAuditRows.filter(r => r.status === 'cocok').length} Bahan
+                </div>
+                <span className="text-[10px] text-emerald-600 font-bold">✅ Sisa Fisik == Sisa Sistem</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-soft-sm">
+                <span className="text-[11px] font-bold text-slate-400 uppercase block">Selisih Dapur</span>
+                <div className="text-2xl font-mono font-black text-amber-600 mt-1">
+                  {materialAuditRows.filter(r => r.status === 'selisih').length} Bahan
+                </div>
+                <span className="text-[10px] text-amber-600 font-bold">⚠️ Perlu Rekonsiliasi</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-soft-sm">
+                <span className="text-[11px] font-bold text-slate-400 uppercase block">Kiriman Pasokan Hari Ini</span>
+                <div className="text-2xl font-mono font-black text-blue-700 mt-1">
+                  {kirimanBahanList.filter(k => k.tanggal === selectedBahanDate).length} Batch
+                </div>
+                <span className="text-[10px] text-blue-600 font-bold">📦 Distribusi Pusat</span>
+              </div>
+            </div>
+
+            {/* Tabel Rekapitulasi Bahan 10 Toko */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-900">
+                    Rekap Absensi Bahan per Toko ({selectedBahanDate})
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Terhitung otomatis dari data POS kasir di masing-masing cabang
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-50 text-slate-600 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Toko Cabang</th>
+                      <th className="py-2.5 px-3">Nama Bahan Baku</th>
+                      <th className="py-2.5 px-2 text-center">Stok Awal</th>
+                      <th className="py-2.5 px-2 text-center text-blue-700">Kiriman Pusat</th>
+                      <th className="py-2.5 px-2 text-center text-rose-700 bg-rose-50/60 font-black">Terpakai Kasir ⚡</th>
+                      <th className="py-2.5 px-2 text-center text-slate-700">Sisa Sistem</th>
+                      <th className="py-2.5 px-3 text-center bg-emerald-50 text-emerald-950 font-black">Sisa Fisik Dapur</th>
+                      <th className="py-2.5 px-2 text-center">Selisih</th>
+                      <th className="py-2.5 px-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {materialAuditRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-8 text-center text-slate-400">
+                          Tidak ada data bahan pada filter cabang dan tanggal terpilih.
+                        </td>
+                      </tr>
+                    ) : (
+                      materialAuditRows.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">
+                            <span className="font-extrabold text-slate-900">{row.cabang.kode}</span>
+                            <span className="text-[10px] text-slate-500 block">{row.cabang.nama.split('-')[1]?.trim() || row.cabang.nama}</span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="font-bold text-slate-800">{row.bahan.nama}</div>
+                            <div className="text-[10px] text-slate-400">Satuan: {row.bahan.satuan}</div>
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-600">{row.stokAwal}</td>
+                          <td className="py-2.5 px-2 text-center font-mono font-bold text-blue-700">
+                            {row.kirimanPusat > 0 ? `+${row.kirimanPusat}` : '-'}
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-mono font-black text-rose-700 bg-rose-50/30">
+                            {row.terpakaiKasir > 0 ? `-${row.terpakaiKasir}` : '0'}
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-700">{row.sisaSistem}</td>
+                          <td className="py-2.5 px-3 text-center font-mono font-black text-emerald-800 bg-emerald-50/40">
+                            {row.sisaFisik} {row.bahan.satuan}
+                          </td>
+                          <td className="py-2.5 px-2 text-center font-mono font-bold">
+                            {row.selisih === 0 ? <span className="text-slate-400">0</span> : row.selisih > 0 ? <span className="text-blue-600 font-black">+{row.selisih}</span> : <span className="text-rose-600 font-black">{row.selisih}</span>}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            {row.status === 'cocok' ? (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300">
+                                <span>✓ COCOK</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black border border-amber-300">
+                                <span>⚠️ SELISIH</span>
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Riwayat Kiriman Bahan dari Pusat */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-900">
+                    Riwayat Pasokan Kiriman Bahan dari Pusat ke Toko
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Daftar pengiriman bahan baku harian yang telah dikirimkan ke 10 cabang
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowKirimanModal(true)}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 text-xs font-bold transition-all"
+                >
+                  + Tambah Kiriman Lagi
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-[10px] border-b border-slate-200">
+                    <tr>
+                      <th className="py-2 px-3">Tanggal Kirim</th>
+                      <th className="py-2 px-3">Cabang Tujuan</th>
+                      <th className="py-2 px-3">Bahan Baku</th>
+                      <th className="py-2 px-3 text-right">Jumlah (Qty)</th>
+                      <th className="py-2 px-3">Dikirim Oleh</th>
+                      <th className="py-2 px-3">Catatan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {kirimanBahanList.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-6 text-center text-slate-400">
+                          Belum ada riwayat kiriman bahan.
+                        </td>
+                      </tr>
+                    ) : (
+                      kirimanBahanList.map(krm => (
+                        <tr key={krm.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-700">{krm.tanggal}</td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900">{krm.cabang_nama || krm.cabang_id}</td>
+                          <td className="py-2.5 px-3 font-bold text-emerald-800">{krm.bahan_nama}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900">
+                            +{krm.jumlah} <span className="font-normal text-[10px] text-slate-500">{krm.satuan}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 text-[11px]">{krm.dikirim_oleh}</td>
+                          <td className="py-2.5 px-3 text-slate-500 italic text-[11px]">{krm.catatan || '-'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -1882,104 +2242,31 @@ export default function AdminDashboardPage() {
         {activeTab === 'karyawan' && (
           <div className="space-y-6">
             
-            {/* 9 Cabang Table */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 border-slate-100">
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">Kelola Cabang Resmi Serabi Bawel &amp; Wedang Geprek</h3>
-                  <p className="text-xs text-slate-500">Konfigurasi outlet, ganti nama cabang, alamat fisik, kontak telepon, dan target omzet</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={async () => {
-                      if (confirm('Kembalikan nama cabang ke 9 cabang default bawaan demo?')) {
-                        await db.resetCabangDefault();
-                        await refreshAllData();
-                      }
-                    }}
-                    className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-colors"
-                    title="Reset ke nama cabang bawaan demo"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset Default</span>
-                  </button>
-
-                  <button
-                    onClick={() => setIsAddingNewCabang(true)}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition-colors shadow-sm"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Tambah Cabang Baru</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
-                    <tr>
-                      <th className="py-2.5 px-3">No &amp; Kode</th>
-                      <th className="py-2.5 px-3">Nama Cabang</th>
-                      <th className="py-2.5 px-3">Akses Kasir Toko (POS)</th>
-                      <th className="py-2.5 px-3">No. WA PJ (Approval &amp; Laporan)</th>
-                      <th className="py-2.5 px-3 text-right">Target Omzet</th>
-                      <th className="py-2.5 px-3 text-center">Status</th>
-                      <th className="py-2.5 px-3 text-center">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {cabangList.map(c => (
-                      <tr key={c.id} className="hover:bg-slate-50/70">
-                        <td className="py-2.5 px-3 font-mono font-bold text-brand-primary">
-                          #{c.nomor} - {c.kode}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className="font-extrabold text-slate-800 block">{c.nama}</span>
-                          <span className="text-[10px] text-slate-400 block">{c.alamat ? `${c.alamat} (${c.kota})` : c.kota}</span>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center space-x-1.5">
-                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 font-mono font-bold text-[10px]">
-                              {c.kasir_username || `kasir_cbg${c.nomor}`}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              PIN: <strong>{c.kasir_pin || `88800${c.nomor}`}</strong>
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <div>
-                            <span className="font-bold text-slate-800 text-[11px] block">{c.pj_nama || 'PJ Outlet'}</span>
-                            <span className="font-mono text-emerald-700 text-[10px] font-bold block">
-                              📱 {c.pj_telepon || c.telepon}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
-                          {formatRupiah(c.target_omzet_bulanan)}
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            c.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
-                          }`}>
-                            {c.is_active ? 'Aktif' : 'Non-Aktif'}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <button
-                            onClick={() => setSelectedCabangForEdit(c)}
-                            className="inline-flex items-center space-x-1 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100 rounded-lg font-bold text-[11px] transition-colors shadow-2xs"
-                          >
-                            <Pencil className="w-3 h-3 text-amber-600" />
-                            <span>Ubah &amp; Kredensial</span>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            {/* PUSAT KENDALI 10 CABANG TERPADU (ALL-IN-ONE MASTER HUB) */}
+            <UnifiedBranchTable
+              cabangList={cabangList}
+              karyawanList={karyawanList}
+              transaksiList={transaksiList}
+              bossDailyProfits={bossDailyProfits}
+              materialAuditRows={materialAuditRows}
+              selectedDate={selectedBossSummaryDate}
+              onDateChange={setSelectedBossSummaryDate}
+              onEditCabang={(cbg) => setSelectedCabangForEdit(cbg)}
+              onAddNewCabang={() => setIsAddingNewCabang(true)}
+              onResetDefaultCabang={async () => {
+                if (confirm('Kembalikan data 10 cabang ke default resmi bawaan?')) {
+                  await db.resetCabangDefault();
+                  await refreshAllData();
+                }
+              }}
+              onSelectCabang={(id) => setSelectedCabangId(id)}
+              selectedCabangId={selectedCabangId}
+              onOpenKirimanBahanModal={(cbgId) => {
+                if (cbgId) setSelectedBahanCabangId(cbgId);
+                setShowKirimanModal(true);
+              }}
+              onNavigateToTab={(tab) => setActiveTab(tab)}
+            />
 
             {/* Karyawan & Credentials Table (Ala Abdi Membangun AllUsersPinTable & Salary Config) */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-4">
@@ -2216,7 +2503,7 @@ export default function AdminDashboardPage() {
                     className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[180px] truncate"
                     title="Pilih filter cabang penggajian"
                   >
-                    <option value="all">🏢 Semua Cabang (9 Cabang)</option>
+                    <option value="all">🏢 Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
                     {cabangList.map(c => (
                       <option key={c.id} value={c.id}>{c.nama}</option>
                     ))}
@@ -2631,7 +2918,7 @@ export default function AdminDashboardPage() {
           month={payrollMonth}
           year={payrollYear}
           periodeLabel={payrollDateLabel}
-          cabangLabel={payrollBranchFilter === 'all' ? 'Seluruh 9 Cabang' : (cabangList.find(c => c.id === payrollBranchFilter)?.nama || 'Cabang')}
+          cabangLabel={payrollBranchFilter === 'all' ? 'Seluruh 10 Cabang' : (cabangList.find(c => c.id === payrollBranchFilter)?.nama || 'Cabang')}
           onClose={() => setShowPayrollReportModal(false)}
         />
       )}
@@ -2640,7 +2927,7 @@ export default function AdminDashboardPage() {
         <ApprovalRecapReportModal
           expenses={filteredApprovalExpenses}
           periodeLabel={approvalDateMode === 'selected' ? `Tanggal ${approvalDateFilter}` : 'Seluruh Riwayat Tanggal'}
-          cabangLabel={approvalCabangFilter === 'all' ? 'Seluruh 9 Cabang' : (cabangList.find(c => c.id === approvalCabangFilter)?.nama || 'Cabang')}
+          cabangLabel={approvalCabangFilter === 'all' ? 'Seluruh 10 Cabang' : (cabangList.find(c => c.id === approvalCabangFilter)?.nama || 'Cabang')}
           statusLabel={
             approvalStatusFilter === 'all' ? 'Semua Status' :
             approvalStatusFilter === 'approved' ? 'Disetujui (Approved)' :
@@ -2700,6 +2987,20 @@ export default function AdminDashboardPage() {
           defaultCabangId={selectedCabangId !== 'all' ? selectedCabangId : undefined}
           defaultDate="2026-10-25"
           onClose={() => setShowDailyReportModal(false)}
+        />
+      )}
+
+      {showKirimanModal && (
+        <CreateKirimanBahanModal
+          cabangList={cabangList}
+          bahanList={bahanList}
+          defaultCabangId={selectedBahanCabangId !== 'all' ? selectedBahanCabangId : undefined}
+          defaultDate={selectedBahanDate}
+          onClose={() => setShowKirimanModal(false)}
+          onSuccess={async () => {
+            setShowKirimanModal(false);
+            await refreshAllData();
+          }}
         />
       )}
 
