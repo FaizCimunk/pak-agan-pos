@@ -105,6 +105,7 @@ export default function AdminDashboardPage() {
 
   // State Rekap Uang Masuk Bersih Rekening Boss
   const [selectedBossSummaryDate, setSelectedBossSummaryDate] = useState<string>('2026-10-25');
+  const [showAdvancedTables, setShowAdvancedTables] = useState<boolean>(false);
 
   // Modals
   const [selectedCabangForEdit, setSelectedCabangForEdit] = useState<Cabang | null>(null);
@@ -680,162 +681,117 @@ export default function AdminDashboardPage() {
           </button>
         </div>
 
-        {/* Top Header Bar inside Dashboard */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-brand-primary animate-pulse" />
-              <span className="text-[11px] uppercase font-extrabold tracking-widest text-slate-400">
-                Pusat Kendali Eksekutif Multi-Cabang
-              </span>
+        {/* KASIR MINI LAUNDRY STYLE TOP HEADER (media_1793195318661.png) */}
+        {activeTab === 'ringkasan' ? (
+          <div className="bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-950 p-4 sm:p-5 rounded-3xl text-white shadow-xl flex items-center justify-between border-2 border-amber-400/30">
+            <div className="flex items-center space-x-3 min-w-0">
+              <div className="w-12 h-12 rounded-2xl bg-amber-400 text-emerald-950 flex items-center justify-center text-2xl font-black shadow-md shrink-0">
+                🥞
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center space-x-2">
+                  <h1 className="font-black text-xs sm:text-base tracking-tight text-white uppercase truncate">
+                    SERABI BAWEL &amp; WEDANG GEPREK
+                  </h1>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-extrabold text-[10px] border border-amber-400/40 shrink-0">
+                    Pusat
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-200 mt-0.5 font-medium truncate">
+                  Laporan Hari Ini • Total Omzet: <span className="font-mono font-black text-amber-300">{formatRupiah(bossDailyProfits.totalOmzet10Toko)}</span>
+                </p>
+              </div>
             </div>
-            <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-              Dashboard Keuangan &amp; Manajemen Herbal Pak Agan
-            </h1>
-          </div>
 
-          {/* Controls: Branch Filter & Reset Mulai dari 0 */}
-          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto w-full md:w-auto">
-            <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-slate-200 w-full sm:w-auto">
-              <Store className="w-4 h-4 text-brand-primary shrink-0" />
-              <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Filter Outlet:</span>
-              <select
-                value={selectedCabangId}
-                onChange={(e) => setSelectedCabangId(e.target.value)}
-                className="bg-transparent text-xs font-extrabold text-slate-800 outline-none cursor-pointer flex-1 sm:flex-initial"
+            <div className="flex items-center space-x-2 shrink-0">
+              <div className="hidden sm:flex items-center space-x-2 bg-emerald-950/80 border border-emerald-600/50 px-3 py-1.5 rounded-2xl text-xs font-bold text-amber-300">
+                <span>👑 Owner: Pak Agan</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogoutOwner}
+                className="w-10 h-10 rounded-2xl bg-rose-600/90 hover:bg-rose-700 text-white flex items-center justify-center transition shadow-md cursor-pointer"
+                title="Keluar / Logout"
               >
-                <option value="all">Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
-                {cabangList.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowDailyReportModal(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-sm text-xs font-bold transition-all btn-tactile w-full sm:w-auto justify-center"
-              title="Buka Laporan Rekonsiliasi Harian Kas & Bank (Cetak PDF & Kirim WA)"
-            >
-              <FileText className="w-3.5 h-3.5 text-accent-gold" />
-              <span>Laporan Harian PDF &amp; Bank</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleLoadDemoWeek}
-              className="flex items-center space-x-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-700/20 text-xs font-bold transition-all btn-tactile w-full sm:w-auto justify-center"
-              title="Muat data simulasi lengkap 1 minggu penuh (19 - 25 Okt 2026) untuk mencoba kasbon, approval, & payroll"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>Muat Data Uji Coba 1 Minggu</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleResetDatabase}
-              className="flex items-center space-x-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all btn-tactile w-full sm:w-auto justify-center"
-              title="Kosongkan database transaksi, kasbon, dan staf kasir untuk mulai murni dari 0"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
-              <span>Reset Mulai dari 0</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 4 FINTECH METRIC STAT CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          {/* Card 1: Total Omzet */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm hover:shadow-soft-md transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Omzet Penjualan</span>
-              <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-extrabold border border-emerald-200">
-                <TrendingUp className="w-3 h-3" />
-                <span>+14.8%</span>
-              </span>
-            </div>
-            <div className="text-2xl font-mono font-extrabold text-brand-dark tabular-nums tracking-tight mt-2">
-              {formatRupiah(totalOmzetGlobal)}
-            </div>
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 text-xs text-slate-400">
-              <span>Target: Rp 350.000.000</span>
-              <span className="font-bold text-slate-600">{cabangList.length || 10} Cabang Resmi</span>
-            </div>
-          </div>
-
-          {/* Card 2: Total Transaksi */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm hover:shadow-soft-md transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Volume Transaksi</span>
-              <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-extrabold border border-emerald-200">
-                <TrendingUp className="w-3 h-3" />
-                <span>+8.2%</span>
-              </span>
-            </div>
-            <div className="text-2xl font-mono font-extrabold text-slate-900 tabular-nums tracking-tight mt-2">
-              {totalTransaksiCount} Pesanan
-            </div>
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 text-xs text-slate-400">
-              <span>Rata-rata: {formatRupiah(totalTransaksiCount > 0 ? totalOmzetGlobal / totalTransaksiCount : 0)}</span>
-              <span className="font-bold text-brand-primary">Lancar</span>
-            </div>
-          </div>
-
-          {/* Card 3: Pending Approval */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm hover:shadow-soft-md transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Approval Menunggu</span>
-              {pendingExpenses.length > 0 ? (
-                <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-50 text-accent-gold text-[10px] font-extrabold border border-amber-200 animate-pulse">
-                  <Clock className="w-3 h-3" />
-                  <span>Perlu Aksi</span>
-                </span>
-              ) : (
-                <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">
-                  Nihil
-                </span>
-              )}
-            </div>
-            <div className="text-2xl font-mono font-extrabold text-accent-gold tabular-nums tracking-tight mt-2">
-              {pendingExpenses.length} Pengajuan
-            </div>
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 text-xs text-slate-400">
-              <span>Belanja Toko & Kasbon</span>
-              <button 
-                onClick={() => setActiveTab('approval')}
-                className="font-bold text-accent-gold hover:underline text-xs"
-              >
-                Tinjau Sekarang →
+                <RotateCcw className="w-4 h-4" />
               </button>
             </div>
           </div>
+        ) : (
+          <>
+            {/* Top Header Bar inside Dashboard */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-brand-primary animate-pulse" />
+                  <span className="text-[11px] uppercase font-extrabold tracking-widest text-slate-400">
+                    Pusat Kendali Eksekutif Multi-Cabang
+                  </span>
+                </div>
+                <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+                  Dashboard Keuangan &amp; Manajemen Herbal Pak Agan
+                </h1>
+              </div>
 
-          {/* Card 4: Kasbon Belum Lunas */}
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm hover:shadow-soft-md transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Kasbon Berjalan</span>
-              <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-extrabold border border-blue-200">
-                Unsettled
-              </span>
-            </div>
-            <div className="text-2xl font-mono font-extrabold text-blue-800 tabular-nums tracking-tight mt-2">
-              {formatRupiah(totalUnsettledKasbon)}
-            </div>
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 text-xs text-slate-400">
-              <span>Potongan Payroll</span>
-              <button 
-                onClick={() => setActiveTab('payroll')}
-                className="font-bold text-blue-700 hover:underline text-xs"
-              >
-                Lihat Payroll →
-              </button>
-            </div>
-          </div>
+              {/* Controls: Branch Filter & Reset Mulai dari 0 */}
+              <div className="flex flex-wrap items-center gap-2 self-start md:self-auto w-full md:w-auto">
+                <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-slate-200 w-full sm:w-auto">
+                  <Store className="w-4 h-4 text-brand-primary shrink-0" />
+                  <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Filter Outlet:</span>
+                  <select
+                    value={selectedCabangId}
+                    onChange={(e) => setSelectedCabangId(e.target.value)}
+                    className="bg-transparent text-xs font-extrabold text-slate-800 outline-none cursor-pointer flex-1 sm:flex-initial"
+                  >
+                    <option value="all">Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
+                    {cabangList.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-        </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDailyReportModal(true)}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-sm text-xs font-bold transition-all btn-tactile w-full sm:w-auto justify-center"
+                >
+                  <FileText className="w-3.5 h-3.5 text-accent-gold" />
+                  <span>Laporan Harian PDF &amp; Bank</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4 FINTECH METRIC STAT CARDS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Omzet Penjualan</span>
+                <div className="text-2xl font-mono font-extrabold text-brand-dark tabular-nums tracking-tight mt-2">
+                  {formatRupiah(totalOmzetGlobal)}
+                </div>
+              </div>
+              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Volume Transaksi</span>
+                <div className="text-2xl font-mono font-extrabold text-slate-900 tabular-nums tracking-tight mt-2">
+                  {totalTransaksiCount} Pesanan
+                </div>
+              </div>
+              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Approval Menunggu</span>
+                <div className="text-2xl font-mono font-extrabold text-accent-gold tabular-nums tracking-tight mt-2">
+                  {pendingExpenses.length} Pengajuan
+                </div>
+              </div>
+              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Kasbon Berjalan</span>
+                <div className="text-2xl font-mono font-extrabold text-blue-800 tabular-nums tracking-tight mt-2">
+                  {formatRupiah(totalUnsettledKasbon)}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* TAB 1: RINGKASAN & MUTASI */}
         {activeTab === 'ringkasan' && (
@@ -863,114 +819,133 @@ export default function AdminDashboardPage() {
               onOpenReportModal={() => setShowDailyReportModal(true)}
             />
 
-            {/* PUSAT KENDALI 10 CABANG TERPADU (ALL-IN-ONE MASTER HUB) */}
-            <UnifiedBranchTable
-              cabangList={cabangList}
-              karyawanList={karyawanList}
-              transaksiList={transaksiList}
-              bossDailyProfits={bossDailyProfits}
-              materialAuditRows={materialAuditRows}
-              selectedDate={selectedBossSummaryDate}
-              onDateChange={setSelectedBossSummaryDate}
-              onEditCabang={(cbg) => setSelectedCabangForEdit(cbg)}
-              onAddNewCabang={() => setIsAddingNewCabang(true)}
-              onResetDefaultCabang={async () => {
-                if (confirm('Kembalikan data 10 cabang ke default resmi bawaan?')) {
-                  await db.resetCabangDefault();
-                  await refreshAllData();
-                }
-              }}
-              onSelectCabang={(id) => setSelectedCabangId(id)}
-              selectedCabangId={selectedCabangId}
-              onOpenKirimanBahanModal={(cbgId) => {
-                if (cbgId) setSelectedBahanCabangId(cbgId);
-                setShowKirimanModal(true);
-              }}
-              onNavigateToTab={(tab) => setActiveTab(tab)}
-            />
-
-            {/* Mutasi Transaksi Feed */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-                <div className="flex items-center space-x-2">
-                  <Receipt className="w-4 h-4 text-brand-primary" />
-                  <h3 className="text-sm font-extrabold text-slate-900">Buku Mutasi Penjualan (Bank-Grade Statement)</h3>
-                </div>
-                <span className="text-xs text-slate-500 font-mono font-semibold">
-                  {filteredTransaksi.length} Data Transaksi
+            {/* AKORDION MODE LANJUTAN: TABEL 10 CABANG & MUTASI LENGKAP */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedTables(!showAdvancedTables)}
+                className="w-full py-3.5 px-4 bg-white hover:bg-slate-50 border-2 border-slate-200 rounded-3xl text-xs font-black text-slate-700 flex items-center justify-between shadow-soft-sm transition-all active:scale-[0.99] cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-emerald-700" />
+                  <span>{showAdvancedTables ? 'Sembunyikan Tabel Master 10 Cabang & Mutasi' : '📋 Buka Mode Lanjutan: Tabel Master 10 Cabang & Mutasi Kasir'}</span>
                 </span>
-              </div>
+                <span className="text-slate-400 font-bold">{showAdvancedTables ? '▲ Tutup' : '▼ Tampilkan'}</span>
+              </button>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
-                    <tr>
-                      <th className="py-3 px-4">No. Invoice & Waktu</th>
-                      <th className="py-3 px-4">Cabang Outlet</th>
-                      <th className="py-3 px-4">Kasir & Pelanggan</th>
-                      <th className="py-3 px-4">Item Pesanan</th>
-                      <th className="py-3 px-4">Metode Bayar</th>
-                      <th className="py-3 px-4 text-right">Nominal Tagihan</th>
-                      <th className="py-3 px-4 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredTransaksi.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
-                          <div className="flex flex-col items-center justify-center space-y-2">
-                            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-                              <Receipt className="w-6 h-6" />
-                            </div>
-                            <span className="font-extrabold text-slate-700 text-sm">Belum Ada Transaksi Penjualan (Mulai dari 0)</span>
-                            <span className="text-slate-400 max-w-sm text-center">
-                              Seluruh transaksi saat ini Rp 0. Silakan buka shift kasir di menu POS tablet untuk melayani pesanan pertama.
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredTransaksi.map(trx => (
-                      <tr key={trx.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4">
-                          <span className="font-mono font-bold text-slate-900 block">{trx.invoice_no}</span>
-                          <span className="text-[10px] text-slate-400">{formatWaktu(trx.waktu)}</span>
-                        </td>
-                        <td className="py-3 px-4 font-semibold text-slate-800">
-                          {trx.cabang_nama?.split('-')[1]?.trim() || trx.cabang_nama || 'Cabang'}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="font-bold text-slate-900 block">{trx.nama_pelanggan}</span>
-                          <span className="text-[10px] text-slate-500">Kasir: {trx.karyawan_nama || 'Staf'}</span>
-                        </td>
-                        <td className="py-3 px-4 text-slate-600 max-w-[200px] truncate">
-                          {trx.items?.map(it => `${it.qty}x ${it.nama_menu}`).join(', ') || '-'}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] border ${
-                            trx.metode_bayar === 'tunai'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : trx.metode_bayar === 'qris'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-blue-50 text-blue-700 border-blue-200'
-                          }`}>
-                            {trx.metode_bayar}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono font-extrabold text-brand-dark tabular-nums text-sm">
-                          {formatRupiah(trx.total)}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold">
-                            SUCCESS
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                  </tbody>
-                </table>
-              </div>
+              {showAdvancedTables && (
+                <div className="space-y-6 mt-4 animate-fadeIn">
+                  {/* PUSAT KENDALI 10 CABANG TERPADU (ALL-IN-ONE MASTER HUB) */}
+                  <UnifiedBranchTable
+                    cabangList={cabangList}
+                    karyawanList={karyawanList}
+                    transaksiList={transaksiList}
+                    bossDailyProfits={bossDailyProfits}
+                    materialAuditRows={materialAuditRows}
+                    selectedDate={selectedBossSummaryDate}
+                    onDateChange={setSelectedBossSummaryDate}
+                    onEditCabang={(cbg) => setSelectedCabangForEdit(cbg)}
+                    onAddNewCabang={() => setIsAddingNewCabang(true)}
+                    onResetDefaultCabang={async () => {
+                      if (confirm('Kembalikan data 10 cabang ke default resmi bawaan?')) {
+                        await db.resetCabangDefault();
+                        await refreshAllData();
+                      }
+                    }}
+                    onSelectCabang={(id) => setSelectedCabangId(id)}
+                    selectedCabangId={selectedCabangId}
+                    onOpenKirimanBahanModal={(cbgId) => {
+                      if (cbgId) setSelectedBahanCabangId(cbgId);
+                      setShowKirimanModal(true);
+                    }}
+                    onNavigateToTab={(tab) => setActiveTab(tab)}
+                  />
+
+                  {/* Mutasi Transaksi Feed */}
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+                      <div className="flex items-center space-x-2">
+                        <Receipt className="w-4 h-4 text-brand-primary" />
+                        <h3 className="text-sm font-extrabold text-slate-900">Buku Mutasi Penjualan (Bank-Grade Statement)</h3>
+                      </div>
+                      <span className="text-xs text-slate-500 font-mono font-semibold">
+                        {filteredTransaksi.length} Data Transaksi
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
+                          <tr>
+                            <th className="py-3 px-4">No. Invoice &amp; Waktu</th>
+                            <th className="py-3 px-4">Cabang Outlet</th>
+                            <th className="py-3 px-4">Kasir &amp; Pelanggan</th>
+                            <th className="py-3 px-4">Item Pesanan</th>
+                            <th className="py-3 px-4">Metode Bayar</th>
+                            <th className="py-3 px-4 text-right">Nominal Tagihan</th>
+                            <th className="py-3 px-4 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredTransaksi.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                                <div className="flex flex-col items-center justify-center space-y-2">
+                                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                                    <Receipt className="w-6 h-6" />
+                                  </div>
+                                  <span className="font-extrabold text-slate-700 text-sm">Belum Ada Transaksi Penjualan (Mulai dari 0)</span>
+                                  <span className="text-slate-400 max-w-sm text-center">
+                                    Seluruh transaksi saat ini Rp 0. Silakan buka shift kasir di menu POS tablet untuk melayani pesanan pertama.
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredTransaksi.map(trx => (
+                            <tr key={trx.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-3 px-4">
+                                <span className="font-mono font-bold text-slate-900 block">{trx.invoice_no}</span>
+                                <span className="text-[10px] text-slate-400">{formatWaktu(trx.waktu)}</span>
+                              </td>
+                              <td className="py-3 px-4 font-semibold text-slate-800">
+                                {trx.cabang_nama?.split('-')[1]?.trim() || trx.cabang_nama || 'Cabang'}
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="font-bold text-slate-900 block">{trx.nama_pelanggan}</span>
+                                <span className="text-[10px] text-slate-500">Kasir: {trx.karyawan_nama || 'Staf'}</span>
+                              </td>
+                              <td className="py-3 px-4 text-slate-600 max-w-[200px] truncate">
+                                {trx.items?.map(it => `${it.qty}x ${it.nama_menu}`).join(', ') || '-'}
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] border ${
+                                  trx.metode_bayar === 'tunai'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : trx.metode_bayar === 'qris'
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : 'bg-blue-50 text-blue-700 border-blue-200'
+                                }`}>
+                                  {trx.metode_bayar}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-right font-mono font-extrabold text-brand-dark tabular-nums text-sm">
+                                {formatRupiah(trx.total)}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold">
+                                  SUCCESS
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
           </div>

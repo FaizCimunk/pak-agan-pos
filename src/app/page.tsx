@@ -73,6 +73,39 @@ export default function LoginPage() {
     }
   };
 
+  const handleQuickLogin = async (userIdentifier: string, userPin: string) => {
+    setErrorMsg(null);
+    setLoading(true);
+    try {
+      const res = await db.authenticateUser(userIdentifier.trim(), userPin.trim());
+      if (!res.success || !res.user) {
+        setErrorMsg(res.message || 'Login gagal.');
+        setLoading(false);
+        return;
+      }
+      const user = res.user;
+      const cleanId = userIdentifier.trim().toLowerCase();
+      if (user.id.startsWith('kasir-') || cleanId.startsWith('kasir') || cleanId.startsWith('cabang') || cleanId.startsWith('cbg')) {
+        localStorage.setItem('pakagan_device_cabang_id', user.cabang_id);
+        sessionStorage.setItem('pakagan_kasir_session', user.nama || 'Kasir Cabang');
+        sessionStorage.setItem('pakagan_user', JSON.stringify(user));
+        router.push('/pos');
+        return;
+      }
+      if (user.role === 'owner' || cleanId === 'pakagan' || cleanId === 'owner' || cleanId === 'admin') {
+        sessionStorage.setItem('pakagan_user', JSON.stringify(user));
+        sessionStorage.setItem('pakagan_owner_authenticated', 'true');
+        router.push('/admin');
+        return;
+      }
+      sessionStorage.setItem('pakagan_user', JSON.stringify(user));
+      router.push('/karyawan');
+    } catch (err: any) {
+      setErrorMsg('Gagal masuk: ' + (err.message || 'Error'));
+      setLoading(false);
+    }
+  };
+
   const setFastDemo = (userVal: string) => {
     setIdentifier(userVal);
     setPin('1234');
@@ -193,88 +226,68 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Quick Demo Fast-Select Buttons */}
-          <div className="mt-6 pt-4 border-t border-gray-100 relative z-10 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
-                Akses Cepat Uji Coba:
-              </span>
-              <span className="text-[10px] text-emerald-600 font-bold">PIN: 1234</span>
-            </div>
+          {/* Akses Cepat 1-Klik Super Simpel & Ramah Orang Tua */}
+          <div className="space-y-2.5 relative z-10 mb-6">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 block text-center">
+              Pilih Akses Masuk (1 Kali Sentuh):
+            </span>
 
-            {/* Owner Button */}
+            {/* Owner Button (Paling Besar & Menonjol) */}
             <button
               type="button"
-              onClick={() => {
-                setIdentifier('pakagan');
-                setPin('1234');
-                setErrorMsg(null);
-              }}
-              className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl text-xs font-extrabold flex items-center justify-center space-x-1.5 transition shadow-2xs"
+              disabled={loading}
+              onClick={() => handleQuickLogin('pakagan', '1234')}
+              className="w-full p-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-98 text-slate-950 font-black rounded-2xl shadow-lg shadow-amber-500/20 flex items-center justify-between transition-all cursor-pointer border border-amber-300"
             >
-              <span>👑 Masuk Sebagai Owner Pusat (Pak Agan)</span>
+              <div className="flex items-center space-x-3 text-left">
+                <span className="text-2xl">👑</span>
+                <div>
+                  <span className="text-sm font-black text-slate-950 block leading-tight">MASUK SEBAGAI BOSS (PAK AGAN)</span>
+                  <span className="text-[11px] text-amber-950 font-medium">Dashboard Finansial &amp; Uang Rekening BCA</span>
+                </div>
+              </div>
+              <span className="text-base font-bold">→</span>
             </button>
 
             {/* Kasir Toko POS Button */}
             <button
               type="button"
-              onClick={() => {
-                setIdentifier('kasir_cbg1');
-                setPin('888001');
-                setErrorMsg(null);
-              }}
-              className="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 rounded-xl text-xs font-extrabold flex items-center justify-center space-x-1.5 transition shadow-2xs"
+              disabled={loading}
+              onClick={() => handleQuickLogin('kasir_cbg1', '888001')}
+              className="w-full p-3.5 bg-blue-50 hover:bg-blue-100 active:scale-98 text-blue-900 border-2 border-blue-200 rounded-2xl font-bold flex items-center justify-between transition-all cursor-pointer"
             >
-              <span>📟 Masuk Kasir Toko (Cabang 01 Malioboro)</span>
+              <div className="flex items-center space-x-3 text-left">
+                <span className="text-xl">📟</span>
+                <div>
+                  <span className="text-xs font-black block">MASUK KASIR TOKO (POS TABLET)</span>
+                  <span className="text-[10px] text-blue-700">Layar Kasir, Pesanan, &amp; Cetak Struk 58mm</span>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-blue-600">Buka →</span>
             </button>
 
-            {/* Pekerja / Staf Pribadi Quick Select */}
-            <div className="pt-1">
-              <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                Portal Pekerja / Karyawan (Cek Slip &amp; Gaji):
-              </span>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIdentifier('siti');
-                    setPin('1234');
-                    setErrorMsg(null);
-                  }}
-                  className="py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-lg text-[11px] font-bold text-center transition truncate"
-                  title="Siti Rahmawati (Pekerja Cbg 1)"
-                >
-                  Siti (Pekerja)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIdentifier('budi');
-                    setPin('1234');
-                    setErrorMsg(null);
-                  }}
-                  className="py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-lg text-[11px] font-bold text-center transition truncate"
-                  title="Budi Santoso (Pekerja Cbg 2)"
-                >
-                  Budi (Pekerja)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIdentifier('dewi');
-                    setPin('1234');
-                    setErrorMsg(null);
-                  }}
-                  className="py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-lg text-[11px] font-bold text-center transition truncate"
-                  title="Dewi Lestari (Pekerja Cbg 3)"
-                >
-                  Dewi (Pekerja)
-                </button>
+            {/* Portal Karyawan Button */}
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => handleQuickLogin('siti', '1234')}
+              className="w-full p-3.5 bg-emerald-50 hover:bg-emerald-100 active:scale-98 text-emerald-950 border-2 border-emerald-200 rounded-2xl font-bold flex items-center justify-between transition-all cursor-pointer"
+            >
+              <div className="flex items-center space-x-3 text-left">
+                <span className="text-xl">👤</span>
+                <div>
+                  <span className="text-xs font-black block">PORTAL KARYAWAN (HP STAF)</span>
+                  <span className="text-[10px] text-emerald-700">Cek Slip Gaji Bersih &amp; Kehadiran</span>
+                </div>
               </div>
-            </div>
-            <p className="text-[10px] text-slate-400 text-center">
-              Akses Kasir Toko terpisah dari Akun Pekerja. Kredensial &amp; PIN Kasir Toko khusus operasional transaksi penjualan POS.
-            </p>
+              <span className="text-xs font-bold text-emerald-700">Buka →</span>
+            </button>
+          </div>
+
+          <div className="relative z-10 flex items-center my-4">
+            <div className="flex-grow border-t border-slate-200"></div>
+            <span className="flex-shrink mx-3 text-slate-400 text-[10px] font-bold uppercase">Atau Login Manual</span>
+            <div className="flex-grow border-t border-slate-200"></div>
           </div>
         </div>
 
