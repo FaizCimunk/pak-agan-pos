@@ -97,7 +97,7 @@ export default function SeniorBossDashboard({
   const [savingHpp, setSavingHpp] = useState<boolean>(false);
 
   // Channel filter for Riwayat Kasir
-  const [channelFilter, setChannelFilter] = useState<'all' | 'tunai' | 'shopeefood' | 'gofood' | 'grabfood'>('all');
+  const [channelFilter, setChannelFilter] = useState<'all' | 'tunai' | 'qris' | 'shopeefood' | 'gofood' | 'grabfood'>('all');
 
   // Currently active branch
   const activeCabang = cabangList.find(c => c.id === selectedCabangId) || null;
@@ -126,6 +126,12 @@ export default function SeniorBossDashboard({
   const tunaiLaci = useMemo(() => {
     return targetTrx
       .filter(t => t.metode_bayar === 'tunai' || !t.metode_bayar)
+      .reduce((sum, t) => sum + t.total, 0);
+  }, [targetTrx]);
+
+  const qrisTotal = useMemo(() => {
+    return targetTrx
+      .filter(t => t.metode_bayar === 'qris')
       .reduce((sum, t) => sum + t.total, 0);
   }, [targetTrx]);
 
@@ -980,6 +986,7 @@ export default function SeniorBossDashboard({
               >
                 <option value="all">Semua Channel</option>
                 <option value="tunai">💵 Tunai (Laci)</option>
+                <option value="qris">📱 QRIS (BCA / E-Wallet)</option>
                 <option value="shopeefood">🟠 ShopeeFood</option>
                 <option value="gofood">🛵 GoFood</option>
                 <option value="grabfood">🟢 GrabFood</option>
@@ -1059,6 +1066,18 @@ export default function SeniorBossDashboard({
                   </div>
                 </div>
                 <span className="font-mono font-black text-sm text-emerald-900">{formatRupiah(tunaiLaci)}</span>
+              </div>
+
+              {/* QRIS (BCA / All E-Wallet) */}
+              <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-2xl">📱</span>
+                  <div>
+                    <span className="font-black text-xs text-blue-950 block">QRIS Dinamis</span>
+                    <span className="text-[10px] text-blue-700">Scan QR langsung masuk rekening BCA Pak Agan</span>
+                  </div>
+                </div>
+                <span className="font-mono font-black text-sm text-blue-900">{formatRupiah(qrisTotal)}</span>
               </div>
 
               {/* ShopeePay */}

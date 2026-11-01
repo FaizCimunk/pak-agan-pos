@@ -85,18 +85,18 @@ export default function PaymentModal({
           </div>
         </div>
 
-        {/* 4 Metode Utama: Tunai, ShopeeFood, GoFood, GrabFood (+ QRIS) */}
+        {/* 5 Metode Utama: Tunai, QRIS, ShopeeFood, GoFood, GrabFood */}
         <div className="px-5 pt-3">
           <label className="text-[11px] font-bold text-slate-500 block mb-1.5 uppercase tracking-wider">
             Pilih Channel / Posisi Uang Masuk:
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             
             {/* 1. TUNAI */}
             <button
               type="button"
               onClick={() => { setMethod('tunai'); setBayarInput(total); }}
-              className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center transition-all ${
+              className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-center transition-all cursor-pointer ${
                 method === 'tunai'
                   ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-sm ring-2 ring-emerald-500/20'
                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -104,14 +104,29 @@ export default function PaymentModal({
             >
               <Banknote className="w-5 h-5 text-emerald-600 mb-1" />
               <span className="text-xs font-black">Tunai</span>
-              <span className="text-[9px] text-slate-400">Kas Laci Meja</span>
+              <span className="text-[9px] text-slate-400">Kas Laci</span>
             </button>
 
-            {/* 2. SHOPEEFOOD / SHOPEEPAY */}
+            {/* 2. QRIS (BCA / ALL E-WALLET) */}
+            <button
+              type="button"
+              onClick={() => { setMethod('qris'); setBayarInput(total); }}
+              className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-center transition-all cursor-pointer ${
+                method === 'qris'
+                  ? 'bg-blue-50 border-blue-500 text-blue-900 shadow-sm ring-2 ring-blue-500/20'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <QrCode className="w-5 h-5 text-blue-600 mb-1" />
+              <span className="text-xs font-black">QRIS</span>
+              <span className="text-[9px] text-slate-400">BCA / Wallet</span>
+            </button>
+
+            {/* 3. SHOPEEFOOD / SHOPEEPAY */}
             <button
               type="button"
               onClick={() => { setMethod('shopeefood'); setBayarInput(total); }}
-              className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center transition-all ${
+              className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-center transition-all cursor-pointer ${
                 method === 'shopeefood'
                   ? 'bg-amber-50 border-amber-500 text-amber-950 shadow-sm ring-2 ring-amber-500/20'
                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -120,15 +135,15 @@ export default function PaymentModal({
               <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] font-black mb-1">
                 S
               </div>
-              <span className="text-xs font-black">ShopeeFood</span>
+              <span className="text-xs font-black">Shopee</span>
               <span className="text-[9px] text-slate-400">ShopeePay</span>
             </button>
 
-            {/* 3. GOFOOD / GOPAY */}
+            {/* 4. GOFOOD / GOPAY */}
             <button
               type="button"
               onClick={() => { setMethod('gofood'); setBayarInput(total); }}
-              className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center transition-all ${
+              className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-center transition-all cursor-pointer ${
                 method === 'gofood'
                   ? 'bg-rose-50 border-rose-500 text-rose-950 shadow-sm ring-2 ring-rose-500/20'
                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -138,14 +153,14 @@ export default function PaymentModal({
                 G
               </div>
               <span className="text-xs font-black">GoFood</span>
-              <span className="text-[9px] text-slate-400">GoBiz / GoPay</span>
+              <span className="text-[9px] text-slate-400">GoPay</span>
             </button>
 
-            {/* 4. GRABFOOD / OVO */}
+            {/* 5. GRABFOOD / OVO */}
             <button
               type="button"
               onClick={() => { setMethod('grabfood'); setBayarInput(total); }}
-              className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border text-center transition-all ${
+              className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-center transition-all cursor-pointer ${
                 method === 'grabfood'
                   ? 'bg-green-50 border-green-500 text-green-950 shadow-sm ring-2 ring-green-500/20'
                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -155,7 +170,7 @@ export default function PaymentModal({
                 G
               </div>
               <span className="text-xs font-black">GrabFood</span>
-              <span className="text-[9px] text-slate-400">GrabMerchant</span>
+              <span className="text-[9px] text-slate-400">Merchant</span>
             </button>
 
           </div>
@@ -235,7 +250,67 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* TAB 2: SHOPEEFOOD / SHOPEEPAY */}
+          {/* TAB 2: QRIS (BCA / ALL E-WALLET) */}
+          {method === 'qris' && (
+            <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 text-blue-950 space-y-3 text-center">
+              <div className="flex items-center justify-center space-x-2">
+                <span className="px-2 py-0.5 rounded bg-blue-700 text-white font-black text-[11px] tracking-wider">
+                  QRIS
+                </span>
+                <span className="text-xs font-bold text-blue-900">Pembayaran Digital Dinamis</span>
+              </div>
+
+              {/* QR Code Graphic Box */}
+              <div className="bg-white p-3 rounded-2xl border-2 border-blue-300 w-44 mx-auto shadow-sm space-y-1.5 flex flex-col items-center">
+                <div className="w-36 h-36 bg-slate-900 rounded-xl p-2 flex items-center justify-center relative overflow-hidden">
+                  <div className="w-full h-full border-2 border-white/80 rounded-lg flex flex-col justify-between p-1">
+                    <div className="flex justify-between">
+                      <div className="w-7 h-7 bg-white rounded-sm p-1">
+                        <div className="w-full h-full bg-slate-900 rounded-xs" />
+                      </div>
+                      <div className="w-7 h-7 bg-white rounded-sm p-1">
+                        <div className="w-full h-full bg-slate-900 rounded-xs" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center">
+                      <span className="text-[10px] font-black text-amber-300 bg-emerald-950 px-1 py-0.2 rounded">
+                        🥞 BAWEL
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <div className="w-7 h-7 bg-white rounded-sm p-1">
+                        <div className="w-full h-full bg-slate-900 rounded-xs" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-0.5 w-6 h-6">
+                        <div className="bg-white/90 rounded-2xs" />
+                        <div className="bg-white/40 rounded-2xs" />
+                        <div className="bg-white/50 rounded-2xs" />
+                        <div className="bg-white/90 rounded-2xs" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-[9px] font-mono text-slate-500 font-bold">
+                  NMID: ID102008820192
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="font-mono font-black text-lg text-blue-950">
+                  {formatRupiah(total)}
+                </div>
+                <p className="text-[11px] text-blue-800 leading-snug">
+                  Pelanggan scan menggunakan <strong>BCA Mobile, Livin, BRImo, GoPay, OVO, Dana, ShopeePay</strong>.
+                </p>
+                <div className="text-[10px] text-emerald-700 font-bold flex items-center justify-center space-x-1 pt-0.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Uang langsung masuk ke Rekening BCA Pak Agan</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: SHOPEEFOOD / SHOPEEPAY */}
           {method === 'shopeefood' && (
             <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-amber-950 space-y-2 text-center">
               <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-lg font-black mx-auto shadow-sm">
