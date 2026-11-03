@@ -18,6 +18,7 @@ import DailyBranchReportModal from '@/components/DailyBranchReportModal';
 import PayoutSalaryModal from '@/components/PayoutSalaryModal';
 import CreateKirimanBahanModal from '@/components/CreateKirimanBahanModal';
 import ProfilTokoManager from '@/components/ProfilTokoManager';
+import MutasiPenjualanStatement from '@/components/MutasiPenjualanStatement';
 
 import { 
   Cabang, 
@@ -1326,89 +1327,12 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-                  {/* Mutasi Transaksi Feed */}
-                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-                      <div className="flex items-center space-x-2">
-                        <Receipt className="w-4 h-4 text-brand-primary" />
-                        <h3 className="text-sm font-extrabold text-slate-900">Buku Mutasi Penjualan (Bank-Grade Statement)</h3>
-                      </div>
-                      <span className="text-xs text-slate-500 font-mono font-semibold">
-                        {filteredTransaksi.length} Data Transaksi
-                      </span>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
-                          <tr>
-                            <th className="py-3 px-4">No. Invoice &amp; Waktu</th>
-                            <th className="py-3 px-4">Cabang Outlet</th>
-                            <th className="py-3 px-4">Kasir &amp; Pelanggan</th>
-                            <th className="py-3 px-4">Item Pesanan</th>
-                            <th className="py-3 px-4">Metode Bayar</th>
-                            <th className="py-3 px-4 text-right">Nominal Tagihan</th>
-                            <th className="py-3 px-4 text-center">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {filteredTransaksi.length === 0 ? (
-                            <tr>
-                              <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
-                                <div className="flex flex-col items-center justify-center space-y-2">
-                                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-                                    <Receipt className="w-6 h-6" />
-                                  </div>
-                                  <span className="font-extrabold text-slate-700 text-sm">Belum Ada Transaksi Penjualan (Mulai dari 0)</span>
-                                  <span className="text-slate-400 max-w-sm text-center">
-                                    Seluruh transaksi saat ini Rp 0. Silakan buka shift kasir di menu POS tablet untuk melayani pesanan pertama.
-                                  </span>
-                                </div>
-                              </td>
-                            </tr>
-                          ) : (
-                            filteredTransaksi.map(trx => (
-                            <tr key={trx.id} className="hover:bg-slate-50/70 transition-colors">
-                              <td className="py-3 px-4">
-                                <span className="font-mono font-bold text-slate-900 block">{trx.invoice_no}</span>
-                                <span className="text-[10px] text-slate-400">{formatWaktu(trx.waktu)}</span>
-                              </td>
-                              <td className="py-3 px-4 font-semibold text-slate-800">
-                                {trx.cabang_nama?.split('-')[1]?.trim() || trx.cabang_nama || 'Cabang'}
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="font-bold text-slate-900 block">{trx.nama_pelanggan}</span>
-                                <span className="text-[10px] text-slate-500">Kasir: {trx.karyawan_nama || 'Staf'}</span>
-                              </td>
-                              <td className="py-3 px-4 text-slate-600 max-w-[200px] truncate">
-                                {trx.items?.map(it => `${it.qty}x ${it.nama_menu}`).join(', ') || '-'}
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] border ${
-                                  trx.metode_bayar === 'tunai'
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : trx.metode_bayar === 'qris'
-                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                    : 'bg-blue-50 text-blue-700 border-blue-200'
-                                }`}>
-                                  {trx.metode_bayar}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 text-right font-mono font-extrabold text-brand-dark tabular-nums text-sm">
-                                {formatRupiah(trx.total)}
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold">
-                                  SUCCESS
-                                </span>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+            {/* Mutasi Transaksi Feed dengan Navigasi Hari, Bulan, Tahun & Slide Pagination */}
+            <MutasiPenjualanStatement
+              transaksiList={transaksiList}
+              cabangList={cabangList}
+              selectedCabangId={selectedCabangId}
+            />
           </div>
         )}
 
