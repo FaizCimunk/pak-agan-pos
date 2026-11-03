@@ -16,12 +16,13 @@ import {
   ShoppingBag,
   Coins,
   PackageCheck,
+  Building2,
   X
 } from 'lucide-react';
 
 interface AdminSidebarProps {
-  activeTab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan';
-  onTabChange: (tab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan') => void;
+  activeTab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost';
+  onTabChange: (tab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost') => void;
   pendingCount: number;
   onLogout: () => void;
   isMobileOpen?: boolean;
@@ -90,6 +91,12 @@ export default function AdminSidebar({
       label: 'Rekap Gaji & Saldo',
       sub: 'Rekap gaji per tanggal & cetak PDF',
       icon: FileText,
+    },
+    {
+      id: 'fixedcost',
+      label: 'Kelola Biaya Tetap (Fixed Cost)',
+      sub: 'Atur sewa, wifi, sampah & listrik',
+      icon: Building2,
     },
   ];
 

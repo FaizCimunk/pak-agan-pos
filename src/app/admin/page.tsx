@@ -84,7 +84,7 @@ export default function AdminDashboardPage() {
   const [authError, setAuthError] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  const [activeTab, setActiveTab] = useState<'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan'>('ringkasan');
+  const [activeTab, setActiveTab] = useState<'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost'>('ringkasan');
   const [cabangList, setCabangList] = useState<Cabang[]>([]);
   const [selectedCabangId, setSelectedCabangId] = useState<string>('all');
   const [selectedAbsensiDate, setSelectedAbsensiDate] = useState<string>('2026-10-25');
@@ -548,6 +548,54 @@ export default function AdminDashboardPage() {
   }, [cabangList, menuList, absensiList, transaksiList, selectedBossSummaryDate]);
 
   // --------------------------------------------------------------------------
+  // POSISI UANG KASIR & CHANNEL TRANSAKSI (LACI, QRIS BCA, SHOPEE, GOFOOD, GRAB)
+  // --------------------------------------------------------------------------
+  const channelBreakdown = useMemo(() => {
+    const targetDate = selectedBossSummaryDate;
+    const dayTrx = transaksiList.filter(t => 
+      t.status === 'completed' && 
+      t.waktu.startsWith(targetDate) &&
+      (selectedCabangId === 'all' || t.cabang_id === selectedCabangId)
+    );
+
+    let tunaiTotal = 0;
+    let qrisTotal = 0;
+    let shopeeTotal = 0;
+    let gofoodTotal = 0;
+    let grabfoodTotal = 0;
+
+    dayTrx.forEach(t => {
+      const mb = t.metode_bayar?.toLowerCase() || 'tunai';
+      if (mb === 'tunai') {
+        tunaiTotal += t.total;
+      } else if (mb === 'qris') {
+        qrisTotal += t.total;
+      } else if (mb === 'shopeefood') {
+        shopeeTotal += t.total;
+      } else if (mb === 'gofood') {
+        gofoodTotal += t.total;
+      } else if (mb === 'grabfood') {
+        grabfoodTotal += t.total;
+      } else {
+        tunaiTotal += t.total;
+      }
+    });
+
+    const totalChannel = tunaiTotal + qrisTotal + shopeeTotal + gofoodTotal + grabfoodTotal;
+
+    return {
+      targetDate,
+      count: dayTrx.length,
+      tunaiTotal,
+      qrisTotal,
+      shopeeTotal,
+      gofoodTotal,
+      grabfoodTotal,
+      totalChannel,
+    };
+  }, [transaksiList, selectedBossSummaryDate, selectedCabangId]);
+
+  // --------------------------------------------------------------------------
   // REKAPITULASI BAHAN 10 CABANG DARI DATA KASIR DI TEMPAT & KIRIMAN PUSAT
   // --------------------------------------------------------------------------
   const materialAuditRows = useMemo(() => {
@@ -765,35 +813,279 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* TAB 1: RINGKASAN & PUSAT KENDALI 10 CABANG TERPADU */}
+        {/* TAB 1: RINGKASAN EKSEKUTIF, LABA BERSIH & POSISI UANG BOSS */}
         {activeTab === 'ringkasan' && (
           <div className="space-y-6">
             
-            {/* PUSAT KENDALI 10 CABANG TERPADU (ALL-IN-ONE MASTER HUB) */}
-            <UnifiedBranchTable
-              cabangList={cabangList}
-              karyawanList={karyawanList}
-              transaksiList={transaksiList}
-              bossDailyProfits={bossDailyProfits}
-              materialAuditRows={materialAuditRows}
-              selectedDate={selectedBossSummaryDate}
-              onDateChange={setSelectedBossSummaryDate}
-              onEditCabang={(cbg) => setSelectedCabangForEdit(cbg)}
-              onAddNewCabang={() => setIsAddingNewCabang(true)}
-              onResetDefaultCabang={async () => {
-                if (confirm('Kembalikan data 10 cabang ke default resmi bawaan?')) {
-                  await db.resetCabangDefault();
-                  await refreshAllData();
-                }
-              }}
-              onSelectCabang={(id) => setSelectedCabangId(id)}
-              selectedCabangId={selectedCabangId}
-              onOpenKirimanBahanModal={(cbgId) => {
-                if (cbgId) setSelectedBahanCabangId(cbgId);
-                setShowKirimanModal(true);
-              }}
-              onNavigateToTab={(tab) => setActiveTab(tab)}
-            />
+            {/* PAPAN 1: REKAPITULASI LABA BERSIH HARIAN BOSS */}
+            <div className="bg-gradient-to-br from-emerald-900 via-emerald-950 to-slate-900 text-white rounded-3xl p-5 sm:p-7 shadow-xl border border-emerald-700/40 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="text-[11px] uppercase font-black tracking-widest text-emerald-300">
+                      Laporan Keuangan Eksekutif Harian
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
+                    Uang Bersih Rekening Boss (Pak Agan)
+                  </h2>
+                  <p className="text-xs text-emerald-200/80 mt-0.5">
+                    Omzet kotor otomatis dipotong biaya sewa, wifi, sampah, HPP bahan porsi &amp; upah staf hadir hari ini.
+                  </p>
+                </div>
+
+                {/* Date Selector */}
+                <div className="flex items-center space-x-2 bg-white/10 p-1.5 rounded-2xl border border-white/15 backdrop-blur-sm self-start md:self-auto">
+                  <Calendar className="w-4 h-4 text-amber-400 ml-1.5" />
+                  <span className="text-xs font-bold text-emerald-200">Tanggal:</span>
+                  <input
+                    type="date"
+                    value={selectedBossSummaryDate}
+                    onChange={(e) => setSelectedBossSummaryDate(e.target.value)}
+                    className="bg-emerald-950/80 border border-emerald-700/60 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-white outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Rincian Potongan Realtime Hari Ini */}
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mt-5">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-300 block">1. Total Omzet Kotor</span>
+                  <div className="text-lg sm:text-xl font-mono font-extrabold text-white mt-1">
+                    {formatRupiah(bossDailyProfits.totalOmzet10Toko)}
+                  </div>
+                  <span className="text-[10px] text-white/50 block mt-0.5">{channelBreakdown.count} Pesanan Kasir</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-rose-300 block">2. Fixed Cost Harian</span>
+                  <div className="text-lg sm:text-xl font-mono font-extrabold text-rose-300 mt-1">
+                    -{formatRupiah(bossDailyProfits.totalSewa10Toko + bossDailyProfits.totalWifiListrik10Toko + bossDailyProfits.totalIuran10Toko)}
+                  </div>
+                  <span className="text-[10px] text-white/50 block mt-0.5">Sewa, Wi-Fi, Sampah</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-amber-300 block">3. HPP Modal Porsi</span>
+                  <div className="text-lg sm:text-xl font-mono font-extrabold text-amber-300 mt-1">
+                    -{formatRupiah(bossDailyProfits.totalHpp10Toko)}
+                  </div>
+                  <span className="text-[10px] text-white/50 block mt-0.5">Bahan Baku Kasir</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">4. Upah Staf Hadir</span>
+                  <div className="text-lg sm:text-xl font-mono font-extrabold text-blue-300 mt-1">
+                    -{formatRupiah(bossDailyProfits.totalGaji10Toko)}
+                  </div>
+                  <span className="text-[10px] text-white/50 block mt-0.5">Presensi Masuk Hari Ini</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black col-span-2 lg:col-span-1 shadow-lg border border-amber-300">
+                  <span className="text-[10px] uppercase font-black tracking-wider text-slate-900 block">💰 Uang Bersih Boss</span>
+                  <div className="text-xl sm:text-2xl font-mono font-black text-slate-950 mt-1 truncate">
+                    {formatRupiah(bossDailyProfits.totalBersihBoss10Toko)}
+                  </div>
+                  <span className="text-[10px] text-slate-900/80 font-bold block mt-0.5">Masuk Rekening Pak Agan</span>
+                </div>
+              </div>
+            </div>
+
+            {/* PAPAN 2: POSISI UANG KASIR & OJOL (UANGNYA ADA DI MANA SAJA?) */}
+            <div className="bg-white rounded-3xl p-5 sm:p-6 border-t-[5px] border-emerald-600 border-x border-b border-slate-200/90 shadow-soft-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                    <Wallet className="w-5 h-5 text-emerald-700" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      Posisi Saldo Realtime: Uang Hari Ini Ada di Mana Saja?
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Rincian fisik di laci kasir vs transfer QRIS BCA vs saldo tertampung di akun merchant ShopeeFood, GoFood, &amp; GrabFood.
+                    </p>
+                  </div>
+                </div>
+
+                <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-xl self-start sm:self-auto">
+                  Total Realisasi: <strong className="text-slate-900">{formatRupiah(channelBreakdown.totalChannel)}</strong>
+                </span>
+              </div>
+
+              {/* 5 Kartu Saldo Terpisah */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                
+                {/* 1. Laci Kasir */}
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">💵</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 uppercase">Uang Fisik</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">Kas Laci Kasir (10 Toko)</span>
+                  <div className="text-lg font-mono font-black text-emerald-800 mt-1">
+                    {formatRupiah(channelBreakdown.tunaiTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Uang kertas &amp; koin di laci kasir toko
+                  </span>
+                </div>
+
+                {/* 2. QRIS BCA */}
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">📱</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 uppercase">Bank BCA</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">QRIS Rekening Pak Agan</span>
+                  <div className="text-lg font-mono font-black text-amber-700 mt-1">
+                    {formatRupiah(channelBreakdown.qrisTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Scan QR langsung masuk rekening BCA pusat
+                  </span>
+                </div>
+
+                {/* 3. ShopeeFood */}
+                <div className="p-4 rounded-2xl bg-orange-50/70 border border-orange-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">🟠</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-orange-200 text-orange-900 uppercase">ShopeePay</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">ShopeeFood Merchant</span>
+                  <div className="text-lg font-mono font-black text-orange-700 mt-1">
+                    {formatRupiah(channelBreakdown.shopeeTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Saldo dompet merchant ShopeePay Partner
+                  </span>
+                </div>
+
+                {/* 4. GoFood */}
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-300">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">🛵</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 uppercase">GoBiz</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">GoFood Merchant</span>
+                  <div className="text-lg font-mono font-black text-emerald-700 mt-1">
+                    {formatRupiah(channelBreakdown.gofoodTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Saldo dompet merchant GoBiz resto
+                  </span>
+                </div>
+
+                {/* 5. GrabFood */}
+                <div className="p-4 rounded-2xl bg-teal-50/70 border border-teal-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">🟢</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-teal-200 text-teal-900 uppercase">Grab / OVO</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">GrabFood Merchant</span>
+                  <div className="text-lg font-mono font-black text-teal-700 mt-1">
+                    {formatRupiah(channelBreakdown.grabfoodTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Saldo dompet GrabMerchant resto
+                  </span>
+                </div>
+
+              </div>
+            </div>
+
+            {/* PAPAN 3: TABEL LAPORAN OMZET & LABA BERSIH 10 TOKO (FOKUS LAPORAN BERSIH) */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden space-y-4 p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex items-center space-x-2">
+                  <Store className="w-5 h-5 text-emerald-700" />
+                  <div>
+                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
+                      Laporan Kinerja &amp; Uang Bersih per Outlet (10 Cabang Resmi)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Laporan otomatis setelah dikurangi biaya tetap, modal porsi, dan upah kehadiran staf hari ini.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('fixedcost')}
+                  className="text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center space-x-1.5 transition self-start sm:self-auto cursor-pointer"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Ubah Settingan Biaya Tetap Toko →</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900 text-white uppercase text-[10px] font-black tracking-wider">
+                    <tr>
+                      <th className="py-3 px-3.5">Outlet Cabang</th>
+                      <th className="py-3 px-3.5 text-right">Omzet Kotor</th>
+                      <th className="py-3 px-3.5 text-right text-rose-300">Potongan Fixed Cost</th>
+                      <th className="py-3 px-3.5 text-right text-amber-300">HPP Bahan Baku</th>
+                      <th className="py-3 px-3.5 text-right text-blue-300">Upah Staf Hadir</th>
+                      <th className="py-3 px-3.5 text-right bg-slate-950 text-amber-300">Uang Bersih Toko</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {bossDailyProfits.branchBreakdowns.map(b => (
+                      <tr key={b.cabang.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-3.5">
+                          <span className="font-mono text-[10px] font-bold text-slate-400 block">#{b.cabang.nomor} • {b.cabang.kode}</span>
+                          <span className="font-extrabold text-slate-900 text-xs">{b.cabang.nama}</span>
+                          <span className="text-[10px] text-slate-500 block">{b.cabang.kota} • PJ: {b.cabang.pj_nama || '-'}</span>
+                        </td>
+                        <td className="py-3 px-3.5 text-right font-mono font-extrabold text-slate-900 text-xs">
+                          {formatRupiah(b.omzetKotor)}
+                        </td>
+                        <td className="py-3 px-3.5 text-right font-mono font-bold text-rose-600 text-xs">
+                          -{formatRupiah(b.sewaHarian + b.wifiListrikHarian + b.iuranHarian)}
+                          <span className="text-[9px] text-slate-400 block font-normal">Sewa+Wifi+Sampah</span>
+                        </td>
+                        <td className="py-3 px-3.5 text-right font-mono font-bold text-amber-700 text-xs">
+                          -{formatRupiah(b.totalHppBahan)}
+                          <span className="text-[9px] text-slate-400 block font-normal">Porsi Terjual</span>
+                        </td>
+                        <td className="py-3 px-3.5 text-right font-mono font-bold text-blue-700 text-xs">
+                          -{formatRupiah(b.totalGajiKaryawan)}
+                          <span className="text-[9px] text-slate-400 block font-normal">{b.stafHadirCount} Staf Hadir</span>
+                        </td>
+                        <td className="py-3 px-3.5 text-right font-mono font-black text-sm bg-slate-50 text-emerald-800">
+                          {formatRupiah(b.uangBersihBoss)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-slate-100 font-extrabold border-t-2 border-slate-300 text-xs">
+                    <tr>
+                      <td className="py-3 px-3.5 uppercase text-slate-700">Total 10 Outlet</td>
+                      <td className="py-3 px-3.5 text-right font-mono text-slate-900">
+                        {formatRupiah(bossDailyProfits.totalOmzet10Toko)}
+                      </td>
+                      <td className="py-3 px-3.5 text-right font-mono text-rose-600">
+                        -{formatRupiah(bossDailyProfits.totalSewa10Toko + bossDailyProfits.totalWifiListrik10Toko + bossDailyProfits.totalIuran10Toko)}
+                      </td>
+                      <td className="py-3 px-3.5 text-right font-mono text-amber-700">
+                        -{formatRupiah(bossDailyProfits.totalHpp10Toko)}
+                      </td>
+                      <td className="py-3 px-3.5 text-right font-mono text-blue-700">
+                        -{formatRupiah(bossDailyProfits.totalGaji10Toko)}
+                      </td>
+                      <td className="py-3 px-3.5 text-right font-mono text-emerald-800 text-sm bg-emerald-100/60">
+                        {formatRupiah(bossDailyProfits.totalBersihBoss10Toko)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
 
                   {/* Mutasi Transaksi Feed */}
                   <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden">
@@ -2648,6 +2940,164 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB KHUSUS: KELOLA BIAYA TETAP (FIXED COST) 10 CABANG */}
+        {activeTab === 'fixedcost' && (
+          <div className="space-y-6">
+            
+            {/* Header Title & Explanation */}
+            <div className="bg-white p-5 rounded-2xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-800 text-white flex items-center justify-center font-bold text-xl shrink-0">
+                  🏢
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Pengaturan Biaya Tetap (Fixed Cost) 10 Cabang
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Atur nilai Sewa Ruko, Wi-Fi &amp; Listrik, serta Iuran Kebersihan/Sampah tiap toko. Sistem otomatis membagi 30 hari untuk memotong omzet harian sistem di Ringkasan.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAddingNewCabang(true)}
+                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-800/20 btn-tactile flex items-center space-x-1.5 transition self-start md:self-auto cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Tambah Outlet Baru</span>
+              </button>
+            </div>
+
+            {/* 4 Kartu Total Beban Operasional 10 Cabang */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Total Sewa Ruko 10 Toko
+                </span>
+                <div className="text-xl font-mono font-extrabold text-slate-900 mt-1 tabular-nums">
+                  {formatRupiah(cabangList.reduce((s, c) => s + (c.sewa_bulanan || 3500000), 0))}
+                  <span className="text-xs font-normal text-slate-500"> /bln</span>
+                </div>
+                <span className="text-[10px] text-emerald-700 font-bold mt-1 block">
+                  ≈ {formatRupiah(bossDailyProfits.totalSewa10Toko)} /hari (otomatis potong omzet)
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Total Wi-Fi &amp; Listrik 10 Toko
+                </span>
+                <div className="text-xl font-mono font-extrabold text-slate-900 mt-1 tabular-nums">
+                  {formatRupiah(cabangList.reduce((s, c) => s + (c.listrik_air_bulanan || 650000), 0))}
+                  <span className="text-xs font-normal text-slate-500"> /bln</span>
+                </div>
+                <span className="text-[10px] text-emerald-700 font-bold mt-1 block">
+                  ≈ {formatRupiah(bossDailyProfits.totalWifiListrik10Toko)} /hari (otomatis potong omzet)
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Total Iuran Sampah &amp; Kebersihan
+                </span>
+                <div className="text-xl font-mono font-extrabold text-slate-900 mt-1 tabular-nums">
+                  {formatRupiah(cabangList.reduce((s, c) => s + (c.iuran_kebersihan_bulanan || 150000), 0))}
+                  <span className="text-xs font-normal text-slate-500"> /bln</span>
+                </div>
+                <span className="text-[10px] text-emerald-700 font-bold mt-1 block">
+                  ≈ {formatRupiah(bossDailyProfits.totalIuran10Toko)} /hari (otomatis potong omzet)
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 shadow-soft-sm">
+                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                  Total Beban Fixed Cost Harian
+                </span>
+                <div className="text-xl font-mono font-extrabold text-emerald-900 mt-1 tabular-nums">
+                  {formatRupiah(bossDailyProfits.totalSewa10Toko + bossDailyProfits.totalWifiListrik10Toko + bossDailyProfits.totalIuran10Toko)}
+                  <span className="text-xs font-normal text-emerald-700"> /hari</span>
+                </div>
+                <span className="text-[10px] text-emerald-800 mt-1 block font-medium">
+                  Total sewa, wifi &amp; sampah yang dipotong per hari
+                </span>
+              </div>
+            </div>
+
+            {/* Tabel Pengaturan Fixed Cost 10 Cabang */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <span className="font-extrabold text-slate-900 text-sm">
+                  Daftar Biaya Tetap per Cabang (10 Toko)
+                </span>
+                <span className="text-xs font-mono font-bold text-slate-400">
+                  {cabangList.length} Cabang Terdaftar
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900 text-white uppercase text-[10px] font-black tracking-wider">
+                    <tr>
+                      <th className="py-3 px-3.5">Outlet Cabang</th>
+                      <th className="py-3 px-3.5">Biaya Sewa Ruko</th>
+                      <th className="py-3 px-3.5">Wi-Fi &amp; Listrik</th>
+                      <th className="py-3 px-3.5">Sampah &amp; Kebersihan</th>
+                      <th className="py-3 px-3.5 text-right text-rose-300">Total Potongan Harian</th>
+                      <th className="py-3 px-3.5 text-center">Tindakan Owner</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {cabangList.map(c => {
+                      const sewa = c.sewa_bulanan || 3500000;
+                      const wifi = c.listrik_air_bulanan || 650000;
+                      const iuran = c.iuran_kebersihan_bulanan || 150000;
+                      const harian = Math.round((sewa + wifi + iuran) / 30);
+
+                      return (
+                        <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3.5 px-3.5">
+                            <span className="font-mono text-[10px] font-bold text-slate-400 block">#{c.nomor} • {c.kode}</span>
+                            <span className="font-extrabold text-slate-900 text-xs">{c.nama}</span>
+                            <span className="text-[10px] text-slate-500 block">{c.kota} • PJ: {c.pj_nama || '-'}</span>
+                          </td>
+                          <td className="py-3.5 px-3.5">
+                            <span className="font-mono font-bold text-slate-900 block">{formatRupiah(sewa)}/bln</span>
+                            <span className="text-[10px] text-slate-400 font-mono">≈ {formatRupiah(Math.round(sewa / 30))}/hari</span>
+                          </td>
+                          <td className="py-3.5 px-3.5">
+                            <span className="font-mono font-bold text-slate-900 block">{formatRupiah(wifi)}/bln</span>
+                            <span className="text-[10px] text-slate-400 font-mono">≈ {formatRupiah(Math.round(wifi / 30))}/hari</span>
+                          </td>
+                          <td className="py-3.5 px-3.5">
+                            <span className="font-mono font-bold text-slate-900 block">{formatRupiah(iuran)}/bln</span>
+                            <span className="text-[10px] text-slate-400 font-mono">≈ {formatRupiah(Math.round(iuran / 30))}/hari</span>
+                          </td>
+                          <td className="py-3.5 px-3.5 text-right font-mono font-extrabold text-sm text-rose-700 bg-rose-50/40">
+                            -{formatRupiah(harian)}/hari
+                          </td>
+                          <td className="py-3.5 px-3.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCabangForEdit(c)}
+                              className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 font-black text-xs shadow-xs transition btn-tactile inline-flex items-center space-x-1 cursor-pointer"
+                            >
+                              <Pencil className="w-3 h-3" />
+                              <span>Ubah Biaya Toko Ini</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         )}
 
