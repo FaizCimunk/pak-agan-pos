@@ -56,6 +56,9 @@ interface SeniorBossDashboardProps {
   onOpenReportModal: () => void;
   onOpenPinReset?: (karyawan: Karyawan) => void;
   onOpenExpenseCreate?: () => void;
+  onNavigateTab?: (tab: 'absensi' | 'bahan' | 'menu' | 'karyawan' | 'approval' | 'gaji' | 'payroll') => void;
+  pendingApprovalCount?: number;
+  onLogout?: () => void;
 }
 
 export default function SeniorBossDashboard({
@@ -77,6 +80,9 @@ export default function SeniorBossDashboard({
   onOpenReportModal,
   onOpenPinReset,
   onOpenExpenseCreate,
+  onNavigateTab,
+  pendingApprovalCount = 0,
+  onLogout,
 }: SeniorBossDashboardProps) {
   // Modal State for the 9 Big Action Buttons & Status Boxes
   const [activeModal, setActiveModal] = useState<
@@ -295,9 +301,15 @@ export default function SeniorBossDashboard({
           {/* Logout / Switch Role Circle */}
           <button
             type="button"
-            onClick={() => window.location.href = '/'}
+            onClick={() => {
+              if (onLogout) {
+                onLogout();
+              } else {
+                window.location.href = '/';
+              }
+            }}
             className="w-9 h-9 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center text-sm shadow-sm transition-all cursor-pointer"
-            title="Keluar ke Halaman Utama"
+            title="Kunci / Keluar Dashboard"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
@@ -453,11 +465,16 @@ export default function SeniorBossDashboard({
         </button>
 
         {/* KOTAK 2: PRESENSI & GAJI STAF */}
+        {/* KOTAK 2: PRESENSI & GAJI STAF */}
         <button
           type="button"
           onClick={() => {
-            setGajiModalTab('absensi');
-            setActiveModal('gaji');
+            if (onNavigateTab) {
+              onNavigateTab('absensi');
+            } else {
+              setGajiModalTab('absensi');
+              setActiveModal('gaji');
+            }
           }}
           className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
         >
@@ -471,7 +488,13 @@ export default function SeniorBossDashboard({
         {/* KOTAK 3: STOK & KIRIM BAHAN */}
         <button
           type="button"
-          onClick={() => setActiveModal('bahan')}
+          onClick={() => {
+            if (onNavigateTab) {
+              onNavigateTab('bahan');
+            } else {
+              setActiveModal('bahan');
+            }
+          }}
           className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
         >
           <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
@@ -484,7 +507,13 @@ export default function SeniorBossDashboard({
         {/* KOTAK 4: MENU & MODAL HPP */}
         <button
           type="button"
-          onClick={() => setActiveModal('menu')}
+          onClick={() => {
+            if (onNavigateTab) {
+              onNavigateTab('menu');
+            } else {
+              setActiveModal('menu');
+            }
+          }}
           className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
         >
           <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
@@ -510,7 +539,13 @@ export default function SeniorBossDashboard({
         {/* KOTAK 6: LAPORAN RESMI & PDF */}
         <button
           type="button"
-          onClick={onOpenReportModal}
+          onClick={() => {
+            if (onNavigateTab) {
+              onNavigateTab('payroll');
+            } else {
+              onOpenReportModal();
+            }
+          }}
           className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
         >
           <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
@@ -520,7 +555,7 @@ export default function SeniorBossDashboard({
           <span className="text-[10px] text-slate-500 block mt-0.5">Cetak PDF A4</span>
         </button>
 
-        {/* KOTAK 7: POSISI UANG (TUNAI, SHOPEE, GOJEK, GRAB) */}
+        {/* KOTAK 7: POSISI UANG (TUNAI, QRIS, SHOPEE, GOJEK, GRAB) */}
         <button
           type="button"
           onClick={() => setActiveModal('posisi_uang')}
@@ -533,23 +568,40 @@ export default function SeniorBossDashboard({
           <span className="text-[10px] text-slate-500 block mt-0.5">Laci &amp; Dompet</span>
         </button>
 
-        {/* KOTAK 8: KAS KECIL & BELANJA */}
+        {/* KOTAK 8: KAS KECIL & APPROVAL */}
         <button
           type="button"
-          onClick={() => setActiveModal('kas_kecil')}
-          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
+          onClick={() => {
+            if (onNavigateTab) {
+              onNavigateTab('approval');
+            } else {
+              setActiveModal('kas_kecil');
+            }
+          }}
+          className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group relative"
         >
+          {pendingApprovalCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-[11px] shadow-md animate-bounce ring-2 ring-white">
+              {pendingApprovalCount}
+            </span>
+          )}
           <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
             📝
           </div>
-          <span className="font-black text-slate-900 text-xs block leading-tight">Kas Kecil</span>
+          <span className="font-black text-slate-900 text-xs block leading-tight">Kas &amp; Approval</span>
           <span className="text-[10px] text-slate-500 block mt-0.5">Belanja Toko</span>
         </button>
 
         {/* KOTAK 9: KELOLA AKUN & PIN */}
         <button
           type="button"
-          onClick={() => setActiveModal('akun')}
+          onClick={() => {
+            if (onNavigateTab) {
+              onNavigateTab('karyawan');
+            } else {
+              setActiveModal('akun');
+            }
+          }}
           className="p-3.5 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl border border-slate-200/90 shadow-soft-sm text-center flex flex-col items-center justify-center transition-all cursor-pointer group"
         >
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center text-2xl mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">

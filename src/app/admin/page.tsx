@@ -629,134 +629,45 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // AUTHENTICATED: DEDICATED LEFT SIDEBAR FINTECH BACKOFFICE
+  // AUTHENTICATED: SATU APK TERPADU (SINGLE UNIFIED APK CONTAINER)
   return (
-    <div className="min-h-screen bg-fintech-bg flex flex-col md:flex-row text-slate-800">
-      
-      {/* 1. DEDICATED FINTECH LEFT SIDEBAR */}
-      <AdminSidebar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        pendingCount={pendingExpenses.length}
-        onLogout={handleLogoutOwner}
-        isMobileOpen={isMobileMenuOpen}
-        onCloseMobile={() => setIsMobileMenuOpen(false)}
-      />
-
-      {/* 2. MAIN CONTENT AREA */}
-      <main className="flex-1 flex flex-col min-w-0 p-3 sm:p-5 lg:p-8 space-y-4 sm:space-y-6 overflow-y-auto">
+    <div className="min-h-screen bg-slate-100 flex flex-col items-center text-slate-800 py-2 sm:py-6 px-2 sm:px-4">
+      {/* Centered Single APK Container */}
+      <main className="w-full max-w-4xl space-y-4">
         
-        {/* Non-Ringkasan Tabs: Show Standard Admin Header */}
+        {/* TOP NAVIGATION BAR: TAMPIL SAAT BERADA DI DALAM FITUR (BUKAN MENU UTAMA) */}
         {activeTab !== 'ringkasan' && (
-          <>
-            {/* Mobile Top Navigation Header */}
-            <div className="md:hidden bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-soft-sm flex items-center justify-between gap-2">
-              <div className="flex items-center space-x-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 flex items-center justify-center text-white shadow-sm shrink-0">
-                  <span className="text-sm font-bold">🥞</span>
-                </div>
-                <div className="min-w-0">
-                  <span className="font-extrabold text-slate-900 text-xs block leading-tight truncate">
-                    SERABI BAWEL PUSAT
-                  </span>
-                  <span className="text-[10px] text-emerald-700 font-bold capitalize truncate block">
-                    {activeTab === 'absensi' ? 'Monitor Presensi Cabang' :
-                     activeTab === 'menu' ? 'Master Menu & Resep' :
-                     activeTab === 'karyawan' ? 'Data Pekerja' :
-                     activeTab === 'approval' ? 'Pusat Persetujuan' :
-                     activeTab === 'gaji' ? 'Belanja & Kas Kecil' : 'Rekap Gaji & Saldo'}
-                  </span>
-                </div>
-              </div>
+          <div className="bg-emerald-900 text-white p-3.5 sm:p-4 rounded-3xl shadow-lg border-2 border-emerald-700/60 flex items-center justify-between gap-3 sticky top-2 z-40">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('ringkasan');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs sm:text-sm shadow-md transition-all cursor-pointer shrink-0"
+            >
+              <span className="text-base font-bold">←</span>
+              <span>KEMBALI KE MENU UTAMA</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => setIsMobileMenuOpen(true)}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-900/20 btn-tactile shrink-0"
-              >
-                <Menu className="w-3.5 h-3.5" />
-                <span>Menu Admin</span>
-                {pendingExpenses.length > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
-                )}
-              </button>
+            <div className="text-right truncate">
+              <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-300 block">
+                APK TERPADU • PAK AGAN
+              </span>
+              <span className="text-xs sm:text-sm font-black text-white truncate block">
+                {activeTab === 'absensi' && '👥 Monitor Presensi 10 Cabang'}
+                {activeTab === 'bahan' && '📦 Absensi & Pasokan Bahan'}
+                {activeTab === 'menu' && '🥞 Master Menu & Modal HPP'}
+                {activeTab === 'payroll' && '📊 Laporan Gaji & Payroll Bank'}
+                {activeTab === 'approval' && '📝 Pusat Persetujuan Kas & Belanja'}
+                {activeTab === 'karyawan' && '⚙️ Data Pekerja, Akun & PIN'}
+                {activeTab === 'gaji' && '💵 Belanja Cabang & Kas Kecil'}
+              </span>
             </div>
-
-            {/* Top Header Bar inside Dashboard */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-brand-primary animate-pulse" />
-                  <span className="text-[11px] uppercase font-extrabold tracking-widest text-slate-400">
-                    Pusat Kendali Eksekutif Multi-Cabang
-                  </span>
-                </div>
-                <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-                  Dashboard Keuangan &amp; Manajemen Herbal Pak Agan
-                </h1>
-              </div>
-
-              {/* Controls: Branch Filter & Reset Mulai dari 0 */}
-              <div className="flex flex-wrap items-center gap-2 self-start md:self-auto w-full md:w-auto">
-                <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-slate-200 w-full sm:w-auto">
-                  <Store className="w-4 h-4 text-brand-primary shrink-0" />
-                  <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Filter Outlet:</span>
-                  <select
-                    value={selectedCabangId}
-                    onChange={(e) => setSelectedCabangId(e.target.value)}
-                    className="bg-transparent text-xs font-extrabold text-slate-800 outline-none cursor-pointer flex-1 sm:flex-initial"
-                  >
-                    <option value="all">Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
-                    {cabangList.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowDailyReportModal(true)}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-sm text-xs font-bold transition-all btn-tactile w-full sm:w-auto justify-center"
-                >
-                  <FileText className="w-3.5 h-3.5 text-accent-gold" />
-                  <span>Laporan Harian PDF &amp; Bank</span>
-                </button>
-              </div>
-            </div>
-
-            {/* 4 FINTECH METRIC STAT CARDS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Omzet Penjualan</span>
-                <div className="text-2xl font-mono font-extrabold text-brand-dark tabular-nums tracking-tight mt-2">
-                  {formatRupiah(totalOmzetGlobal)}
-                </div>
-              </div>
-              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Volume Transaksi</span>
-                <div className="text-2xl font-mono font-extrabold text-slate-900 tabular-nums tracking-tight mt-2">
-                  {totalTransaksiCount} Pesanan
-                </div>
-              </div>
-              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Approval Menunggu</span>
-                <div className="text-2xl font-mono font-extrabold text-accent-gold tabular-nums tracking-tight mt-2">
-                  {pendingExpenses.length} Pengajuan
-                </div>
-              </div>
-              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Kasbon Berjalan</span>
-                <div className="text-2xl font-mono font-extrabold text-blue-800 tabular-nums tracking-tight mt-2">
-                  {formatRupiah(totalUnsettledKasbon)}
-                </div>
-              </div>
-            </div>
-          </>
+          </div>
         )}
 
-        {/* TAB 1: RINGKASAN & MUTASI */}
+        {/* TAB 1: RINGKASAN & MUTASI (MENU UTAMA 9 KOTAK APK) */}
         {activeTab === 'ringkasan' && (
           <div className="space-y-6">
             
@@ -783,6 +694,9 @@ export default function AdminDashboardPage() {
               onOpenReportModal={() => setShowDailyReportModal(true)}
               onOpenPinReset={(k) => setSelectedKaryawanForPinReset(k)}
               onOpenExpenseCreate={() => setShowCreateExpenseModal(true)}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              pendingApprovalCount={pendingExpenses.length}
+              onLogout={handleLogoutOwner}
             />
 
             {/* AKORDION MODE LANJUTAN: TABEL 10 CABANG & MUTASI LENGKAP */}
@@ -2684,6 +2598,26 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* BOTTOM BACK TO HOME LAUNCHER BUTTON: TAMPIL SAAT BERADA DI SUB-SCREEN */}
+        {activeTab !== 'ringkasan' && (
+          <div className="pt-4 pb-10 flex flex-col items-center justify-center space-y-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('ringkasan');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs sm:text-sm shadow-xl flex items-center space-x-2 transition-all active:scale-95 cursor-pointer border border-slate-700"
+            >
+              <span className="text-base font-bold">←</span>
+              <span>KEMBALI KE MENU UTAMA (9 KOTAK)</span>
+            </button>
+            <p className="text-[11px] text-slate-400 font-medium">
+              Ketuk untuk kembali ke 9 menu aplikasi Pak Agan
+            </p>
           </div>
         )}
 

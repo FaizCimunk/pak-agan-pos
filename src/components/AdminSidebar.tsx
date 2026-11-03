@@ -254,14 +254,9 @@ export default function AdminSidebar({
 
   return (
     <>
-      {/* Desktop Sidebar: Permanent on md+ screens */}
-      <aside className="hidden md:flex w-64 lg:w-72 bg-white border-r border-slate-200/90 flex-col shrink-0 h-screen sticky top-0 z-30 shadow-soft-sm">
-        {sidebarContent}
-      </aside>
-
-      {/* Mobile Drawer: Slide-out drawer on phone screens */}
+      {/* Drawer on demand: Slide-out drawer on demand (no permanent split screen) */}
       {isMobileOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div 
             className="w-72 max-w-[85vw] h-full bg-white shadow-2xl animate-in slide-in-from-left duration-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
