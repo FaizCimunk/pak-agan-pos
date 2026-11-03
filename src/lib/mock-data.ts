@@ -1135,3 +1135,122 @@ export const INITIAL_KARYAWAN: Karyawan[] = DEMO_WEEK_KARYAWAN;
 export const INITIAL_EXPENSES: PengeluaranKasbon[] = DEMO_WEEK_EXPENSES;
 export const INITIAL_TRANSAKSI: Transaksi[] = DEMO_WEEK_TRANSAKSI;
 export const INITIAL_ABSENSI: Absensi[] = DEMO_WEEK_ABSENSI;
+
+export const INITIAL_FIXED_COST_PAYMENTS: any[] = [
+  {
+    id: 'fcp-1-sewa-202610',
+    cabang_id: 'cbg-1',
+    cabang_nama: 'Cabang 01 - Malioboro Pusat',
+    periode_bulan: '2026-10',
+    jenis_biaya: 'sewa',
+    nama_biaya: 'Sewa Ruko Malioboro Pusat',
+    nominal: 4500000,
+    status: 'lunas',
+    tanggal_bayar: '2026-10-01',
+    metode_bayar: 'Transfer BCA (Pak Agan)',
+    no_referensi: 'TRF-BCA-88910291',
+    catatan: 'Lunas ditransfer ke pemilik ruko Malioboro',
+    dibayar_oleh: 'Pak Agan (Owner)'
+  },
+  {
+    id: 'fcp-1-wifi-202610',
+    cabang_id: 'cbg-1',
+    cabang_nama: 'Cabang 01 - Malioboro Pusat',
+    periode_bulan: '2026-10',
+    jenis_biaya: 'listrik_wifi',
+    nama_biaya: 'Listrik & Wi-Fi Malioboro',
+    nominal: 750000,
+    status: 'lunas',
+    tanggal_bayar: '2026-10-08',
+    metode_bayar: 'Transfer BCA',
+    catatan: 'Token PLN & IndiHome 100Mbps'
+  },
+  {
+    id: 'fcp-1-sampah-202610',
+    cabang_id: 'cbg-1',
+    cabang_nama: 'Cabang 01 - Malioboro Pusat',
+    periode_bulan: '2026-10',
+    jenis_biaya: 'sampah_kebersihan',
+    nama_biaya: 'Retribusi Sampah & Paguyuban',
+    nominal: 200000,
+    status: 'lunas',
+    tanggal_bayar: '2026-10-05',
+    metode_bayar: 'Kas Laci Cabang'
+  },
+  {
+    id: 'fcp-2-sewa-202610',
+    cabang_id: 'cbg-2',
+    cabang_nama: 'Cabang 02 - Seturan Premium',
+    periode_bulan: '2026-10',
+    jenis_biaya: 'sewa',
+    nama_biaya: 'Sewa Ruko Seturan Premium',
+    nominal: 3500000,
+    status: 'lunas',
+    tanggal_bayar: '2026-10-02',
+    metode_bayar: 'Transfer BCA (Pak Agan)',
+    no_referensi: 'TRF-BCA-99281722',
+    catatan: 'Lunas ditransfer ke rekening Bpk. H. Sukardi',
+    dibayar_oleh: 'Pak Agan (Owner)'
+  },
+  {
+    id: 'fcp-2-wifi-202610',
+    cabang_id: 'cbg-2',
+    cabang_nama: 'Cabang 02 - Seturan Premium',
+    periode_bulan: '2026-10',
+    jenis_biaya: 'listrik_wifi',
+    nama_biaya: 'Listrik & Wi-Fi Seturan',
+    nominal: 650000,
+    status: 'lunas',
+    tanggal_bayar: '2026-10-10',
+    metode_bayar: 'Transfer BCA',
+    catatan: 'Tagihan PLN Pasca Bayar & Biznet'
+  },
+  {
+    id: 'fcp-2-sampah-202610',
+    cabang_id: 'cbg-2',
+    cabang_nama: 'Cabang 02 - Seturan Premium',
+    periode_bulan: '2026-10',
+    jenis_biaya: 'sampah_kebersihan',
+    nama_biaya: 'Iuran Sampah Lingkungan Seturan',
+    nominal: 150000,
+    status: 'lunas',
+    tanggal_bayar: '2026-10-05',
+    metode_bayar: 'Kas Laci Cabang'
+  },
+  {
+    id: 'fcp-3-sewa-202610',
+    cabang_id: 'cbg-3',
+    cabang_nama: 'Cabang 03 - Jakal KM 5 Kampus',
+    periode_bulan: '2026-10',
+    jenis_biaya: 'sewa',
+    nama_biaya: 'Sewa Kios Jakal KM 5',
+    nominal: 4000000,
+    status: 'lunas',
+    tanggal_bayar: '2026-10-03',
+    metode_bayar: 'Transfer BCA (Pak Agan)',
+    dibayar_oleh: 'Pak Agan (Owner)'
+  },
+  {
+    id: 'fcp-3-wifi-202610',
+    cabang_id: 'cbg-3',
+    cabang_nama: 'Cabang 03 - Jakal KM 5 Kampus',
+    periode_bulan: '2026-10',
+    jenis_biaya: 'listrik_wifi',
+    nama_biaya: 'Listrik & Wi-Fi Jakal KM 5',
+    nominal: 700000,
+    status: 'lunas',
+    tanggal_bayar: '2026-10-12',
+    metode_bayar: 'Transfer BCA'
+  },
+  {
+    id: 'fcp-3-sampah-202610',
+    cabang_id: 'cbg-3',
+    cabang_nama: 'Cabang 03 - Jakal KM 5 Kampus',
+    periode_bulan: '2026-10',
+    jenis_biaya: 'sampah_kebersihan',
+    nama_biaya: 'Kebersihan & Keamanan Jakal',
+    nominal: 180000,
+    status: 'belum_bayar',
+    catatan: 'Jatuh tempo tanggal 28 Oktober'
+  }
+];

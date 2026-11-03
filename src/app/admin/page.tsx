@@ -19,6 +19,7 @@ import PayoutSalaryModal from '@/components/PayoutSalaryModal';
 import CreateKirimanBahanModal from '@/components/CreateKirimanBahanModal';
 import ProfilTokoManager from '@/components/ProfilTokoManager';
 import MutasiPenjualanStatement from '@/components/MutasiPenjualanStatement';
+import FixedCostPaymentManager from '@/components/FixedCostPaymentManager';
 
 import { 
   Cabang, 
@@ -31,7 +32,8 @@ import {
   BahanBaku,
   KirimanBahanPusat,
   AbsensiBahanHarian,
-  FixedCostHarianCabang
+  FixedCostHarianCabang,
+  PembayaranFixedCostBulanan
 } from '@/lib/types';
 import { db } from '@/lib/db';
 import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink } from '@/lib/utils';
@@ -74,7 +76,8 @@ import {
   Filter,
   Sparkles,
   PackageCheck,
-  Menu
+  Menu,
+  CreditCard
 } from 'lucide-react';
 
 const OWNER_AUTH_KEY = 'pakagan_owner_authenticated';
@@ -206,6 +209,10 @@ export default function AdminDashboardPage() {
   const [payrollMonth, setPayrollMonth] = useState<number>(10);
   const [payrollYear, setPayrollYear] = useState<number>(2026);
 
+  // Fixed Cost Monthly Payments & Deduction Mode (Kas Riil vs Cadangan Amortisasi /30 Hr)
+  const [fixedCostPayments, setFixedCostPayments] = useState<PembayaranFixedCostBulanan[]>([]);
+  const [fixedCostDeductionMode, setFixedCostDeductionMode] = useState<'kas_riil' | 'cadangan_amortisasi'>('kas_riil');
+
   // Check auth session (auto-authenticate for direct seamless access)
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -252,6 +259,9 @@ export default function AdminDashboardPage() {
 
     const krms = await db.getKirimanBahanList();
     setKirimanBahanList(krms);
+
+    const fcPayments = await db.getFixedCostPayments();
+    setFixedCostPayments(fcPayments);
   };
 
   useEffect(() => {
@@ -567,15 +577,59 @@ export default function AdminDashboardPage() {
       ? bossDailyProfits.branchBreakdowns
       : bossDailyProfits.branchBreakdowns.filter(b => b.cabang.id === selectedCabangId);
 
+    const currentMonthKey = (selectedBossSummaryDate || '2026-10').slice(0, 7);
+
+    let totalSewaWajib = 0;
+    let totalWifiWajib = 0;
+    let totalIuranWajib = 0;
+    let totalLainWajib = 0;
+
+    let effectiveSewa = 0;
+    let effectiveWifi = 0;
+    let effectiveIuran = 0;
+    let effectiveLain = 0;
+
+    let fullySettledBranchCount = 0;
+
+    targetBreakdowns.forEach(b => {
+      totalSewaWajib += b.sewaHarian;
+      totalWifiWajib += b.wifiListrikHarian;
+      totalIuranWajib += b.iuranHarian;
+      totalLainWajib += (b.biayaLainHarian || 0);
+
+      const sewaPay = fixedCostPayments.find(p => p.cabang_id === b.cabang.id && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sewa' || p.jenis_biaya === 'semua_paket'));
+      const wifiPay = fixedCostPayments.find(p => p.cabang_id === b.cabang.id && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'listrik_wifi' || p.jenis_biaya === 'semua_paket'));
+      const iuranPay = fixedCostPayments.find(p => p.cabang_id === b.cabang.id && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sampah_kebersihan' || p.jenis_biaya === 'semua_paket'));
+
+      const isSewaPaid = sewaPay?.status === 'lunas';
+      const isWifiPaid = wifiPay?.status === 'lunas';
+      const isIuranPaid = iuranPay?.status === 'lunas';
+
+      if (isSewaPaid && isWifiPaid && isIuranPaid) {
+        fullySettledBranchCount++;
+      }
+
+      if (fixedCostDeductionMode === 'kas_riil') {
+        effectiveSewa += isSewaPaid ? 0 : b.sewaHarian;
+        effectiveWifi += isWifiPaid ? 0 : b.wifiListrikHarian;
+        effectiveIuran += isIuranPaid ? 0 : b.iuranHarian;
+        effectiveLain += (b.biayaLainHarian || 0);
+      } else {
+        effectiveSewa += b.sewaHarian;
+        effectiveWifi += b.wifiListrikHarian;
+        effectiveIuran += b.iuranHarian;
+        effectiveLain += (b.biayaLainHarian || 0);
+      }
+    });
+
+    const isAllTargetFullySettled = targetBreakdowns.length > 0 && fullySettledBranchCount === targetBreakdowns.length;
+    const amortizedFixedCost = totalSewaWajib + totalWifiWajib + totalIuranWajib + totalLainWajib;
+    const effectiveFixedCost = effectiveSewa + effectiveWifi + effectiveIuran + effectiveLain;
+
     const omzet = targetBreakdowns.reduce((sum, b) => sum + b.omzetKotor, 0);
-    const sewa = targetBreakdowns.reduce((sum, b) => sum + b.sewaHarian, 0);
-    const wifi = targetBreakdowns.reduce((sum, b) => sum + b.wifiListrikHarian, 0);
-    const iuran = targetBreakdowns.reduce((sum, b) => sum + b.iuranHarian, 0);
-    const lain = targetBreakdowns.reduce((sum, b) => sum + (b.biayaLainHarian || 0), 0);
-    const fixedCost = sewa + wifi + iuran + lain;
     const hpp = targetBreakdowns.reduce((sum, b) => sum + b.totalHppBahan, 0);
     const gaji = targetBreakdowns.reduce((sum, b) => sum + b.totalGajiKaryawan, 0);
-    const totalPotongan = fixedCost + hpp + gaji;
+    const totalPotongan = effectiveFixedCost + hpp + gaji;
     const uangBersih = omzet - totalPotongan;
     const stafHadir = targetBreakdowns.reduce((sum, b) => sum + b.stafHadirCount, 0);
 
@@ -583,18 +637,22 @@ export default function AdminDashboardPage() {
       isAll,
       branchLabel: isAll ? '10 Toko Gabungan' : (cabangList.find(c => c.id === selectedCabangId)?.nama || 'Toko Terpilih'),
       omzet,
-      sewa,
-      wifi,
-      iuran,
-      lain,
-      fixedCost,
+      sewa: effectiveSewa,
+      wifi: effectiveWifi,
+      iuran: effectiveIuran,
+      lain: effectiveLain,
+      fixedCost: effectiveFixedCost,
+      amortizedFixedCost,
+      isAllTargetFullySettled,
+      fullySettledBranchCount,
+      targetCount: targetBreakdowns.length,
       hpp,
       gaji,
       totalPotongan,
       uangBersih,
       stafHadir,
     };
-  }, [bossDailyProfits, selectedCabangId, cabangList]);
+  }, [bossDailyProfits, selectedCabangId, cabangList, fixedCostPayments, fixedCostDeductionMode, selectedBossSummaryDate]);
 
   // --------------------------------------------------------------------------
   // POSISI UANG KASIR & CHANNEL TRANSAKSI (LACI, QRIS BCA, SHOPEE, GOFOOD, GRAB)
@@ -936,8 +994,50 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
+              {/* SAKELAR MODE POTONGAN FIXED COST: KAS RIIL (LUNAS = BEBAS POTONG) VS CADANGAN TABUNGAN (/30 HR) */}
+              <div className="mt-4 pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] uppercase font-black tracking-wider text-emerald-200">
+                    Sistem Biaya Sewa Toko:
+                  </span>
+                  <div className="inline-flex bg-black/40 p-1 rounded-xl border border-white/15 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setFixedCostDeductionMode('kas_riil')}
+                      className={`px-3 py-1 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer ${
+                        fixedCostDeductionMode === 'kas_riil'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      ✓ Kas Riil (Beban Lunas = Rp 0)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFixedCostDeductionMode('cadangan_amortisasi')}
+                      className={`px-3 py-1 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer ${
+                        fixedCostDeductionMode === 'cadangan_amortisasi'
+                          ? 'bg-amber-500 text-slate-950 shadow-xs'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      Cadangan Tabungan (/30 Hari)
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('fixedcost')}
+                  className="flex items-center space-x-1.5 text-xs text-amber-300 hover:text-amber-200 font-bold self-start sm:self-auto cursor-pointer underline decoration-dotted"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Kelola Status Pembayaran Sewa Bulanan →</span>
+                </button>
+              </div>
+
               {/* Rincian 5 Kartu Pipeline Alur Keuangan Realtime */}
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-3.5 mt-5">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-3.5 mt-4">
                 
                 {/* 1. Omzet Kotor */}
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-emerald-500/40 transition">
@@ -957,15 +1057,28 @@ export default function AdminDashboardPage() {
                 {/* 2. Fixed Cost */}
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-rose-500/40 transition">
                   <div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-rose-300 block">
-                      2. Fixed Cost Harian
-                    </span>
-                    <div className="text-base sm:text-lg lg:text-xl font-mono font-extrabold text-rose-300 mt-1 whitespace-nowrap">
-                      -{formatRupiah(activeExecutiveSummary.fixedCost)}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-rose-300 block">
+                        2. Fixed Cost Harian
+                      </span>
+                      {activeExecutiveSummary.isAllTargetFullySettled && fixedCostDeductionMode === 'kas_riil' && (
+                        <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-black">
+                          ✓ LUNAS
+                        </span>
+                      )}
+                    </div>
+                    <div className={`text-base sm:text-lg lg:text-xl font-mono font-extrabold mt-1 whitespace-nowrap ${
+                      activeExecutiveSummary.fixedCost === 0 ? 'text-emerald-300' : 'text-rose-300'
+                    }`}>
+                      {activeExecutiveSummary.fixedCost === 0 ? 'Rp 0' : `-${formatRupiah(activeExecutiveSummary.fixedCost)}`}
                     </div>
                   </div>
                   <span className="text-[10px] text-white/60 block mt-2">
-                    Sewa, Wi-Fi, Sampah (/30 hr)
+                    {activeExecutiveSummary.fixedCost === 0 
+                      ? '✓ Sewa & utilitas lunas dibayar' 
+                      : fixedCostDeductionMode === 'kas_riil'
+                      ? 'Sisa beban toko belum lunas'
+                      : 'Sewa, Wi-Fi, Sampah (/30 hr)'}
                   </span>
                 </div>
 
@@ -3211,172 +3324,13 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB KHUSUS: KELOLA BIAYA TETAP (FIXED COST) 10 CABANG */}
+        {/* TAB KHUSUS: KELOLA BIAYA TETAP & PEMBAYARAN BULANAN (FIXED COST) 10 CABANG */}
         {activeTab === 'fixedcost' && (
-          <div className="space-y-6">
-            
-            {/* Header Title & Explanation */}
-            <div className="bg-white p-5 rounded-2xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-800 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-md shadow-emerald-800/20">
-                  🏢
-                </div>
-                <div>
-                  <h3 className="text-base font-extrabold text-slate-900">
-                    Pengaturan Biaya Tetap (Fixed Cost) Tiap Toko Cabang
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Atur nilai Sewa Ruko, Wi-Fi &amp; Listrik, Retribusi Sampah, dan Beban Tambahan per toko. Sistem otomatis membagi 30 hari untuk memotong omzet harian sistem di Ringkasan.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2 bg-emerald-50 px-3.5 py-2 rounded-2xl border border-emerald-200 text-emerald-800 text-xs font-bold self-start md:self-auto">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Otomatis Memotong Omzet Harian (/30 Hari)</span>
-              </div>
-            </div>
-
-            {/* 4 Kartu Total Beban Operasional 10 Cabang */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Total Sewa Ruko 10 Toko
-                </span>
-                <div className="text-xl font-mono font-extrabold text-slate-900 mt-1 tabular-nums">
-                  {formatRupiah(cabangList.reduce((s, c) => s + (c.sewa_bulanan || 3500000), 0))}
-                  <span className="text-xs font-normal text-slate-500"> /bln</span>
-                </div>
-                <span className="text-[10px] text-emerald-700 font-bold mt-1 block">
-                  ≈ {formatRupiah(bossDailyProfits.totalSewa10Toko)} /hari (otomatis potong omzet)
-                </span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Total Wi-Fi &amp; Listrik 10 Toko
-                </span>
-                <div className="text-xl font-mono font-extrabold text-slate-900 mt-1 tabular-nums">
-                  {formatRupiah(cabangList.reduce((s, c) => s + (c.listrik_air_bulanan || 650000), 0))}
-                  <span className="text-xs font-normal text-slate-500"> /bln</span>
-                </div>
-                <span className="text-[10px] text-emerald-700 font-bold mt-1 block">
-                  ≈ {formatRupiah(bossDailyProfits.totalWifiListrik10Toko)} /hari (otomatis potong omzet)
-                </span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Total Iuran Sampah &amp; Kebersihan
-                </span>
-                <div className="text-xl font-mono font-extrabold text-slate-900 mt-1 tabular-nums">
-                  {formatRupiah(cabangList.reduce((s, c) => s + (c.iuran_kebersihan_bulanan || 150000), 0))}
-                  <span className="text-xs font-normal text-slate-500"> /bln</span>
-                </div>
-                <span className="text-[10px] text-emerald-700 font-bold mt-1 block">
-                  ≈ {formatRupiah(bossDailyProfits.totalIuran10Toko)} /hari (otomatis potong omzet)
-                </span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
-                  Total Beban Fixed Cost Harian
-                </span>
-                <div className="text-xl font-mono font-extrabold text-emerald-900 mt-1 tabular-nums">
-                  {formatRupiah(bossDailyProfits.totalSewa10Toko + bossDailyProfits.totalWifiListrik10Toko + bossDailyProfits.totalIuran10Toko + (bossDailyProfits.totalBiayaLain10Toko || 0))}
-                  <span className="text-xs font-normal text-emerald-700"> /hari</span>
-                </div>
-                <span className="text-[10px] text-emerald-800 mt-1 block font-medium">
-                  Total sewa, wifi &amp; retribusi yang dipotong per hari
-                </span>
-              </div>
-            </div>
-
-            {/* Tabel Pengaturan Fixed Cost 10 Cabang */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <span className="font-extrabold text-slate-900 text-sm">
-                  Daftar Biaya Tetap per Cabang (10 Toko)
-                </span>
-                <span className="text-xs font-mono font-bold text-slate-400">
-                  {cabangList.length} Cabang Terdaftar
-                </span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900 text-white uppercase text-[10px] font-black tracking-wider">
-                    <tr>
-                      <th className="py-3 px-3.5">Outlet Cabang</th>
-                      <th className="py-3 px-3.5">Biaya Sewa Ruko</th>
-                      <th className="py-3 px-3.5">Wi-Fi &amp; Listrik</th>
-                      <th className="py-3 px-3.5">Sampah &amp; Kebersihan</th>
-                      <th className="py-3 px-3.5">Beban Tambahan</th>
-                      <th className="py-3 px-3.5 text-right text-rose-300">Total Potongan Harian</th>
-                      <th className="py-3 px-3.5 text-center">Tindakan Owner</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {cabangList.map(c => {
-                      const sewa = c.sewa_bulanan || 3500000;
-                      const wifi = c.listrik_air_bulanan || 650000;
-                      const iuran = c.iuran_kebersihan_bulanan || 150000;
-                      const lain = c.biaya_lain_bulanan || 0;
-                      const harian = Math.round((sewa + wifi + iuran + lain) / 30);
-
-                      return (
-                        <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-3.5 px-3.5">
-                            <span className="font-mono text-[10px] font-bold text-slate-400 block">#{c.nomor} • {c.kode}</span>
-                            <span className="font-extrabold text-slate-900 text-xs">{c.nama}</span>
-                            <span className="text-[10px] text-slate-500 block">{c.kota} • PJ: {c.pj_nama || '-'}</span>
-                          </td>
-                          <td className="py-3.5 px-3.5">
-                            <span className="font-mono font-bold text-slate-900 block">{formatRupiah(sewa)}/bln</span>
-                            <span className="text-[10px] text-slate-400 font-mono">≈ {formatRupiah(Math.round(sewa / 30))}/hari</span>
-                          </td>
-                          <td className="py-3.5 px-3.5">
-                            <span className="font-mono font-bold text-slate-900 block">{formatRupiah(wifi)}/bln</span>
-                            <span className="text-[10px] text-slate-400 font-mono">≈ {formatRupiah(Math.round(wifi / 30))}/hari</span>
-                          </td>
-                          <td className="py-3.5 px-3.5">
-                            <span className="font-mono font-bold text-slate-900 block">{formatRupiah(iuran)}/bln</span>
-                            <span className="text-[10px] text-slate-400 font-mono">≈ {formatRupiah(Math.round(iuran / 30))}/hari</span>
-                          </td>
-                          <td className="py-3.5 px-3.5">
-                            {lain > 0 ? (
-                              <div>
-                                <span className="font-mono font-bold text-amber-950 block">{formatRupiah(lain)}/bln</span>
-                                <span className="text-[10px] text-slate-500 block truncate max-w-[130px]" title={c.keterangan_biaya_lain}>
-                                  {c.keterangan_biaya_lain || 'Biaya Tambahan'}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 text-[11px] italic">-</span>
-                            )}
-                          </td>
-                          <td className="py-3.5 px-3.5 text-right font-mono font-extrabold text-sm text-rose-700 bg-rose-50/40">
-                            -{formatRupiah(harian)}/hari
-                          </td>
-                          <td className="py-3.5 px-3.5 text-center">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedCabangForFixedCost(c)}
-                              className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 font-black text-xs shadow-xs transition btn-tactile inline-flex items-center space-x-1 cursor-pointer"
-                            >
-                              <Pencil className="w-3 h-3" />
-                              <span>Ubah Biaya Toko Ini</span>
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
+          <FixedCostPaymentManager
+            cabangList={cabangList}
+            onEditCabang={(c) => setSelectedCabangForFixedCost(c)}
+            selectedCabangId={selectedCabangId}
+          />
         )}
 
       </main>

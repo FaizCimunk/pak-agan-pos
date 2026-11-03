@@ -16,7 +16,8 @@ import {
   BahanBaku,
   KirimanBahanPusat,
   AbsensiBahanHarian,
-  FixedCostHarianCabang
+  FixedCostHarianCabang,
+  PembayaranFixedCostBulanan
 } from './types';
 import { 
   INITIAL_CABANG, 
@@ -34,6 +35,7 @@ import {
   DEMO_WEEK_EXPENSES,
   DEMO_WEEK_TRANSAKSI,
   DEMO_WEEK_ABSENSI,
+  INITIAL_FIXED_COST_PAYMENTS,
   DEFAULT_PIN_HASH 
 } from './mock-data';
 import { hashPin } from './utils';
@@ -51,6 +53,7 @@ const STORAGE_KEYS = {
   BAHAN_BAKU: 'pak_agan_bahan_baku_v5_demo_week',
   KIRIMAN_BAHAN: 'pak_agan_kiriman_bahan_v5_demo_week',
   ABSENSI_BAHAN: 'pak_agan_absensi_bahan_v5_demo_week',
+  FIXED_COST_PAYMENTS: 'pak_agan_fixed_cost_payments_v5_demo_week',
   ACTIVE_SHIFT_PREFIX: 'pak_agan_active_shift_v5_demo_week_',
 };
 
@@ -1383,6 +1386,87 @@ export class PosDatabase {
       saveLocal(STORAGE_KEYS.SHIFTS, []);
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // PEMBAYARAN FIXED COST BULANAN (Sewa, Wi-Fi & Listrik, Sampah/Kebersihan)
+  // --------------------------------------------------------------------------
+  async getFixedCostPayments(periodeBulan?: string, cabangId?: string): Promise<PembayaranFixedCostBulanan[]> {
+    const all = loadLocal<PembayaranFixedCostBulanan[]>(STORAGE_KEYS.FIXED_COST_PAYMENTS, INITIAL_FIXED_COST_PAYMENTS);
+    return all.filter(p => {
+      if (periodeBulan && p.periode_bulan !== periodeBulan) return false;
+      if (cabangId && cabangId !== 'all' && p.cabang_id !== cabangId) return false;
+      return true;
+    });
+  }
+
+  async saveFixedCostPayment(data: Partial<PembayaranFixedCostBulanan>): Promise<PembayaranFixedCostBulanan> {
+    const all = loadLocal<PembayaranFixedCostBulanan[]>(STORAGE_KEYS.FIXED_COST_PAYMENTS, INITIAL_FIXED_COST_PAYMENTS);
+    const existingIndex = all.findIndex(p => p.id === data.id);
+
+    const now = new Date().toISOString();
+    let updatedItem: PembayaranFixedCostBulanan;
+
+    if (existingIndex >= 0) {
+      updatedItem = {
+        ...all[existingIndex],
+        ...data,
+        updated_at: now
+      };
+      all[existingIndex] = updatedItem;
+    } else {
+      updatedItem = {
+        id: data.id || `fcp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        cabang_id: data.cabang_id || 'cbg-1',
+        cabang_nama: data.cabang_nama || 'Cabang',
+        periode_bulan: data.periode_bulan || '2026-10',
+        jenis_biaya: data.jenis_biaya || 'sewa',
+        nama_biaya: data.nama_biaya || 'Biaya Tetap',
+        nominal: data.nominal || 0,
+        status: data.status || 'lunas',
+        tanggal_bayar: data.tanggal_bayar || now.slice(0, 10),
+        metode_bayar: data.metode_bayar || 'Transfer BCA (Pak Agan)',
+        no_referensi: data.no_referensi || '',
+        catatan: data.catatan || '',
+        dibayar_oleh: data.dibayar_oleh || 'Pak Agan (Owner)',
+        updated_at: now
+      };
+      all.push(updatedItem);
+    }
+
+    saveLocal(STORAGE_KEYS.FIXED_COST_PAYMENTS, all);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+    return updatedItem;
+  }
+
+  async toggleFixedCostPaymentStatus(id: string, newStatus: 'lunas' | 'belum_bayar'): Promise<PembayaranFixedCostBulanan | null> {
+    const all = loadLocal<PembayaranFixedCostBulanan[]>(STORAGE_KEYS.FIXED_COST_PAYMENTS, INITIAL_FIXED_COST_PAYMENTS);
+    const idx = all.findIndex(p => p.id === id);
+    if (idx < 0) return null;
+
+    all[idx].status = newStatus;
+    if (newStatus === 'lunas' && !all[idx].tanggal_bayar) {
+      all[idx].tanggal_bayar = new Date().toISOString().slice(0, 10);
+    }
+    all[idx].updated_at = new Date().toISOString();
+
+    saveLocal(STORAGE_KEYS.FIXED_COST_PAYMENTS, all);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+    return all[idx];
+  }
+
+  async deleteFixedCostPayment(id: string): Promise<boolean> {
+    const all = loadLocal<PembayaranFixedCostBulanan[]>(STORAGE_KEYS.FIXED_COST_PAYMENTS, INITIAL_FIXED_COST_PAYMENTS);
+    const filtered = all.filter(p => p.id !== id);
+    saveLocal(STORAGE_KEYS.FIXED_COST_PAYMENTS, filtered);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+    return true;
   }
 
   // --------------------------------------------------------------------------

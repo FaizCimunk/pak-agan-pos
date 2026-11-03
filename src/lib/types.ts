@@ -270,3 +270,20 @@ export interface FixedCostHarianCabang {
   omzet_kotor: number;           // total penjualan hari ini
   uang_bersih_rekening_boss: number; // omzet_kotor - total_potongan_harian
 }
+
+export interface PembayaranFixedCostBulanan {
+  id: string;
+  cabang_id: string;
+  cabang_nama?: string;
+  periode_bulan: string; // YYYY-MM, contoh: '2026-10'
+  jenis_biaya: 'sewa' | 'listrik_wifi' | 'sampah_kebersihan' | 'biaya_lain' | 'semua_paket';
+  nama_biaya: string;
+  nominal: number;
+  status: 'lunas' | 'belum_bayar';
+  tanggal_bayar?: string; // YYYY-MM-DD
+  metode_bayar?: string; // 'transfer_bca', 'transfer_mandiri', 'kas_laci', 'tunai'
+  no_referensi?: string;
+  catatan?: string;
+  dibayar_oleh?: string;
+  updated_at?: string;
+}
