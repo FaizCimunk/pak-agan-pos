@@ -20,6 +20,7 @@ import CreateKirimanBahanModal from '@/components/CreateKirimanBahanModal';
 import ProfilTokoManager from '@/components/ProfilTokoManager';
 import MutasiPenjualanStatement from '@/components/MutasiPenjualanStatement';
 import FixedCostPaymentManager from '@/components/FixedCostPaymentManager';
+import BahanBakuAuditManager from '@/components/BahanBakuAuditManager';
 
 import { 
   Cabang, 
@@ -2336,234 +2337,17 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB: REKAPITULASI BAHAN 10 TOKO & DISTRIBUSI PUSAT */}
+        {/* TAB: AUDIT ABSENSI BAHAN 10 TOKO & ANALISA HPP */}
         {activeTab === 'bahan' && (
-          <div className="space-y-5">
-            {/* Top Bar Filter & Actions */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <PackageCheck className="w-5 h-5 text-emerald-700" />
-                  <h3 className="text-sm font-extrabold text-slate-900">
-                    Rekapitulasi Absensi Bahan 10 Toko &amp; Pasokan Pusat
-                  </h3>
-                </div>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Pemakaian bahan ditarik otomatis dari transaksi kasir di tempat. Admin Pusat dapat menambahkan kiriman pasokan satu per satu.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2.5 text-xs">
-                {/* Branch Selector */}
-                <div className="flex items-center space-x-1.5 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-                  <Store className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="font-bold text-slate-700">Toko:</span>
-                  <select
-                    value={selectedBahanCabangId}
-                    onChange={(e) => setSelectedBahanCabangId(e.target.value)}
-                    className="bg-transparent font-bold text-slate-900 outline-none text-xs"
-                  >
-                    <option value="all">Semua 10 Toko</option>
-                    {cabangList.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Date Picker */}
-                <div className="flex items-center space-x-1.5 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="font-bold text-slate-700">Tanggal:</span>
-                  <input
-                    type="date"
-                    value={selectedBahanDate}
-                    onChange={(e) => setSelectedBahanDate(e.target.value)}
-                    className="bg-transparent font-mono font-bold text-slate-900 outline-none text-xs"
-                  />
-                </div>
-
-                {/* Tombol Input Kiriman Bahan Pusat */}
-                <button
-                  type="button"
-                  onClick={() => setShowKirimanModal(true)}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow-sm transition-all btn-tactile"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Input Kiriman Bahan ke Toko</span>
-                </button>
-              </div>
-            </div>
-
-            {/* 4 Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-soft-sm">
-                <span className="text-[11px] font-bold text-slate-400 uppercase block">Total Baris Bahan</span>
-                <div className="text-2xl font-mono font-black text-slate-900 mt-1">{materialAuditRows.length} Bahan</div>
-                <span className="text-[10px] text-slate-500">Terpantau di 10 Toko</span>
-              </div>
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-soft-sm">
-                <span className="text-[11px] font-bold text-slate-400 uppercase block">Stok Cocok Pas</span>
-                <div className="text-2xl font-mono font-black text-emerald-700 mt-1">
-                  {materialAuditRows.filter(r => r.status === 'cocok').length} Bahan
-                </div>
-                <span className="text-[10px] text-emerald-600 font-bold">✅ Sisa Fisik == Sisa Sistem</span>
-              </div>
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-soft-sm">
-                <span className="text-[11px] font-bold text-slate-400 uppercase block">Selisih Dapur</span>
-                <div className="text-2xl font-mono font-black text-amber-600 mt-1">
-                  {materialAuditRows.filter(r => r.status === 'selisih').length} Bahan
-                </div>
-                <span className="text-[10px] text-amber-600 font-bold">⚠️ Perlu Rekonsiliasi</span>
-              </div>
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-soft-sm">
-                <span className="text-[11px] font-bold text-slate-400 uppercase block">Kiriman Pasokan Hari Ini</span>
-                <div className="text-2xl font-mono font-black text-blue-700 mt-1">
-                  {kirimanBahanList.filter(k => k.tanggal === selectedBahanDate).length} Batch
-                </div>
-                <span className="text-[10px] text-blue-600 font-bold">📦 Distribusi Pusat</span>
-              </div>
-            </div>
-
-            {/* Tabel Rekapitulasi Bahan 10 Toko */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h4 className="font-extrabold text-sm text-slate-900">
-                    Rekap Absensi Bahan per Toko ({selectedBahanDate})
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Terhitung otomatis dari data POS kasir di masing-masing cabang
-                  </p>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 text-slate-600 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
-                    <tr>
-                      <th className="py-2.5 px-3">Toko Cabang</th>
-                      <th className="py-2.5 px-3">Nama Bahan Baku</th>
-                      <th className="py-2.5 px-2 text-center">Stok Awal</th>
-                      <th className="py-2.5 px-2 text-center text-blue-700">Kiriman Pusat</th>
-                      <th className="py-2.5 px-2 text-center text-rose-700 bg-rose-50/60 font-black">Terpakai Kasir ⚡</th>
-                      <th className="py-2.5 px-2 text-center text-slate-700">Sisa Sistem</th>
-                      <th className="py-2.5 px-3 text-center bg-emerald-50 text-emerald-950 font-black">Sisa Fisik Dapur</th>
-                      <th className="py-2.5 px-2 text-center">Selisih</th>
-                      <th className="py-2.5 px-3 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {materialAuditRows.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} className="py-8 text-center text-slate-400">
-                          Tidak ada data bahan pada filter cabang dan tanggal terpilih.
-                        </td>
-                      </tr>
-                    ) : (
-                      materialAuditRows.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">
-                            <span className="font-extrabold text-slate-900">{row.cabang.kode}</span>
-                            <span className="text-[10px] text-slate-500 block">{row.cabang.nama.split('-')[1]?.trim() || row.cabang.nama}</span>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <div className="font-bold text-slate-800">{row.bahan.nama}</div>
-                            <div className="text-[10px] text-slate-400">Satuan: {row.bahan.satuan}</div>
-                          </td>
-                          <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-600">{row.stokAwal}</td>
-                          <td className="py-2.5 px-2 text-center font-mono font-bold text-blue-700">
-                            {row.kirimanPusat > 0 ? `+${row.kirimanPusat}` : '-'}
-                          </td>
-                          <td className="py-2.5 px-2 text-center font-mono font-black text-rose-700 bg-rose-50/30">
-                            {row.terpakaiKasir > 0 ? `-${row.terpakaiKasir}` : '0'}
-                          </td>
-                          <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-700">{row.sisaSistem}</td>
-                          <td className="py-2.5 px-3 text-center font-mono font-black text-emerald-800 bg-emerald-50/40">
-                            {row.sisaFisik} {row.bahan.satuan}
-                          </td>
-                          <td className="py-2.5 px-2 text-center font-mono font-bold">
-                            {row.selisih === 0 ? <span className="text-slate-400">0</span> : row.selisih > 0 ? <span className="text-blue-600 font-black">+{row.selisih}</span> : <span className="text-rose-600 font-black">{row.selisih}</span>}
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            {row.status === 'cocok' ? (
-                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300">
-                                <span>✓ COCOK</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black border border-amber-300">
-                                <span>⚠️ SELISIH</span>
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Riwayat Kiriman Bahan dari Pusat */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-extrabold text-sm text-slate-900">
-                    Riwayat Pasokan Kiriman Bahan dari Pusat ke Toko
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Daftar pengiriman bahan baku harian yang telah dikirimkan ke 10 cabang
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowKirimanModal(true)}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 text-xs font-bold transition-all"
-                >
-                  + Tambah Kiriman Lagi
-                </button>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-[10px] border-b border-slate-200">
-                    <tr>
-                      <th className="py-2 px-3">Tanggal Kirim</th>
-                      <th className="py-2 px-3">Cabang Tujuan</th>
-                      <th className="py-2 px-3">Bahan Baku</th>
-                      <th className="py-2 px-3 text-right">Jumlah (Qty)</th>
-                      <th className="py-2 px-3">Dikirim Oleh</th>
-                      <th className="py-2 px-3">Catatan</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {kirimanBahanList.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-6 text-center text-slate-400">
-                          Belum ada riwayat kiriman bahan.
-                        </td>
-                      </tr>
-                    ) : (
-                      kirimanBahanList.map(krm => (
-                        <tr key={krm.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-700">{krm.tanggal}</td>
-                          <td className="py-2.5 px-3 font-bold text-slate-900">{krm.cabang_nama || krm.cabang_id}</td>
-                          <td className="py-2.5 px-3 font-bold text-emerald-800">{krm.bahan_nama}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900">
-                            +{krm.jumlah} <span className="font-normal text-[10px] text-slate-500">{krm.satuan}</span>
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600 text-[11px]">{krm.dikirim_oleh}</td>
-                          <td className="py-2.5 px-3 text-slate-500 italic text-[11px]">{krm.catatan || '-'}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
+          <BahanBakuAuditManager
+            cabangList={cabangList}
+            bahanList={bahanList}
+            kirimanBahanList={kirimanBahanList}
+            transaksiList={transaksiList}
+            selectedDate={selectedBahanDate}
+            onDateChange={(d) => setSelectedBahanDate(d)}
+            onRefreshData={refreshAllData}
+          />
         )}
 
         {/* TAB 3: MASTER KATALOG MENU RESMI */}

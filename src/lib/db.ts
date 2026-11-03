@@ -1130,6 +1130,18 @@ export class PosDatabase {
     return newBahan;
   }
 
+  async updateBahanBaku(id: string, updates: Partial<BahanBaku>): Promise<BahanBaku | null> {
+    const list = await this.getBahanBakuList();
+    const idx = list.findIndex(b => b.id === id);
+    if (idx === -1) return null;
+    list[idx] = { ...list[idx], ...updates };
+    saveLocal(STORAGE_KEYS.BAHAN_BAKU, list);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+    return list[idx];
+  }
+
   // --------------------------------------------------------------------------
   // KIRIMAN BAHAN DARI PUSAT KE CABANG (SATU PER SATU)
   // --------------------------------------------------------------------------

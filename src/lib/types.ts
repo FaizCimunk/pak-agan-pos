@@ -211,9 +211,10 @@ export interface BahanBaku {
   id: string;
   kode: string;
   nama: string;
-  satuan: string; // 'kg' | 'liter' | 'porsi' | 'bungkus' | 'butir' | 'pcs'
+  satuan: string; // 'kg' | 'gram' | 'liter' | 'ml' | 'porsi' | 'bungkus' | 'butir' | 'pcs'
   kategori: 'serabi' | 'wedang' | 'kemasan' | 'umum';
   stok_minimum?: number;
+  harga_satuan?: number; // Harga Beli / Biaya Pokok per satuan (Rp)
 }
 
 export interface ResepMenuBahan {
