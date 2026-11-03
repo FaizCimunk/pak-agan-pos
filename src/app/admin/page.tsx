@@ -765,79 +765,35 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* TAB 1: RINGKASAN & MUTASI (MENU UTAMA 9 KOTAK APK) */}
+        {/* TAB 1: RINGKASAN & PUSAT KENDALI 10 CABANG TERPADU */}
         {activeTab === 'ringkasan' && (
           <div className="space-y-6">
             
-            {/* DASHBOARD BOSS SENIOR-FRIENDLY & MODERN (PAK AGAN) */}
-            <SeniorBossDashboard
+            {/* PUSAT KENDALI 10 CABANG TERPADU (ALL-IN-ONE MASTER HUB) */}
+            <UnifiedBranchTable
               cabangList={cabangList}
-              selectedCabangId={selectedCabangId}
-              onSelectCabangId={(id) => setSelectedCabangId(id)}
-              onEditCabang={(cbg) => setSelectedCabangForEdit(cbg)}
-              selectedDate={selectedBossSummaryDate}
-              onDateChange={(dt) => setSelectedBossSummaryDate(dt)}
-              transaksiList={transaksiList}
               karyawanList={karyawanList}
-              absensiList={absensiList}
-              menuList={menuList}
-              bahanList={bahanList}
-              kirimanBahanList={kirimanBahanList}
-              expenseList={expenseList}
-              onOpenKirimanModal={(cbgId) => {
+              transaksiList={transaksiList}
+              bossDailyProfits={bossDailyProfits}
+              materialAuditRows={materialAuditRows}
+              selectedDate={selectedBossSummaryDate}
+              onDateChange={setSelectedBossSummaryDate}
+              onEditCabang={(cbg) => setSelectedCabangForEdit(cbg)}
+              onAddNewCabang={() => setIsAddingNewCabang(true)}
+              onResetDefaultCabang={async () => {
+                if (confirm('Kembalikan data 10 cabang ke default resmi bawaan?')) {
+                  await db.resetCabangDefault();
+                  await refreshAllData();
+                }
+              }}
+              onSelectCabang={(id) => setSelectedCabangId(id)}
+              selectedCabangId={selectedCabangId}
+              onOpenKirimanBahanModal={(cbgId) => {
                 if (cbgId) setSelectedBahanCabangId(cbgId);
                 setShowKirimanModal(true);
               }}
-              onRefreshData={refreshAllData}
-              onOpenReportModal={() => setShowDailyReportModal(true)}
-              onOpenPinReset={(k) => setSelectedKaryawanForPinReset(k)}
-              onOpenExpenseCreate={() => setShowCreateExpenseModal(true)}
-              onNavigateTab={(tab) => setActiveTab(tab)}
-              pendingApprovalCount={pendingExpenses.length}
-              onLogout={handleLogoutOwner}
+              onNavigateToTab={(tab) => setActiveTab(tab)}
             />
-
-            {/* AKORDION MODE LANJUTAN: TABEL 10 CABANG & MUTASI LENGKAP */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAdvancedTables(!showAdvancedTables)}
-                className="w-full py-3.5 px-4 bg-white hover:bg-slate-50 border-2 border-slate-200 rounded-3xl text-xs font-black text-slate-700 flex items-center justify-between shadow-soft-sm transition-all active:scale-[0.99] cursor-pointer"
-              >
-                <span className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-700" />
-                  <span>{showAdvancedTables ? 'Sembunyikan Tabel Master 10 Cabang & Mutasi' : '📋 Buka Mode Lanjutan: Tabel Master 10 Cabang & Mutasi Kasir'}</span>
-                </span>
-                <span className="text-slate-400 font-bold">{showAdvancedTables ? '▲ Tutup' : '▼ Tampilkan'}</span>
-              </button>
-
-              {showAdvancedTables && (
-                <div className="space-y-6 mt-4 animate-fadeIn">
-                  {/* PUSAT KENDALI 10 CABANG TERPADU (ALL-IN-ONE MASTER HUB) */}
-                  <UnifiedBranchTable
-                    cabangList={cabangList}
-                    karyawanList={karyawanList}
-                    transaksiList={transaksiList}
-                    bossDailyProfits={bossDailyProfits}
-                    materialAuditRows={materialAuditRows}
-                    selectedDate={selectedBossSummaryDate}
-                    onDateChange={setSelectedBossSummaryDate}
-                    onEditCabang={(cbg) => setSelectedCabangForEdit(cbg)}
-                    onAddNewCabang={() => setIsAddingNewCabang(true)}
-                    onResetDefaultCabang={async () => {
-                      if (confirm('Kembalikan data 10 cabang ke default resmi bawaan?')) {
-                        await db.resetCabangDefault();
-                        await refreshAllData();
-                      }
-                    }}
-                    onSelectCabang={(id) => setSelectedCabangId(id)}
-                    selectedCabangId={selectedCabangId}
-                    onOpenKirimanBahanModal={(cbgId) => {
-                      if (cbgId) setSelectedBahanCabangId(cbgId);
-                      setShowKirimanModal(true);
-                    }}
-                    onNavigateToTab={(tab) => setActiveTab(tab)}
-                  />
 
                   {/* Mutasi Transaksi Feed */}
                   <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden">
@@ -922,10 +878,6 @@ export default function AdminDashboardPage() {
                       </table>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-
           </div>
         )}
 
@@ -2696,26 +2648,6 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* BOTTOM BACK TO HOME LAUNCHER BUTTON: TAMPIL SAAT BERADA DI SUB-SCREEN */}
-        {activeTab !== 'ringkasan' && (
-          <div className="pt-4 pb-10 flex flex-col items-center justify-center space-y-2">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('ringkasan');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs sm:text-sm shadow-xl flex items-center space-x-2 transition-all active:scale-95 cursor-pointer border border-slate-700"
-            >
-              <span className="text-base font-bold">←</span>
-              <span>KEMBALI KE MENU UTAMA (9 KOTAK)</span>
-            </button>
-            <p className="text-[11px] text-slate-400 font-medium">
-              Ketuk untuk kembali ke 9 menu aplikasi Pak Agan
-            </p>
           </div>
         )}
 
