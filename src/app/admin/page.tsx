@@ -779,90 +779,6 @@ export default function AdminDashboardPage() {
           </button>
         </div>
 
-        {/* Desktop Top Header Bar ala Abdi Membangun */}
-        <div className="hidden md:flex flex-row items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
-          <div className="flex items-center space-x-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 border border-emerald-600/30 flex items-center justify-center text-white text-2xl shadow-md shrink-0">
-              🥞
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[11px] uppercase font-extrabold tracking-widest text-slate-400">
-                  Pusat Kendali Eksekutif 10 Cabang • Pak Agan
-                </span>
-              </div>
-              <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-                Serabi Bawel &amp; Wedang Geprek POS
-              </h1>
-            </div>
-          </div>
-
-          {/* Controls: Branch Filter & Cetak Laporan PDF */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
-              <Store className="w-4 h-4 text-emerald-700 shrink-0" />
-              <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Filter Outlet:</span>
-              <select
-                value={selectedCabangId}
-                onChange={(e) => setSelectedCabangId(e.target.value)}
-                className="bg-transparent text-xs font-extrabold text-slate-800 outline-none cursor-pointer"
-              >
-                <option value="all">Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
-                {cabangList.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowDailyReportModal(true)}
-              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-sm text-xs font-bold transition-all btn-tactile cursor-pointer"
-            >
-              <FileText className="w-3.5 h-3.5 text-amber-400" />
-              <span>Laporan Harian PDF &amp; Bank</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 4 FINTECH METRIC STAT CARDS (ALA ABDI MEMBANGUN - GARIS ATAS HIJAU) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="p-4 sm:p-5 rounded-2xl bg-white border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Omzet Penjualan</span>
-            <div className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-800 tabular-nums tracking-tight mt-1.5">
-              {formatRupiah(totalOmzetGlobal)}
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">10 Cabang Resmi</span>
-          </div>
-
-          <div className="p-4 sm:p-5 rounded-2xl bg-white border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Volume Transaksi</span>
-            <div className="text-xl sm:text-2xl font-mono font-extrabold text-slate-900 tabular-nums tracking-tight mt-1.5">
-              {totalTransaksiCount} Pesanan
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">Struk kasir POS &amp; Ojol</span>
-          </div>
-
-          <div className="p-4 sm:p-5 rounded-2xl bg-white border-t-[4px] border-amber-500 border-x border-b border-slate-200/80 shadow-soft-sm">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Approval Menunggu</span>
-            <div className="text-xl sm:text-2xl font-mono font-extrabold text-amber-600 tabular-nums tracking-tight mt-1.5">
-              {pendingExpenses.length} Pengajuan
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">Kasbon &amp; Belanja Toko</span>
-          </div>
-
-          <div className="p-4 sm:p-5 rounded-2xl bg-white border-t-[4px] border-blue-600 border-x border-b border-slate-200/80 shadow-soft-sm">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Kasbon Berjalan</span>
-            <div className="text-xl sm:text-2xl font-mono font-extrabold text-blue-800 tabular-nums tracking-tight mt-1.5">
-              {formatRupiah(totalUnsettledKasbon)}
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">Dipotong saat payroll</span>
-          </div>
-        </div>
-
         {/* TAB 1: RINGKASAN EKSEKUTIF, LABA BERSIH & POSISI UANG BOSS */}
         {activeTab === 'ringkasan' && (
           <div className="space-y-6">
@@ -890,7 +806,7 @@ export default function AdminDashboardPage() {
                   </p>
                 </div>
 
-                {/* Filter Outlet & Tanggal Terpadu */}
+                {/* Filter Outlet, Tanggal & Tombol Cetak PDF Terpadu */}
                 <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
                   {/* Branch Selector */}
                   <div className="flex items-center space-x-1.5 bg-white/10 px-3 py-1.5 rounded-2xl border border-white/15 backdrop-blur-sm text-xs font-bold text-white shadow-2xs">
@@ -921,6 +837,17 @@ export default function AdminDashboardPage() {
                       className="bg-emerald-950/90 border border-emerald-700/60 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-white outline-none cursor-pointer"
                     />
                   </div>
+
+                  {/* Cetak PDF Laporan Rekap Harian */}
+                  <button
+                    type="button"
+                    onClick={() => setShowDailyReportModal(true)}
+                    className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs shadow-md transition-all btn-tactile cursor-pointer"
+                    title="Cetak Laporan Harian PDF Resmi Kop Perusahaan"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-slate-900" />
+                    <span>Laporan PDF</span>
+                  </button>
                 </div>
               </div>
 
