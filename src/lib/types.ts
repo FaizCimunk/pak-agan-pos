@@ -231,6 +231,8 @@ export interface KirimanBahanPusat {
   bahan_nama: string;
   jumlah: number;
   satuan: string;
+  harga_satuan?: number; // Nominal harga beli / modal pokok per satuan (Rp)
+  total_nilai?: number;  // Total nominal nilai pasokan bahan (jumlah * harga_satuan) (Rp)
   tanggal: string; // YYYY-MM-DD
   dikirim_oleh: string;
   catatan?: string;

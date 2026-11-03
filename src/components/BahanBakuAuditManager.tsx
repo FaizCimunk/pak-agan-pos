@@ -60,6 +60,47 @@ export default function BahanBakuAuditManager({
   const [editStokMinimum, setEditStokMinimum] = useState<number>(10);
   const [isSavingBahan, setIsSavingBahan] = useState<boolean>(false);
 
+  // Dedicated Tambah Master Bahan Modal
+  const [showMasterBahanModal, setShowMasterBahanModal] = useState<boolean>(false);
+  const [newMasterNama, setNewMasterNama] = useState<string>('');
+  const [newMasterKategori, setNewMasterKategori] = useState<'serabi' | 'wedang' | 'kemasan' | 'umum'>('umum');
+  const [newMasterSatuan, setNewMasterSatuan] = useState<string>('kg');
+  const [newMasterHargaSatuan, setNewMasterHargaSatuan] = useState<number>(25000);
+  const [newMasterStokMin, setNewMasterStokMin] = useState<number>(15);
+  const [isSavingMaster, setIsSavingMaster] = useState<boolean>(false);
+
+  const handleSaveMasterBahan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMasterNama.trim()) {
+      alert('Silakan tulis nama bahan baku baru!');
+      return;
+    }
+    if (newMasterHargaSatuan <= 0) {
+      alert('Nominal harga pokok per satuan harus lebih dari Rp 0!');
+      return;
+    }
+
+    setIsSavingMaster(true);
+    try {
+      await db.createBahanBaku({
+        nama: newMasterNama.trim(),
+        satuan: newMasterSatuan,
+        kategori: newMasterKategori,
+        harga_satuan: Number(newMasterHargaSatuan),
+        stok_minimum: Number(newMasterStokMin),
+      });
+      await onRefreshData();
+      setShowMasterBahanModal(false);
+      setNewMasterNama('');
+      setNewMasterHargaSatuan(25000);
+      alert('✅ Bahan baku baru berhasil didaftarkan ke Master Bahan Baku!');
+    } catch (err: any) {
+      alert('Gagal menambah master bahan: ' + err.message);
+    } finally {
+      setIsSavingMaster(false);
+    }
+  };
+
   // Open Edit Bahan Modal
   const handleOpenEditBahan = (bhn: BahanBaku) => {
     setEditingBahan(bhn);
@@ -102,6 +143,7 @@ export default function BahanBakuAuditManager({
       hargaSatuan: number;
       stokAwal: number;
       kirimanPusat: number;
+      nilaiKirimanPusat: number;
       terpakaiKasir: number;
       sisaSistem: number;
       sisaFisik: number;
@@ -166,6 +208,7 @@ export default function BahanBakuAuditManager({
         const selisih = Number((sisaFisik - sisaSistem).toFixed(2));
         const hargaSatuan = bhn.harga_satuan || 20000;
 
+        const nilaiKirimanPusat = Math.round(kirimanTotal * hargaSatuan);
         const nilaiTerpakai = Math.round(terpakai * hargaSatuan);
         const nilaiAsetFisik = Math.round(sisaFisik * hargaSatuan);
         const nilaiSelisih = Math.round(selisih * hargaSatuan);
@@ -177,6 +220,7 @@ export default function BahanBakuAuditManager({
           hargaSatuan,
           stokAwal,
           kirimanPusat: kirimanTotal,
+          nilaiKirimanPusat,
           terpakaiKasir: terpakai,
           sisaSistem,
           sisaFisik,
@@ -210,6 +254,11 @@ export default function BahanBakuAuditManager({
 
     const dayKiriman = kirimanBahanList.filter(k => k.tanggal === selectedDate);
     const totalKirimanBatch = dayKiriman.length;
+    const totalNilaiKiriman = dayKiriman.reduce((sum, k) => {
+      const bhn = bahanList.find(b => b.id === k.bahan_id);
+      const unitPrice = k.harga_satuan || bhn?.harga_satuan || 20000;
+      return sum + (k.total_nilai || (k.jumlah * unitPrice));
+    }, 0);
 
     return {
       totalNilaiAset,
@@ -218,9 +267,10 @@ export default function BahanBakuAuditManager({
       selisihCount,
       cocokCount,
       totalKirimanBatch,
+      totalNilaiKiriman,
       totalBaris: auditRows.length,
     };
-  }, [auditRows, kirimanBahanList, selectedDate]);
+  }, [auditRows, kirimanBahanList, bahanList, selectedDate]);
 
   return (
     <div className="space-y-6">
@@ -299,6 +349,16 @@ export default function BahanBakuAuditManager({
             </select>
           </div>
 
+          {/* Tombol Tambah Master Bahan Baru */}
+          <button
+            type="button"
+            onClick={() => setShowMasterBahanModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5 text-slate-500" />
+            <span>+ Master Bahan</span>
+          </button>
+
           {/* Tombol Input Kiriman */}
           <button
             type="button"
@@ -362,14 +422,19 @@ export default function BahanBakuAuditManager({
 
         {/* 4. Kiriman Pasokan Hari Ini */}
         <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-soft-sm">
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-            Pasokan Kiriman Pusat
-          </span>
-          <div className="text-xl sm:text-2xl font-mono font-black text-blue-700 mt-1 tabular-nums">
-            {metrics.totalKirimanBatch} Batch
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+              Pasokan Kiriman Hari Ini
+            </span>
+            <span className="text-xs font-mono font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+              {metrics.totalKirimanBatch} Batch
+            </span>
           </div>
-          <span className="text-[10px] text-blue-600 font-bold mt-1 block">
-            📦 Distribusi gudang ke cabang
+          <div className="text-xl sm:text-2xl font-mono font-black text-slate-900 mt-1 tabular-nums">
+            {formatRupiah(metrics.totalNilaiKiriman)}
+          </div>
+          <span className="text-[10px] text-blue-700 font-bold mt-1 block">
+            📦 Nominal modal pasokan dari gudang
           </span>
         </div>
 
@@ -488,9 +553,14 @@ export default function BahanBakuAuditManager({
                     {/* Kiriman Pusat */}
                     <td className="py-3 px-2 text-center font-mono font-bold text-blue-700">
                       {row.kirimanPusat > 0 ? (
-                        <span className="bg-blue-50 px-1.5 py-0.5 rounded-lg border border-blue-200">
-                          +{row.kirimanPusat} {row.satuan}
-                        </span>
+                        <div>
+                          <span className="bg-blue-50 px-1.5 py-0.5 rounded-lg border border-blue-200">
+                            +{row.kirimanPusat} {row.satuan}
+                          </span>
+                          <span className="text-[9px] text-blue-600 font-normal block mt-0.5">
+                            ≈ {formatRupiah(row.nilaiKirimanPusat)}
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-slate-300">-</span>
                       )}
@@ -592,6 +662,8 @@ export default function BahanBakuAuditManager({
                 <th className="py-2.5 px-3">Nama Bahan Baku</th>
                 <th className="py-2.5 px-3 text-center">Jumlah Pasokan</th>
                 <th className="py-2.5 px-3">Satuan</th>
+                <th className="py-2.5 px-3 text-right">Harga Pokok (HPP)</th>
+                <th className="py-2.5 px-3 text-right">Total Nilai Kiriman</th>
                 <th className="py-2.5 px-3">Pengirim</th>
                 <th className="py-2.5 px-3">Catatan Batch</th>
               </tr>
@@ -599,36 +671,48 @@ export default function BahanBakuAuditManager({
             <tbody className="divide-y divide-slate-100 bg-white">
               {kirimanBahanList.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                  <td colSpan={9} className="py-8 text-center text-slate-400">
                     Belum ada riwayat kiriman bahan pusat.
                   </td>
                 </tr>
               ) : (
-                kirimanBahanList.slice().reverse().map(k => (
-                  <tr key={k.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-2.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">
-                      {k.tanggal}
-                    </td>
-                    <td className="py-2.5 px-3 font-extrabold text-slate-900">
-                      {k.cabang_nama}
-                    </td>
-                    <td className="py-2.5 px-3 font-bold text-slate-800">
-                      {k.bahan_nama}
-                    </td>
-                    <td className="py-2.5 px-3 text-center font-mono font-black text-blue-700 bg-blue-50/30">
-                      +{k.jumlah}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono font-bold text-slate-600 uppercase text-[10px]">
-                      {k.satuan || 'porsi'}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-600">
-                      {k.dikirim_oleh}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-500 italic max-w-xs truncate">
-                      {k.catatan || '-'}
-                    </td>
-                  </tr>
-                ))
+                kirimanBahanList.slice().reverse().map(k => {
+                  const bhn = bahanList.find(b => b.id === k.bahan_id);
+                  const unitPrice = k.harga_satuan || bhn?.harga_satuan || 20000;
+                  const totalVal = k.total_nilai || (k.jumlah * unitPrice);
+
+                  return (
+                    <tr key={k.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">
+                        {k.tanggal}
+                      </td>
+                      <td className="py-2.5 px-3 font-extrabold text-slate-900">
+                        {k.cabang_nama}
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-slate-800">
+                        {k.bahan_nama}
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-mono font-black text-blue-700 bg-blue-50/30">
+                        +{k.jumlah}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-600 uppercase text-[10px]">
+                        {k.satuan || 'porsi'}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-700">
+                        {formatRupiah(unitPrice)} <span className="text-[9px] text-slate-400 font-normal">/{k.satuan}</span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-emerald-800 bg-emerald-50/40">
+                        {formatRupiah(totalVal)}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600">
+                        {k.dikirim_oleh}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-500 italic max-w-xs truncate">
+                        {k.catatan || '-'}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -755,6 +839,148 @@ export default function BahanBakuAuditManager({
           }}
           onClose={() => setShowKirimanModal(false)}
         />
+      )}
+
+      {/* 7. MODAL DEDIKASI TAMBAH MASTER BAHAN BAKU BARU */}
+      {showMasterBahanModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+            
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-800 text-white flex items-center justify-center font-bold shadow-sm">
+                  <Sparkles className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    Tambah Master Bahan Baku Baru
+                  </h3>
+                  <span className="text-xs text-slate-500">Pusat Katalog Bahan • Serabi Bawel &amp; Wedang Geprek</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMasterBahanModal(false)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMasterBahan} className="space-y-3.5 text-xs">
+              
+              <div>
+                <label className="block text-slate-700 font-extrabold uppercase text-[10px] tracking-wider mb-1">
+                  Nama Bahan Baku Baru *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Santan Kental Murni / Jahe Merah"
+                  value={newMasterNama}
+                  onChange={(e) => setNewMasterNama(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs font-bold text-slate-900 border border-slate-200 rounded-xl outline-none focus:border-brand-primary"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-slate-700 font-extrabold uppercase text-[10px] tracking-wider mb-1">
+                    Kategori Bahan:
+                  </label>
+                  <select
+                    value={newMasterKategori}
+                    onChange={(e) => setNewMasterKategori(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs font-bold text-slate-900 border border-slate-200 rounded-xl outline-none bg-white cursor-pointer"
+                  >
+                    <option value="serabi">Varian Serabi</option>
+                    <option value="wedang">Rempah Wedang</option>
+                    <option value="kemasan">Kemasan &amp; Cup</option>
+                    <option value="umum">Bahan Umum</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-extrabold uppercase text-[10px] tracking-wider mb-1">
+                    Satuan Takaran:
+                  </label>
+                  <select
+                    value={newMasterSatuan}
+                    onChange={(e) => setNewMasterSatuan(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-bold text-slate-900 border border-slate-200 rounded-xl outline-none bg-white cursor-pointer"
+                  >
+                    <option value="kg">kg (Kilogram)</option>
+                    <option value="gram">gram</option>
+                    <option value="liter">liter</option>
+                    <option value="ml">ml (Mililiter)</option>
+                    <option value="bungkus">bungkus / pack</option>
+                    <option value="butir">butir (Telur)</option>
+                    <option value="pcs">pcs / kemasan</option>
+                    <option value="porsi">porsi</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Nominal Modal Pokok / Harga Beli per Satuan */}
+              <div className="bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200/80 space-y-1.5">
+                <label className="block text-emerald-900 font-extrabold uppercase text-[10px] tracking-wider">
+                  Harga Pokok Beli / Modal (Rp per {newMasterSatuan}) *
+                </label>
+                <input
+                  type="number"
+                  min={100}
+                  value={newMasterHargaSatuan}
+                  onChange={(e) => setNewMasterHargaSatuan(Number(e.target.value))}
+                  placeholder="Contoh: 25000"
+                  className="w-full px-3.5 py-2 text-sm font-mono font-black text-slate-900 bg-white border border-emerald-300 rounded-xl outline-none focus:border-brand-primary"
+                  required
+                />
+                <div className="flex items-center justify-between text-[10px] text-emerald-700 font-semibold pt-0.5">
+                  <span>Valuasi per {newMasterSatuan}:</span>
+                  <span className="font-mono font-bold">{formatRupiah(newMasterHargaSatuan)}</span>
+                </div>
+              </div>
+
+              {/* Batas Stok Minimum */}
+              <div>
+                <label className="block text-slate-700 font-extrabold uppercase text-[10px] tracking-wider mb-1">
+                  Batas Stok Minimum Cabang ({newMasterSatuan}):
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={newMasterStokMin}
+                  onChange={(e) => setNewMasterStokMin(Number(e.target.value))}
+                  className="w-full px-3.5 py-2 text-xs font-bold text-slate-900 border border-slate-200 rounded-xl outline-none focus:border-brand-primary"
+                  required
+                />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  *Toko cabang akan memicu peringatan stok menipis jika stok fisik di bawah angka ini.
+                </span>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowMasterBahanModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingMaster}
+                  className="px-5 py-2 rounded-xl bg-brand-primary hover:bg-emerald-800 text-white font-black shadow-md transition-all cursor-pointer flex items-center space-x-1.5 disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-amber-300" />
+                  <span>{isSavingMaster ? 'Menyimpan...' : 'Simpan ke Master Bahan'}</span>
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
       )}
 
     </div>
