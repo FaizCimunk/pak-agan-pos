@@ -17,12 +17,13 @@ import {
   Coins,
   PackageCheck,
   Building2,
+  Store,
   X
 } from 'lucide-react';
 
 interface AdminSidebarProps {
-  activeTab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost';
-  onTabChange: (tab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost') => void;
+  activeTab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko';
+  onTabChange: (tab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko') => void;
   pendingCount: number;
   onLogout: () => void;
   isMobileOpen?: boolean;
@@ -72,6 +73,12 @@ export default function AdminSidebar({
       label: 'Data Pekerja',
       sub: 'Profil, tarif upah, PIN & ploting',
       icon: UserCheck,
+    },
+    {
+      id: 'profiltoko',
+      label: 'Identitas Toko & Struk',
+      sub: 'Nama toko, sandi kasir, WA & promo',
+      icon: Store,
     },
     {
       id: 'approval',

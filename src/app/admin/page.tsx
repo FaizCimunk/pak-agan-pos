@@ -17,6 +17,7 @@ import CreateKaryawanModal from '@/components/CreateKaryawanModal';
 import DailyBranchReportModal from '@/components/DailyBranchReportModal';
 import PayoutSalaryModal from '@/components/PayoutSalaryModal';
 import CreateKirimanBahanModal from '@/components/CreateKirimanBahanModal';
+import ProfilTokoManager from '@/components/ProfilTokoManager';
 
 import { 
   Cabang, 
@@ -83,7 +84,7 @@ export default function AdminDashboardPage() {
   const [authError, setAuthError] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  const [activeTab, setActiveTab] = useState<'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost'>('ringkasan');
+  const [activeTab, setActiveTab] = useState<'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko'>('ringkasan');
   const [cabangList, setCabangList] = useState<Cabang[]>([]);
   const [selectedCabangId, setSelectedCabangId] = useState<string>('all');
   const [selectedAbsensiDate, setSelectedAbsensiDate] = useState<string>('2026-10-25');
@@ -755,6 +756,8 @@ export default function AdminDashboardPage() {
                 {activeTab === 'absensi' ? 'Monitor Presensi Cabang' :
                  activeTab === 'menu' ? 'Master Menu & HPP' :
                  activeTab === 'karyawan' ? 'Data Pekerja' :
+                 activeTab === 'profiltoko' ? 'Identitas Toko & Struk' :
+                 activeTab === 'fixedcost' ? 'Biaya Tetap (Fixed Cost)' :
                  activeTab === 'approval' ? 'Pusat Persetujuan' :
                  activeTab === 'bahan' ? 'Audit Pasokan Bahan' :
                  activeTab === 'payroll' ? 'Rekap Gaji & Payroll' :
@@ -2996,6 +2999,14 @@ export default function AdminDashboardPage() {
             </div>
 
           </div>
+        )}
+
+        {/* TAB KHUSUS: PROFIL TOKO, SANDI KASIR & FORMAT STRUK PROMO */}
+        {activeTab === 'profiltoko' && (
+          <ProfilTokoManager
+            cabangList={cabangList}
+            onRefreshData={refreshAllData}
+          />
         )}
 
         {/* TAB 5: MODUL PAYROLL OTOMATIS */}

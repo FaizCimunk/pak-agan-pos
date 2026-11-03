@@ -21,9 +21,14 @@ export interface Cabang {
   kasir_username?: string;
   kasir_pin?: string;
   kasir_password_plain?: string;
+  is_kasir_locked?: boolean;
   // Kontak Penanggung Jawab (PJ) Khusus Penerima Laporan Belanja & Approval WA
   pj_nama?: string;
   pj_telepon?: string;
+  // Pengaturan Struk Kasir & Promo Khusus Toko
+  struk_header?: string; // Header kustom struk thermal (default nama cabang)
+  struk_footer?: string; // Pesan footer struk thermal
+  struk_promo?: string; // Teks promo / diskon khusus cabang yang dicetak di struk
   created_at?: string;
 }
 

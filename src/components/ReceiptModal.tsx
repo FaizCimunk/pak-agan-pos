@@ -244,10 +244,13 @@ export default function ReceiptModal({
               {showReceiptDetail && (
                 <div className="p-3 bg-slate-100/70 max-h-56 overflow-y-auto">
                   <div className="bg-white p-3 rounded-xl border border-slate-200 font-mono text-[10px] space-y-1 text-slate-900 shadow-xs">
-                    <div className="text-center font-bold text-xs">SERABI BAWEL &amp; WEDANG GEPREK</div>
+                    <div className="text-center font-bold text-xs uppercase tracking-tight">
+                      {cabang.struk_header || 'SERABI BAWEL & WEDANG GEPREK'}
+                    </div>
                     <div className="text-center text-[9px] text-slate-500">Serabi Tungku &amp; Rempah Alami</div>
-                    <div className="text-center text-[9px] text-slate-500">{cabang.nama}</div>
-                    <div className="text-center text-[9px] text-slate-500">Telp: {cabang.telepon}</div>
+                    <div className="text-center text-[9px] font-bold text-slate-700">{cabang.nama}</div>
+                    <div className="text-center text-[9px] text-slate-500">{cabang.alamat}</div>
+                    <div className="text-center text-[9px] text-slate-500">Telp/WA: {cabang.telepon}</div>
                     <div className="border-t border-dashed border-slate-300 my-1" />
                     <div className="flex justify-between">
                       <span>No: {transaksi.invoice_no}</span>
@@ -280,11 +283,21 @@ export default function ReceiptModal({
                       <span>Kembali:</span>
                       <span className="font-mono">{formatRupiah(transaksi.kembali)}</span>
                     </div>
+
+                    {/* Promo Toko Cabang */}
+                    {cabang.struk_promo && (
+                      <>
+                        <div className="border-t border-dashed border-slate-300 my-1" />
+                        <div className="text-center font-bold text-[9px] text-amber-900 bg-amber-50 p-1 rounded border border-amber-200">
+                          📢 *** PROMO CABANG ***<br />
+                          {cabang.struk_promo}
+                        </div>
+                      </>
+                    )}
+
                     <div className="border-t border-dashed border-slate-300 my-1" />
-                    <div className="text-center text-[9px] text-slate-500 pt-1">
-                      Khasiat Alami, Tubuh Sehat<br />
-                      Terima Kasih Atas Kunjungan Anda<br />
-                      --- www.pakagan.id ---
+                    <div className="text-center text-[9px] text-slate-500 pt-1 whitespace-pre-line leading-relaxed">
+                      {cabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda\n--- www.pakagan.id ---'}
                     </div>
                   </div>
                 </div>
@@ -315,10 +328,13 @@ export default function ReceiptModal({
         id="printable-receipt"
         className="hidden print:block"
       >
-        <div className="text-center font-bold text-xs tracking-tight">SERABI BAWEL &amp; WEDANG GEPREK</div>
+        <div className="text-center font-bold text-xs tracking-tight uppercase">
+          {cabang.struk_header || 'SERABI BAWEL & WEDANG GEPREK'}
+        </div>
         <div className="text-center text-[10px]">Serabi Tungku &amp; Rempah Alami</div>
-        <div className="text-center text-[10px]">{cabang.nama}</div>
-        <div className="text-center text-[9px]">Telp: {cabang.telepon}</div>
+        <div className="text-center text-[10px] font-bold">{cabang.nama}</div>
+        <div className="text-center text-[9px]">{cabang.alamat}</div>
+        <div className="text-center text-[9px]">Telp/WA: {cabang.telepon}</div>
         <div className="border-t border-dashed border-black my-1" />
         <div className="flex justify-between text-[10px]">
           <span>No: {transaksi.invoice_no}</span>
@@ -351,11 +367,21 @@ export default function ReceiptModal({
           <span>Kembali:</span>
           <span>{formatRupiah(transaksi.kembali)}</span>
         </div>
+
+        {/* Promo Toko Cabang Struk Nyata */}
+        {cabang.struk_promo && (
+          <>
+            <div className="border-t border-dashed border-black my-1" />
+            <div className="text-center font-bold text-[9px] py-0.5">
+              *** PROMO SPESIAL TOKO ***<br />
+              {cabang.struk_promo}
+            </div>
+          </>
+        )}
+
         <div className="border-t border-dashed border-black my-1" />
-        <div className="text-center text-[9px] pt-1">
-          Khasiat Alami, Tubuh Sehat<br />
-          Terima Kasih Atas Kunjungan Anda!<br />
-          --- www.pakagan.id ---
+        <div className="text-center text-[9px] pt-1 whitespace-pre-line leading-relaxed">
+          {cabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda!\n--- www.pakagan.id ---'}
         </div>
       </div>
     </>

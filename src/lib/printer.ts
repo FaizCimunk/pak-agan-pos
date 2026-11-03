@@ -171,7 +171,7 @@ class BluetoothPrinterService {
     // Header
     builder.alignCenter();
     builder.bold(true).size(true, true);
-    builder.text('SERABI BAWEL & WEDANG GEPREK');
+    builder.text(cabang.struk_header || 'SERABI BAWEL & WEDANG GEPREK');
     builder.newLine();
     builder.size(false, false);
     builder.text('Serabi Tungku & Rempah Alami');
@@ -181,7 +181,7 @@ class BluetoothPrinterService {
     builder.newLine();
     builder.text(cabang.alamat);
     builder.newLine();
-    builder.text(`Telp: ${cabang.telepon}`);
+    builder.text(`Telp/WA: ${cabang.telepon}`);
     builder.newLine();
     builder.line('=', 32);
 
@@ -224,13 +224,29 @@ class BluetoothPrinterService {
 
     builder.line('=', 32);
 
+    // Promo Khusus Cabang jika ada
+    if (cabang.struk_promo) {
+      builder.alignCenter();
+      builder.bold(true);
+      builder.text('*** PROMO KHUSUS CABANG ***');
+      builder.newLine();
+      builder.text(cabang.struk_promo);
+      builder.newLine();
+      builder.bold(false);
+      builder.line('-', 32);
+    }
+
     // Footer
     builder.alignCenter();
-    builder.text('Khasiat Alami, Tubuh Sehat');
-    builder.newLine();
-    builder.text('Terima Kasih Atas Kunjungan Anda');
-    builder.newLine();
-    builder.text('--- www.pakagan.id ---');
+    if (cabang.struk_footer) {
+      builder.text(cabang.struk_footer);
+    } else {
+      builder.text('Khasiat Alami, Tubuh Sehat');
+      builder.newLine();
+      builder.text('Terima Kasih Atas Kunjungan Anda');
+      builder.newLine();
+      builder.text('--- www.pakagan.id ---');
+    }
     builder.newLine();
     builder.cut();
 
