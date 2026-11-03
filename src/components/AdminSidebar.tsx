@@ -254,7 +254,12 @@ export default function AdminSidebar({
 
   return (
     <>
-      {/* Drawer on demand: Slide-out drawer on demand (no permanent split screen) */}
+      {/* 1. Permanent Desktop Sidebar (Ala Abdi Membangun, Branding Serabi Bawel & Wedang Geprek) */}
+      <aside className="hidden md:flex w-64 border-r border-slate-200/80 bg-white flex-col flex-shrink-0 z-30 shadow-soft-sm h-screen sticky top-0 overflow-hidden">
+        {sidebarContent}
+      </aside>
+
+      {/* 2. Slide-out Mobile Drawer */}
       {isMobileOpen && (
         <div className="fixed inset-0 z-50 flex bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div 
