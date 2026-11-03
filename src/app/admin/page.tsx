@@ -10,14 +10,13 @@ import EditSalaryModal from '@/components/EditSalaryModal';
 import PayrollRecapReportModal from '@/components/PayrollRecapReportModal';
 import ApprovalRecapReportModal from '@/components/ApprovalRecapReportModal';
 import EditCabangModal from '@/components/EditCabangModal';
+import EditFixedCostModal from '@/components/EditFixedCostModal';
 import EditMenuModal from '@/components/EditMenuModal';
 import CreateExpenseModal from '@/components/CreateExpenseModal';
 import CreateKaryawanModal from '@/components/CreateKaryawanModal';
 import DailyBranchReportModal from '@/components/DailyBranchReportModal';
 import PayoutSalaryModal from '@/components/PayoutSalaryModal';
 import CreateKirimanBahanModal from '@/components/CreateKirimanBahanModal';
-import UnifiedBranchTable from '@/components/UnifiedBranchTable';
-import SeniorBossDashboard from '@/components/SeniorBossDashboard';
 
 import { 
   Cabang, 
@@ -109,6 +108,7 @@ export default function AdminDashboardPage() {
 
   // Modals
   const [selectedCabangForEdit, setSelectedCabangForEdit] = useState<Cabang | null>(null);
+  const [selectedCabangForFixedCost, setSelectedCabangForFixedCost] = useState<Cabang | null>(null);
   const [isAddingNewCabang, setIsAddingNewCabang] = useState<boolean>(false);
   const [selectedExpenseForApproval, setSelectedExpenseForApproval] = useState<PengeluaranKasbon | null>(null);
   const [selectedKaryawanForPinReset, setSelectedKaryawanForPinReset] = useState<Karyawan | null>(null);
@@ -140,6 +140,7 @@ export default function AdminDashboardPage() {
 
   // User Search & Credentials Visibility ala Abdi Membangun
   const [userSearch, setUserSearch] = useState<string>('');
+  const [karyawanBranchFilter, setKaryawanBranchFilter] = useState<string>('all');
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
   const [showCreateKaryawanModal, setShowCreateKaryawanModal] = useState<boolean>(false);
 
@@ -296,14 +297,18 @@ export default function AdminDashboardPage() {
   }, [expenseList]);
 
   const filteredKaryawan = useMemo(() => {
-    if (!userSearch.trim()) return karyawanList;
-    const q = userSearch.toLowerCase();
-    return karyawanList.filter(k => 
-      k.nama.toLowerCase().includes(q) ||
-      (k.username || '').toLowerCase().includes(q) ||
-      (k.telepon || '').includes(q)
-    );
-  }, [karyawanList, userSearch]);
+    return karyawanList.filter(k => {
+      const matchBranch = karyawanBranchFilter === 'all' || k.cabang_id === karyawanBranchFilter;
+      if (!userSearch.trim()) return matchBranch;
+      const q = userSearch.toLowerCase();
+      const matchSearch = 
+        k.nama.toLowerCase().includes(q) ||
+        (k.username || '').toLowerCase().includes(q) ||
+        (k.telepon || '').includes(q) ||
+        (k.role || '').toLowerCase().includes(q);
+      return matchBranch && matchSearch;
+    });
+  }, [karyawanList, karyawanBranchFilter, userSearch]);
 
   // Filtered Absensi List berdasarkan Cabang & Tanggal Terpilih / Semua Tanggal
   const filteredAbsensiList = useMemo(() => {
@@ -485,10 +490,11 @@ export default function AdminDashboardPage() {
     menuList.forEach(m => { menuHppMap[m.id] = m.hpp || 4000; });
 
     const branchBreakdowns = cabangList.map(cabang => {
-      // 1. Sewa, Wifi/Listrik, Iuran Harian (Bulanan / 30)
+      // 1. Sewa, Wifi/Listrik, Iuran Harian (Bulanan / 30) + Beban Tambahan
       const sewaHarian = Math.round((cabang.sewa_bulanan || 3000000) / 30);
       const wifiListrikHarian = Math.round((cabang.listrik_air_bulanan || 600000) / 30);
       const iuranHarian = Math.round((cabang.iuran_kebersihan_bulanan || 150000) / 30);
+      const biayaLainHarian = Math.round((cabang.biaya_lain_bulanan || 0) / 30);
 
       // 2. Upah Karyawan Hadir Hari Ini (Absensi Tulis Nama)
       const branchAbsensi = absensiList.filter(a => a.cabang_id === cabang.id && a.tanggal === targetDate);
@@ -506,8 +512,8 @@ export default function AdminDashboardPage() {
         });
       });
 
-      // Total Potongan Harian = Sewa + Wifi/Listrik + Iuran + Gaji Karyawan + HPP Bahan
-      const totalPotongan = sewaHarian + wifiListrikHarian + iuranHarian + totalGajiKaryawan + totalHppBahan;
+      // Total Potongan Harian = Sewa + Wifi/Listrik + Iuran + Beban Tambahan + Gaji Karyawan + HPP Bahan
+      const totalPotongan = sewaHarian + wifiListrikHarian + iuranHarian + biayaLainHarian + totalGajiKaryawan + totalHppBahan;
       const uangBersihBoss = omzetKotor - totalPotongan;
 
       return {
@@ -515,6 +521,7 @@ export default function AdminDashboardPage() {
         sewaHarian,
         wifiListrikHarian,
         iuranHarian,
+        biayaLainHarian,
         totalGajiKaryawan,
         totalHppBahan,
         totalPotongan,
@@ -528,9 +535,10 @@ export default function AdminDashboardPage() {
     const totalSewa10Toko = branchBreakdowns.reduce((sum, b) => sum + b.sewaHarian, 0);
     const totalWifiListrik10Toko = branchBreakdowns.reduce((sum, b) => sum + b.wifiListrikHarian, 0);
     const totalIuran10Toko = branchBreakdowns.reduce((sum, b) => sum + b.iuranHarian, 0);
+    const totalBiayaLain10Toko = branchBreakdowns.reduce((sum, b) => sum + (b.biayaLainHarian || 0), 0);
     const totalGaji10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalGajiKaryawan, 0);
     const totalHpp10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalHppBahan, 0);
-    const totalPotongan10Toko = totalSewa10Toko + totalWifiListrik10Toko + totalIuran10Toko + totalGaji10Toko + totalHpp10Toko;
+    const totalPotongan10Toko = totalSewa10Toko + totalWifiListrik10Toko + totalIuran10Toko + totalBiayaLain10Toko + totalGaji10Toko + totalHpp10Toko;
     const totalBersihBoss10Toko = totalOmzet10Toko - totalPotongan10Toko;
 
     return {
@@ -540,6 +548,7 @@ export default function AdminDashboardPage() {
       totalSewa10Toko,
       totalWifiListrik10Toko,
       totalIuran10Toko,
+      totalBiayaLain10Toko,
       totalGaji10Toko,
       totalHpp10Toko,
       totalPotongan10Toko,
@@ -2435,45 +2444,142 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB 4: MASTER CABANG & KARYAWAN */}
+        {/* TAB 4: DATA PEKERJA & PENGGAJIAN PER-TOKO ALA ABDI MEMBANGUN */}
         {activeTab === 'karyawan' && (
           <div className="space-y-6">
             
-            {/* PUSAT KENDALI 10 CABANG TERPADU (ALL-IN-ONE MASTER HUB) */}
-            <UnifiedBranchTable
-              cabangList={cabangList}
-              karyawanList={karyawanList}
-              transaksiList={transaksiList}
-              bossDailyProfits={bossDailyProfits}
-              materialAuditRows={materialAuditRows}
-              selectedDate={selectedBossSummaryDate}
-              onDateChange={setSelectedBossSummaryDate}
-              onEditCabang={(cbg) => setSelectedCabangForEdit(cbg)}
-              onAddNewCabang={() => setIsAddingNewCabang(true)}
-              onResetDefaultCabang={async () => {
-                if (confirm('Kembalikan data 10 cabang ke default resmi bawaan?')) {
-                  await db.resetCabangDefault();
-                  await refreshAllData();
-                }
-              }}
-              onSelectCabang={(id) => setSelectedCabangId(id)}
-              selectedCabangId={selectedCabangId}
-              onOpenKirimanBahanModal={(cbgId) => {
-                if (cbgId) setSelectedBahanCabangId(cbgId);
-                setShowKirimanModal(true);
-              }}
-              onNavigateToTab={(tab) => setActiveTab(tab)}
-            />
+            {/* Store Selection & Top Header Ala Abdi Membangun */}
+            <div className="bg-white p-5 rounded-3xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                
+                {/* Toko Identifier */}
+                <div className="flex items-center space-x-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-bold text-2xl shadow-md shadow-emerald-700/20 shrink-0">
+                    👥
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black uppercase tracking-wider">
+                        SDM &amp; Penggajian Terpadu
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-bold">
+                        • Struktur Per-Toko Ala Abdi Membangun
+                      </span>
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
+                      {karyawanBranchFilter === 'all'
+                        ? 'Master Data Karyawan Seluruh Cabang (10 Toko)'
+                        : `Daftar Pekerja ${cabangList.find(c => c.id === karyawanBranchFilter)?.nama || 'Cabang'}`}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Kelola profil pekerja, penempatan cabang, tarif upah harian / tunjangan makan, plafon kasbon, dan PIN kasir per toko.
+                    </p>
+                  </div>
+                </div>
 
-            {/* Karyawan & Credentials Table (Ala Abdi Membangun AllUsersPinTable & Salary Config) */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-4">
+                {/* Dropdown Filter Toko & Tambah Karyawan */}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-2xl border border-slate-200 text-xs font-bold shadow-2xs">
+                    <Building2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span className="text-slate-500 text-[11px] font-bold">Pilih Toko:</span>
+                    <select
+                      value={karyawanBranchFilter}
+                      onChange={(e) => setKaryawanBranchFilter(e.target.value)}
+                      className="bg-transparent font-extrabold text-slate-900 focus:outline-none cursor-pointer text-xs"
+                    >
+                      <option value="all">🏢 Semua Cabang ({karyawanList.length} Staf)</option>
+                      {cabangList.map(c => {
+                        const count = karyawanList.filter(k => k.cabang_id === c.id).length;
+                        return (
+                          <option key={c.id} value={c.id}>
+                            #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama} ({count} staf)
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateKaryawanModal(true)}
+                    className="flex items-center space-x-1.5 px-4 py-2 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-800/20 btn-tactile transition cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>
+                      + Tambah Karyawan {karyawanBranchFilter !== 'all' ? `di ${cabangList.find(c => c.id === karyawanBranchFilter)?.kode || 'Toko Ini'}` : ''}
+                    </span>
+                  </button>
+                </div>
+
+              </div>
+
+              {/* 4 Stat Cards Ringkasan Toko Terpilih */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-5 pt-4 border-t border-slate-100">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Total Pekerja {karyawanBranchFilter === 'all' ? '10 Toko' : 'Toko Ini'}
+                  </span>
+                  <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
+                    {filteredKaryawan.length}
+                    <span className="text-xs font-normal text-slate-500"> Orang</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
+                    {filteredKaryawan.filter(k => !k.is_locked).length} akun aktif • {filteredKaryawan.filter(k => k.is_locked).length} tergembok
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Beban Upah Harian {karyawanBranchFilter === 'all' ? '10 Toko' : 'Toko'}
+                  </span>
+                  <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
+                    {formatRupiah(filteredKaryawan.reduce((sum, k) => sum + (k.gaji_harian || 120000), 0))}
+                    <span className="text-xs font-normal text-slate-500"> /hari</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
+                    Otomatis potong omzet harian saat hadir
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Staf Kasir &amp; POS Tablet
+                  </span>
+                  <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
+                    {filteredKaryawan.filter(k => k.role === 'kasir').length}
+                    <span className="text-xs font-normal text-slate-500"> Kasir</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
+                    {filteredKaryawan.filter(k => k.role !== 'kasir').length} staf barista wedang &amp; serabi
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200">
+                  <span className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider block">
+                    Plafon Kasbon Terdaftar
+                  </span>
+                  <div className="text-xl font-mono font-black text-amber-950 mt-1 tabular-nums">
+                    {formatRupiah(filteredKaryawan.reduce((sum, k) => sum + (k.plafon_kasbon || 500000), 0))}
+                  </div>
+                  <span className="text-[10px] text-amber-900 font-bold mt-0.5 block">
+                    Limit pinjaman kasbon staf
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Karyawan & Credentials Table Ala Abdi Membangun */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm p-5 space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3 border-slate-100">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-lg">👥</span>
-                    <h3 className="text-sm font-extrabold text-slate-900">Master Data Karyawan, Skema Gaji &amp; PIN Guard</h3>
+                    <h3 className="text-sm font-extrabold text-slate-900">
+                      Tabel Master Pekerja, Skema Gaji &amp; PIN Kasir
+                    </h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      {karyawanList.length} Akun Terdaftar
+                      {filteredKaryawan.length} Pekerja
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -2488,7 +2594,7 @@ export default function AdminDashboardPage() {
                       placeholder="Cari nama, ID, no HP, role..."
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
-                      className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-primary w-52 font-medium"
+                      className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 w-52 font-medium"
                     />
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                   </div>
@@ -2496,7 +2602,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setShowCreateKaryawanModal(true)}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-brand-primary hover:bg-brand-dark text-white font-extrabold text-xs shadow-sm btn-tactile transition-all"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-sm btn-tactile transition-all"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>+ Tambah Karyawan</span>
@@ -2950,27 +3056,23 @@ export default function AdminDashboardPage() {
             {/* Header Title & Explanation */}
             <div className="bg-white p-5 rounded-2xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-800 text-white flex items-center justify-center font-bold text-xl shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-800 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-md shadow-emerald-800/20">
                   🏢
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-slate-900">
-                    Pengaturan Biaya Tetap (Fixed Cost) 10 Cabang
+                    Pengaturan Biaya Tetap (Fixed Cost) Tiap Toko Cabang
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Atur nilai Sewa Ruko, Wi-Fi &amp; Listrik, serta Iuran Kebersihan/Sampah tiap toko. Sistem otomatis membagi 30 hari untuk memotong omzet harian sistem di Ringkasan.
+                    Atur nilai Sewa Ruko, Wi-Fi &amp; Listrik, Retribusi Sampah, dan Beban Tambahan per toko. Sistem otomatis membagi 30 hari untuk memotong omzet harian sistem di Ringkasan.
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsAddingNewCabang(true)}
-                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-800/20 btn-tactile flex items-center space-x-1.5 transition self-start md:self-auto cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Tambah Outlet Baru</span>
-              </button>
+              <div className="flex items-center space-x-2 bg-emerald-50 px-3.5 py-2 rounded-2xl border border-emerald-200 text-emerald-800 text-xs font-bold self-start md:self-auto">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Otomatis Memotong Omzet Harian (/30 Hari)</span>
+              </div>
             </div>
 
             {/* 4 Kartu Total Beban Operasional 10 Cabang */}
@@ -3019,11 +3121,11 @@ export default function AdminDashboardPage() {
                   Total Beban Fixed Cost Harian
                 </span>
                 <div className="text-xl font-mono font-extrabold text-emerald-900 mt-1 tabular-nums">
-                  {formatRupiah(bossDailyProfits.totalSewa10Toko + bossDailyProfits.totalWifiListrik10Toko + bossDailyProfits.totalIuran10Toko)}
+                  {formatRupiah(bossDailyProfits.totalSewa10Toko + bossDailyProfits.totalWifiListrik10Toko + bossDailyProfits.totalIuran10Toko + (bossDailyProfits.totalBiayaLain10Toko || 0))}
                   <span className="text-xs font-normal text-emerald-700"> /hari</span>
                 </div>
                 <span className="text-[10px] text-emerald-800 mt-1 block font-medium">
-                  Total sewa, wifi &amp; sampah yang dipotong per hari
+                  Total sewa, wifi &amp; retribusi yang dipotong per hari
                 </span>
               </div>
             </div>
@@ -3047,6 +3149,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-3.5">Biaya Sewa Ruko</th>
                       <th className="py-3 px-3.5">Wi-Fi &amp; Listrik</th>
                       <th className="py-3 px-3.5">Sampah &amp; Kebersihan</th>
+                      <th className="py-3 px-3.5">Beban Tambahan</th>
                       <th className="py-3 px-3.5 text-right text-rose-300">Total Potongan Harian</th>
                       <th className="py-3 px-3.5 text-center">Tindakan Owner</th>
                     </tr>
@@ -3056,7 +3159,8 @@ export default function AdminDashboardPage() {
                       const sewa = c.sewa_bulanan || 3500000;
                       const wifi = c.listrik_air_bulanan || 650000;
                       const iuran = c.iuran_kebersihan_bulanan || 150000;
-                      const harian = Math.round((sewa + wifi + iuran) / 30);
+                      const lain = c.biaya_lain_bulanan || 0;
+                      const harian = Math.round((sewa + wifi + iuran + lain) / 30);
 
                       return (
                         <tr key={c.id} className="hover:bg-slate-50 transition-colors">
@@ -3077,14 +3181,26 @@ export default function AdminDashboardPage() {
                             <span className="font-mono font-bold text-slate-900 block">{formatRupiah(iuran)}/bln</span>
                             <span className="text-[10px] text-slate-400 font-mono">≈ {formatRupiah(Math.round(iuran / 30))}/hari</span>
                           </td>
+                          <td className="py-3.5 px-3.5">
+                            {lain > 0 ? (
+                              <div>
+                                <span className="font-mono font-bold text-amber-950 block">{formatRupiah(lain)}/bln</span>
+                                <span className="text-[10px] text-slate-500 block truncate max-w-[130px]" title={c.keterangan_biaya_lain}>
+                                  {c.keterangan_biaya_lain || 'Biaya Tambahan'}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-[11px] italic">-</span>
+                            )}
+                          </td>
                           <td className="py-3.5 px-3.5 text-right font-mono font-extrabold text-sm text-rose-700 bg-rose-50/40">
                             -{formatRupiah(harian)}/hari
                           </td>
                           <td className="py-3.5 px-3.5 text-center">
                             <button
                               type="button"
-                              onClick={() => setSelectedCabangForEdit(c)}
-                              className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 font-black text-xs shadow-xs transition btn-tactile inline-flex items-center space-x-1 cursor-pointer"
+                              onClick={() => setSelectedCabangForFixedCost(c)}
+                              className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 font-black text-xs shadow-xs transition btn-tactile inline-flex items-center space-x-1 cursor-pointer"
                             >
                               <Pencil className="w-3 h-3" />
                               <span>Ubah Biaya Toko Ini</span>
@@ -3104,6 +3220,17 @@ export default function AdminDashboardPage() {
       </main>
 
       {/* MODALS */}
+      {selectedCabangForFixedCost && (
+        <EditFixedCostModal
+          cabang={selectedCabangForFixedCost}
+          onClose={() => setSelectedCabangForFixedCost(null)}
+          onSuccess={async (updated) => {
+            setSelectedCabangForFixedCost(null);
+            await refreshAllData();
+          }}
+        />
+      )}
+
       {(selectedCabangForEdit || isAddingNewCabang) && (
         <EditCabangModal
           cabang={selectedCabangForEdit}
@@ -3324,7 +3451,7 @@ export default function AdminDashboardPage() {
       {showCreateKaryawanModal && (
         <CreateKaryawanModal
           cabangList={cabangList}
-          defaultCabangId={selectedCabangId !== 'all' ? selectedCabangId : undefined}
+          defaultCabangId={karyawanBranchFilter !== 'all' ? karyawanBranchFilter : (selectedCabangId !== 'all' ? selectedCabangId : undefined)}
           onClose={() => setShowCreateKaryawanModal(false)}
           onSuccess={async () => {
             setShowCreateKaryawanModal(false);

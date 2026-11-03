@@ -12,6 +12,8 @@ export interface Cabang {
   sewa_bulanan?: number; // Biaya sewa tempat / ruko / kios per bulan
   listrik_air_bulanan?: number; // Biaya utilitas (listrik PLN, air PDAM, Wi-Fi) per bulan
   iuran_kebersihan_bulanan?: number; // Retribusi sampah, keamanan pasar/lingkungan per bulan
+  biaya_lain_bulanan?: number; // Beban tetap tambahan per bulan (keamanan RT, paguyuban, maintenance alat)
+  keterangan_biaya_lain?: string; // Nama/deskripsi beban tetap tambahan
   qris_merchant_name: string;
   qris_image_url?: string;
   is_active: boolean;
