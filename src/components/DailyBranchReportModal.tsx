@@ -145,9 +145,9 @@ export default function DailyBranchReportModal({
   // 4. Net Daily Profit / Sisa Kas Operasional
   const sisaKasBersihHariIni = totalOmzetKotor - grandTotalPengeluaran;
 
-  // Generate WhatsApp Message (Optionally to Owner or to Branch PIC)
-  const generateWhatsAppUrl = (recipient: 'owner' | 'pj' = 'owner') => {
-    const rawPhone = recipient === 'owner' ? '081234567890' : pjTelepon;
+  // Generate WhatsApp Message directly to Branch PJ (Penanggung Jawab Outlet)
+  const generateWhatsAppUrl = () => {
+    const rawPhone = pjTelepon || '081234567890';
     const cleanPhone = rawPhone.replace(/[^0-9]/g, '').replace(/^0/, '62');
     const dateFormatted = new Date(selectedDate).toLocaleDateString('id-ID', {
       weekday: 'long',
@@ -395,28 +395,16 @@ export default function DailyBranchReportModal({
               />
             </div>
 
-            {/* WA Button to Owner */}
-            <a
-              href={generateWhatsAppUrl('owner')}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm flex items-center space-x-1 transition-all btn-tactile"
-              title="Kirim Ringkasan Laporan ke WhatsApp Owner (Pak Agan)"
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
-              <span>WA Owner</span>
-            </a>
-
             {/* WA Button to Branch PJ */}
             <a
-              href={generateWhatsAppUrl('pj')}
+              href={generateWhatsAppUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-sm flex items-center space-x-1 transition-all btn-tactile"
-              title={`Kirim Ringkasan Laporan ke WhatsApp PJ Cabang (${pjNama} - ${pjTelepon})`}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm flex items-center space-x-1.5 transition-all btn-tactile"
+              title={`Kirim Ringkasan Laporan ke WhatsApp PJ Toko (${pjNama} - ${pjTelepon})`}
             >
               <MessageCircle className="w-3.5 h-3.5" />
-              <span>WA PJ Toko</span>
+              <span>Kirim WA PJ Toko</span>
             </a>
 
             {/* Print Button */}

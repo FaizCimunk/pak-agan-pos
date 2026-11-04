@@ -125,6 +125,9 @@ export class PosDatabase {
     };
     list[index] = updatedCabang;
     saveLocal(STORAGE_KEYS.CABANG, list);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
 
     if (isSupabaseConfigured && supabase) {
       try {
