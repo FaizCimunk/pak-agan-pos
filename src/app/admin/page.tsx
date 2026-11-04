@@ -38,7 +38,7 @@ import {
   PembayaranFixedCostBulanan
 } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink } from '@/lib/utils';
+import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole } from '@/lib/utils';
 
 import { 
   TrendingUp, 
@@ -2800,14 +2800,14 @@ export default function AdminDashboardPage() {
 
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
                   <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                    Staf Kasir &amp; POS Tablet
+                    Total Karyawan Aktif
                   </span>
                   <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
-                    {filteredKaryawan.filter(k => k.role === 'kasir').length}
-                    <span className="text-xs font-normal text-slate-500"> Kasir</span>
+                    {filteredKaryawan.filter(k => k.role !== 'owner').length}
+                    <span className="text-xs font-normal text-slate-500"> Karyawan</span>
                   </div>
                   <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
-                    {filteredKaryawan.filter(k => k.role !== 'kasir').length} staf barista wedang &amp; serabi
+                    Karyawan operasional seluruh cabang
                   </span>
                 </div>
 
@@ -2833,7 +2833,7 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-lg">👥</span>
                     <h3 className="text-sm font-extrabold text-slate-900">
-                      Tabel Master Pekerja, Skema Gaji &amp; PIN Kasir
+                      Tabel Master Karyawan, Skema Gaji &amp; PIN
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       {filteredKaryawan.length} Pekerja
@@ -2896,7 +2896,7 @@ export default function AdminDashboardPage() {
                           <td className="py-3 px-3">
                             <span className="font-extrabold text-slate-900 block">{kar.nama}</span>
                             <span className="text-[10px] text-slate-500 font-medium">
-                              <span className="capitalize">{kar.role}</span> • <span className="font-mono text-emerald-700">{kar.telepon}</span>
+                              <span className="capitalize">{formatKaryawanRole(kar.role)}</span> • <span className="font-mono text-emerald-700">{kar.telepon}</span>
                             </span>
                           </td>
 
@@ -3326,7 +3326,7 @@ export default function AdminDashboardPage() {
                               const waUrl = generateWhatsAppPayrollSlipLink({
                                 telepon: draft.karyawan_telepon,
                                 nama: draft.karyawan_nama || 'Staf',
-                                role: draft.karyawan_role || 'Kasir Cabang',
+                                role: formatKaryawanRole(draft.karyawan_role),
                                 cabangNama: draft.cabang_nama || 'Cabang',
                                 slipNo: draft.slip_no,
                                 periodeLabel: payrollDateLabel,

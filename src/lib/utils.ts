@@ -107,6 +107,14 @@ export function generateWhatsAppApprovalLink({
   return `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
 }
 
+// Format Employee Role so standard staff is universally referred to as "Karyawan"
+export function formatKaryawanRole(role?: string): string {
+  if (!role) return 'Karyawan';
+  const r = role.toLowerCase();
+  if (r === 'owner') return 'Owner Pusat';
+  return 'Karyawan';
+}
+
 // Generate WhatsApp link for Employee Digital Payroll Slip
 export function generateWhatsAppPayrollSlipLink({
   telepon,
@@ -158,7 +166,7 @@ export function generateWhatsAppPayrollSlipLink({
     `📄 *No. Slip :* ${slipNo}\n` +
     `📅 *Periode  :* ${periodeLabel}\n` +
     `🏢 *Outlet   :* ${cabangNama}\n` +
-    `👤 *Nama Staf:* *${nama}* (${(role || 'kasir').toUpperCase()})\n` +
+    `👤 *Nama Staf:* *${nama}* (${formatKaryawanRole(role).toUpperCase()})\n` +
     `================================\n\n` +
     `*RINCIAN PENGHASILAN:*\n` +
     `• Upah Harian : ${formatRupiah(gajiPokok)} ${tipeGaji === 'harian' ? `(${totalHari || 22} Hari Hadir @ ${formatRupiah(upahHarian || 100000)})` : ''}\n` +

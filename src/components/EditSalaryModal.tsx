@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { X, DollarSign, Coins, ShieldCheck, Check, PiggyBank, Calendar, Wallet } from 'lucide-react';
 import { Karyawan } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatRupiah, formatNominal, parseNominal } from '@/lib/utils';
+import { formatRupiah, formatNominal, parseNominal, formatKaryawanRole } from '@/lib/utils';
 
 interface EditSalaryModalProps {
   karyawan: Karyawan;
@@ -65,7 +65,7 @@ export default function EditSalaryModal({
             <div>
               <h3 className="text-base font-extrabold text-slate-900">Ubah Gaji Mingguan &amp; Tabungan</h3>
               <p className="text-[11px] text-slate-500 font-medium">
-                {karyawan.nama} ({karyawan.role.toUpperCase()}) • Saldo Tabungan: <span className="font-bold text-emerald-800">{formatRupiah(karyawan.total_tabungan || 0)}</span>
+                {karyawan.nama} ({formatKaryawanRole(karyawan.role).toUpperCase()}) • Saldo Tabungan: <span className="font-bold text-emerald-800">{formatRupiah(karyawan.total_tabungan || 0)}</span>
               </p>
             </div>
           </div>

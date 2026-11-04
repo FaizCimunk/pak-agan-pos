@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Karyawan } from '@/lib/types';
 import { db } from '@/lib/db';
+import { formatKaryawanRole } from '@/lib/utils';
 
 interface PinResetModalProps {
   karyawan: Karyawan;
@@ -141,7 +142,7 @@ export default function PinResetModal({
             <div className="space-y-0.5">
               <div className="font-extrabold text-slate-900 text-sm">{karyawan.nama}</div>
               <div className="text-slate-500 text-[11px]">
-                Jabatan: <span className="font-bold capitalize text-slate-700">{karyawan.role}</span> • No HP: <span className="font-mono font-bold text-emerald-700">{karyawan.telepon}</span>
+                Jabatan: <span className="font-bold capitalize text-slate-700">{formatKaryawanRole(karyawan.role)}</span> • No HP: <span className="font-mono font-bold text-emerald-700">{karyawan.telepon}</span>
               </div>
             </div>
             

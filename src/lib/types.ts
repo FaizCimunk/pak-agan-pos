@@ -37,7 +37,7 @@ export interface Karyawan {
   cabang_id: string;
   username?: string;
   nama: string;
-  role: 'owner' | 'supervisor' | 'kasir' | 'kitchen' | 'helper';
+  role: 'owner' | 'supervisor' | 'kasir' | 'kitchen' | 'helper' | 'karyawan';
   telepon: string;
   pin_hash: string;
   password_plain?: string; // Sandi teks untuk transparansi Master Admin

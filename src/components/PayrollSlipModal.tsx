@@ -20,7 +20,7 @@ import {
   Check
 } from 'lucide-react';
 import { Payroll, Absensi, PengeluaranKasbon } from '@/lib/types';
-import { formatRupiah, formatWaktu, generateWhatsAppPayrollSlipLink } from '@/lib/utils';
+import { formatRupiah, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole } from '@/lib/utils';
 import PayoutSalaryModal from './PayoutSalaryModal';
 import GiveLoanModal from './GiveLoanModal';
 
@@ -268,7 +268,7 @@ export default function PayrollSlipModal({
                       </span>
                     </div>
                     <p className="text-slate-500 text-xs mt-0.5">
-                      <strong className="text-slate-800 capitalize">{currentPayroll.karyawan_role || 'Kasir Cabang (PJ)'}</strong> • {currentPayroll.karyawan_telepon || '0812-xxxx-xxxx'} • {currentPayroll.cabang_nama}
+                      <strong className="text-slate-800 capitalize">{formatKaryawanRole(currentPayroll.karyawan_role)}</strong> • {currentPayroll.karyawan_telepon || '0812-xxxx-xxxx'} • {currentPayroll.cabang_nama}
                     </p>
 
                     {/* Rincian Komponen Skema Harian */}
@@ -399,7 +399,7 @@ export default function PayrollSlipModal({
                     const waUrl = generateWhatsAppPayrollSlipLink({
                       telepon: currentPayroll.karyawan_telepon,
                       nama: currentPayroll.karyawan_nama || 'Staf',
-                      role: currentPayroll.karyawan_role || 'Kasir Cabang',
+                      role: formatKaryawanRole(currentPayroll.karyawan_role),
                       cabangNama: currentPayroll.cabang_nama || 'Cabang',
                       slipNo: currentPayroll.slip_no,
                       periodeLabel: periodeStr,
@@ -587,7 +587,7 @@ export default function PayrollSlipModal({
                     <span className="text-slate-400 block font-medium">Nama Staf Karyawan:</span>
                     <span className="font-black text-slate-900 text-xs">{currentPayroll.karyawan_nama}</span>
                     <span className="text-slate-500 block text-[10px] mt-0.5 capitalize">
-                      Jabatan: <strong>{currentPayroll.karyawan_role || 'Kasir Cabang'}</strong>
+                      Jabatan: <strong>{formatKaryawanRole(currentPayroll.karyawan_role)}</strong>
                     </span>
                   </div>
                   <div className="text-right">
@@ -696,7 +696,7 @@ export default function PayrollSlipModal({
                 const waUrl = generateWhatsAppPayrollSlipLink({
                   telepon: currentPayroll.karyawan_telepon,
                   nama: currentPayroll.karyawan_nama || 'Staf',
-                  role: currentPayroll.karyawan_role || 'Kasir Cabang',
+                  role: formatKaryawanRole(currentPayroll.karyawan_role),
                   cabangNama: currentPayroll.cabang_nama || 'Cabang',
                   slipNo: currentPayroll.slip_no,
                   periodeLabel: periodeStr,

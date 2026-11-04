@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { Karyawan, Cabang, Payroll, Absensi, PengeluaranKasbon, TabunganKaryawanItem } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatRupiah, formatWaktu } from '@/lib/utils';
+import { formatRupiah, formatWaktu, formatKaryawanRole } from '@/lib/utils';
 import PayrollSlipModal from '@/components/PayrollSlipModal';
 import AiBadgeFooter from '@/components/AiBadgeFooter';
 
@@ -157,7 +157,7 @@ export default function KaryawanPortalPage() {
               <div className="flex items-center space-x-1.5">
                 <span className="font-extrabold text-sm text-slate-900 tracking-tight">SERABI BAWEL</span>
                 <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
-                  Staf
+                  Karyawan
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-medium truncate max-w-[200px]">
@@ -195,7 +195,7 @@ export default function KaryawanPortalPage() {
                 {currentUser.nama}
               </h2>
               <div className="flex items-center space-x-2 mt-0.5 text-xs text-slate-500 font-medium">
-                <span className="capitalize font-bold text-slate-700">{currentUser.role}</span>
+                <span className="capitalize font-bold text-slate-700">{formatKaryawanRole(currentUser.role)}</span>
                 <span>•</span>
                 <span className="text-emerald-700 font-bold">{userCabang?.nama || 'Cabang Belum Diplot'}</span>
                 <span>•</span>
@@ -617,7 +617,7 @@ export default function KaryawanPortalPage() {
                 <a
                   href={`https://wa.me/6281234567890?text=${encodeURIComponent(
                     `*PERMOHONAN PENARIKAN TABUNGAN KARYAWAN*\n\n` +
-                    `Halo Pak Agan, saya *${currentUser.nama}* (${userCabang?.nama || 'Outlet'}).\n` +
+                    `Halo Pak Agan, saya *${currentUser.nama}* (${formatKaryawanRole(currentUser.role)} ${userCabang?.nama || 'Outlet'}).\n` +
                     `Saat ini total saldo tabungan saya tercatat: *${formatRupiah(totalTabungan)}*.\n` +
                     `Saya ingin berkonsultasi / mengajukan penarikan saldo celengan tabungan saya untuk keperluan mendesak.\n` +
                     `Mohon informasinya. Terima kasih Pak Agan!`
@@ -797,7 +797,7 @@ export default function KaryawanPortalPage() {
                   const waUrl = `https://wa.me/6281234567890?text=${encodeURIComponent(
                     `*PENGAJUAN KASBON KARYAWAN - SERABI BAWEL & WEDANG GEPREK*\n\n` +
                     `Halo Pak Agan, saya ingin mengajukan kasbon:\n` +
-                    `• Nama: *${currentUser.nama}* (${currentUser.role})\n` +
+                    `• Nama: *${currentUser.nama}* (${formatKaryawanRole(currentUser.role)})\n` +
                     `• Cabang: *${userCabang?.nama || 'Outlet'}*\n` +
                     `• Nominal: *${formatRupiah(kasbonNominal)}*\n` +
                     `• Keperluan: ${kasbonKeperluan.trim()}\n` +

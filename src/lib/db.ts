@@ -508,7 +508,7 @@ export class PosDatabase {
   async createKaryawan(data: {
     nama: string;
     username?: string;
-    role: 'kasir' | 'kitchen' | 'helper' | 'owner' | 'supervisor';
+    role: 'kasir' | 'kitchen' | 'helper' | 'owner' | 'supervisor' | 'karyawan';
     cabang_id: string;
     telepon?: string;
     pin?: string;
