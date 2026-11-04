@@ -86,6 +86,17 @@ export default function PosPage() {
       }
     }
 
+    // CEK GEMBOK KEAMANAN CABANG
+    if (targetCabang && targetCabang.is_kasir_locked) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('pakagan_kasir_session');
+        sessionStorage.removeItem('pakagan_user');
+      }
+      alert(`AKSES DITOLAK:\nAkses tablet kasir "${targetCabang.nama}" sedang DIGEMBOK oleh Admin Pusat (Pak Agan)! Hubungi Owner untuk membuka gembok.`);
+      window.location.href = '/';
+      return;
+    }
+
     setCurrentCabang(targetCabang);
 
     const menus = await db.getMenuList();
@@ -110,11 +121,40 @@ export default function PosPage() {
   useEffect(() => {
     loadData();
 
+    // SINKRONISASI REALTIME KASIR: Nama toko, alamat, promo struk baru & deteksi gembok
     const handleStorageUpdate = async () => {
-      if (currentCabang) {
-        const shift = await db.getActiveShift(currentCabang.id);
+      const cabangs = await db.getCabangList();
+      setCabangList(cabangs);
+
+      const lockedId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null;
+      const target = cabangs.find(c => c.id === (currentCabang?.id || lockedId)) || cabangs[0] || null;
+
+      if (target) {
+        // Cek gembok keamanan realtime saat POS sedang berjalan
+        if (target.is_kasir_locked) {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('pakagan_kasir_session');
+            sessionStorage.removeItem('pakagan_user');
+          }
+          alert(`PERHATIAN KEAMANAN:\nAkses tablet kasir "${target.nama}" telah DIGEMBOK / DINONAKTIFKAN oleh Admin Pusat! Aplikasi kasir otomatis keluar.`);
+          window.location.href = '/';
+          return;
+        }
+
+        // Sinkronisasi realtime profil cabang terkini ke state POS
+        setCurrentCabang(target);
+        const shift = await db.getActiveShift(target.id);
         setActiveShift(shift);
+        const kars = await db.getKaryawanByCabang(target.id);
+        setKaryawanList(kars);
       }
+
+      const menus = await db.getMenuList();
+      setMenuList(menus);
+      const trxs = await db.getTransaksiList();
+      setTransaksiList(trxs);
+      const exps = await db.getPengeluaranList();
+      setExpenseList(exps);
     };
 
     window.addEventListener('pak_agan_db_updated', handleStorageUpdate);
@@ -128,10 +168,14 @@ export default function PosPage() {
 
   // Lock Device to a specific Cabang
   const handleLockDevice = async (cabangId: string) => {
+    const target = cabangList.find(c => c.id === cabangId) || null;
+    if (target?.is_kasir_locked) {
+      alert(`Cabang "${target.nama}" saat ini sedang DIGEMBOK oleh Admin Pusat dan tidak dapat diaktifkan.`);
+      return;
+    }
     if (typeof window !== 'undefined') {
       localStorage.setItem(DEVICE_LOCK_KEY, cabangId);
     }
-    const target = cabangList.find(c => c.id === cabangId) || null;
     setCurrentCabang(target);
     if (target) {
       const shift = await db.getActiveShift(target.id);

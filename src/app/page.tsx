@@ -106,6 +106,40 @@ export default function LoginPage() {
     }
   };
 
+  const handleQuickKasirClick = async () => {
+    setErrorMsg(null);
+    setLoading(true);
+    try {
+      const cabangs = await db.getCabangList();
+      const c1 = cabangs[0];
+      if (c1?.is_kasir_locked) {
+        setErrorMsg(`Akses tablet kasir ${c1.nama} sedang DIGEMBOK oleh Admin Pusat.`);
+        setLoading(false);
+        return;
+      }
+      const ident = c1?.kasir_username || c1?.kode || 'kasir_cbg1';
+      const pinToUse = c1?.kasir_pin || c1?.kasir_password_plain || '888001';
+      await handleQuickLogin(ident, pinToUse);
+    } catch (err: any) {
+      setErrorMsg('Gagal masuk kasir: ' + (err.message || 'Error'));
+      setLoading(false);
+    }
+  };
+
+  const handleQuickOwnerClick = async () => {
+    setErrorMsg(null);
+    setLoading(true);
+    try {
+      const kars = await db.getAllKaryawan();
+      const owner = kars.find(k => k.role === 'owner');
+      const pinToUse = owner?.password_plain || '1234';
+      await handleQuickLogin('pakagan', pinToUse);
+    } catch (err: any) {
+      setErrorMsg('Gagal masuk owner: ' + (err.message || 'Error'));
+      setLoading(false);
+    }
+  };
+
   const setFastDemo = (userVal: string) => {
     setIdentifier(userVal);
     setPin('1234');
@@ -172,7 +206,7 @@ export default function LoginPage() {
             <button
               type="button"
               disabled={loading}
-              onClick={() => handleQuickLogin('pakagan', '1234')}
+              onClick={handleQuickOwnerClick}
               className="w-full p-4.5 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-700 active:scale-[0.98] text-slate-950 font-black rounded-2xl shadow-lg shadow-amber-500/25 flex items-center justify-between transition-all cursor-pointer border-2 border-amber-300"
             >
               <div className="flex items-center space-x-3 text-left">
@@ -195,7 +229,7 @@ export default function LoginPage() {
             <button
               type="button"
               disabled={loading}
-              onClick={() => handleQuickLogin('kasir_cbg1', '888001')}
+              onClick={handleQuickKasirClick}
               className="w-full p-3.5 bg-blue-50 hover:bg-blue-100 active:scale-[0.98] text-blue-950 border-2 border-blue-200 rounded-2xl font-bold flex items-center justify-between transition-all cursor-pointer shadow-xs"
             >
               <div className="flex items-center space-x-3 text-left">

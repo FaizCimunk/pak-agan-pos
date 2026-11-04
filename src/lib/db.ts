@@ -339,21 +339,31 @@ export class PosDatabase {
     const kar = list.find(k => k.id === karyawanId);
     if (!kar) return { valid: false };
 
-    const hashed = await hashPin(inputPin);
-    // Allow either matched hash or default demo PIN '1234'
-    const isMatched = kar.pin_hash === hashed || inputPin === '1234';
+    if (kar.is_locked) return { valid: false };
+
+    const cleanInput = inputPin.trim();
+    const hashed = await hashPin(cleanInput);
+    const hasConfiguredPin = Boolean(kar.pin_hash || kar.password_plain);
+
+    // Keamanan Ketat: jika sudah diset PIN atau sandi kustom, bypass demo '1234' otomatis ditolak
+    const isMatched = 
+      (kar.pin_hash && kar.pin_hash === hashed) || 
+      (kar.password_plain && kar.password_plain === cleanInput) ||
+      (!hasConfiguredPin && cleanInput === '1234');
+
     return { valid: isMatched, karyawan: kar };
   }
 
   async authenticateUser(identifier: string, inputPin: string): Promise<{ success: boolean; user?: Karyawan; message?: string }> {
     const cleanId = identifier.trim().toLowerCase();
+    const cleanPin = inputPin.trim();
     const cleanDigits = cleanId.replace(/[^0-9]/g, '');
 
     // 1. CEK KREDENSIAL KASIR TOKO CABANG (TERPISAH DARI PEKERJA)
     const cabangList = await this.getAllCabang();
     const matchedBranch = cabangList.find(c => {
-      const uKasir = (c.kasir_username || '').toLowerCase();
-      const cKode = (c.kode || '').toLowerCase();
+      const uKasir = (c.kasir_username || '').toLowerCase().trim();
+      const cKode = (c.kode || '').toLowerCase().trim();
       if (uKasir && uKasir === cleanId) return true;
       if (cKode && cKode === cleanId) return true;
       if (cleanId === `cabang${c.nomor}` || cleanId === `cbg${c.nomor}` || cleanId === `cbg-${c.nomor}`) return true;
@@ -368,16 +378,21 @@ export class PosDatabase {
         };
       }
 
+      const validPin = (matchedBranch.kasir_pin || '').trim();
+      const validPass = (matchedBranch.kasir_password_plain || '').trim();
+      const hasConfigured = Boolean(validPin || validPass);
+
+      // Keamanan Ketat: Hanya terima PIN atau Password aktif cabang terkini.
+      // Sandi kemarin/lama dan bypass demo '1234' otomatis ditolak begitu sandi/PIN disimpan!
       const isBranchPinValid = 
-        inputPin === matchedBranch.kasir_pin || 
-        inputPin === matchedBranch.kasir_password_plain || 
-        inputPin === '1234' ||
-        (matchedBranch.kasir_pin && inputPin === matchedBranch.kasir_pin);
+        (validPin && cleanPin === validPin) || 
+        (validPass && cleanPin === validPass) ||
+        (!hasConfigured && cleanPin === '1234');
 
       if (!isBranchPinValid) {
         return { 
           success: false, 
-          message: `PIN Kasir Toko untuk ${matchedBranch.nama} salah! Gunakan PIN kasir resmi cabang.` 
+          message: `PIN / Sandi Kasir Toko untuk ${matchedBranch.nama} salah! Gunakan kredensial resmi cabang terkini.` 
         };
       }
 
@@ -389,7 +404,7 @@ export class PosDatabase {
         role: 'kasir',
         telepon: matchedBranch.pj_telepon || matchedBranch.telepon,
         pin_hash: '',
-        password_plain: matchedBranch.kasir_password_plain || matchedBranch.kasir_pin || '1234',
+        password_plain: matchedBranch.kasir_password_plain || matchedBranch.kasir_pin || '',
         tipe_gaji: 'bulanan',
         gaji_pokok: 0,
         tunjangan: 0,
@@ -403,8 +418,8 @@ export class PosDatabase {
     // 2. CEK KREDENSIAL PEKERJA / STAF PERSONAL ATAU OWNER PUSAT
     const list = await this.getAllKaryawan();
     const user = list.find(k => {
-      const uName = (k.username || '').toLowerCase();
-      const kNama = k.nama.toLowerCase();
+      const uName = (k.username || '').toLowerCase().trim();
+      const kNama = k.nama.toLowerCase().trim();
       const kPhoneDigits = (k.telepon || '').replace(/[^0-9]/g, '');
 
       if (uName && uName === cleanId) return true;
@@ -429,11 +444,14 @@ export class PosDatabase {
       };
     }
 
-    const hashed = await hashPin(inputPin);
+    const hashed = await hashPin(cleanPin);
+    const hasConfiguredUserCreds = Boolean(user.pin_hash || user.password_plain);
+
+    // Keamanan Ketat Pekerja: Tolak sandi kemarin / lama dan bypass demo '1234'
     const isPinValid = 
-      user.pin_hash === hashed || 
-      inputPin === '1234' || 
-      (user.password_plain && user.password_plain === inputPin);
+      (user.pin_hash && user.pin_hash === hashed) || 
+      (user.password_plain && user.password_plain === cleanPin) ||
+      (!hasConfiguredUserCreds && cleanPin === '1234');
 
     if (!isPinValid) {
       return { success: false, message: 'PIN / Sandi rahasia salah.' };

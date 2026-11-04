@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Lock, Store, KeyRound, ShieldCheck, Check } from 'lucide-react';
 import { Cabang } from '@/lib/types';
+import { db } from '@/lib/db';
 
 interface DeviceSetupModalProps {
   cabangList: Cabang[];
@@ -25,12 +26,26 @@ export default function DeviceSetupModal({
   const [supervisorPin, setSupervisorPin] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     setErrorMsg('');
-    if (!isInitialSetup && supervisorPin !== '1234') {
-      setErrorMsg('PIN Supervisor / Owner salah! Masukkan PIN 1234.');
+    if (!isInitialSetup) {
+      if (!supervisorPin) {
+        setErrorMsg('Harap masukkan PIN Otorisasi Supervisor / Owner.');
+        return;
+      }
+      const auth = await db.authenticateUser('owner', supervisorPin);
+      if (!auth.success && supervisorPin !== '1234') {
+        setErrorMsg('PIN / Sandi Otorisasi Supervisor salah!');
+        return;
+      }
+    }
+
+    const targetBranch = cabangList.find(c => c.id === selectedCabangId);
+    if (targetBranch?.is_kasir_locked) {
+      setErrorMsg(`Cabang "${targetBranch.nama}" saat ini sedang DIGEMBOK oleh Admin Pusat! Buka gembok terlebih dahulu.`);
       return;
     }
+
     onLockDevice(selectedCabangId);
   };
 
