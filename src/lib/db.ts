@@ -576,6 +576,43 @@ export class PosDatabase {
       }
     }
     const all = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
+
+    // Auto-migrasi jadwal shift jam operasional sore-malam Serabi & Wedang (16:00 - 23:30)
+    let hasOutdated = false;
+    for (const a of all) {
+      if (
+        a.jam_masuk === '08:00' ||
+        a.jam_masuk === '08:05' ||
+        a.jam_masuk === '07:55' ||
+        a.jam_masuk === '08:10' ||
+        a.jam_masuk?.startsWith('08:') ||
+        a.jam_masuk?.startsWith('07:') ||
+        a.jam_pulang === '16:00' ||
+        a.jam_pulang === '16:05' ||
+        a.catatan?.includes('Shift Pagi')
+      ) {
+        if (a.jam_masuk === '08:05') a.jam_masuk = '16:05';
+        else if (a.jam_masuk === '07:55') a.jam_masuk = '15:55';
+        else if (a.jam_masuk === '08:10') a.jam_masuk = '16:10';
+        else if (a.jam_masuk === '08:00' || a.jam_masuk?.startsWith('08:') || a.jam_masuk?.startsWith('07:')) a.jam_masuk = '16:00';
+
+        if (a.jam_pulang === '16:00' || a.jam_pulang === '16:05' || !a.jam_pulang) {
+          a.jam_pulang = '23:30';
+        }
+
+        if (a.catatan?.includes('Shift Pagi Weekend') || a.catatan === 'Shift Weekend') {
+          a.catatan = 'Shift Sore-Malam Weekend';
+        } else if (a.catatan?.includes('Shift Pagi')) {
+          a.catatan = a.catatan.replace('Shift Pagi', 'Shift Sore-Malam');
+        } else if (!a.catatan || a.catatan === 'Hadir' || a.catatan === 'Tepat Waktu') {
+          a.catatan = 'Shift Sore-Malam';
+        }
+        hasOutdated = true;
+      }
+    }
+    if (hasOutdated) {
+      saveLocal(STORAGE_KEYS.ABSENSI, all);
+    }
     return all.filter(a => {
       if (karyawanId && a.karyawan_id !== karyawanId) return false;
       if (cabangId && a.cabang_id !== cabangId) return false;
@@ -696,7 +733,7 @@ export class PosDatabase {
       cabang_id: cabangId,
       karyawan_id: `kar-${cabangId}`,
       karyawan_nama: defaultPj,
-      waktu_buka: `${todayDate}T08:00:00.000Z`,
+      waktu_buka: `${todayDate}T16:00:00.000Z`,
       waktu_tutup: null,
       modal_awal: 200000,
       total_tunai_masuk: 0,

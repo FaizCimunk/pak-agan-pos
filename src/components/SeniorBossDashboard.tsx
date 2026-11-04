@@ -780,7 +780,7 @@ export default function SeniorBossDashboard({
                             </span>
                           </div>
                           <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                            {cbg?.nama || 'Outlet'} • Jam: <span className="font-mono font-bold text-slate-800">{abs.jam_masuk || '08:00'}</span>
+                            {cbg?.nama || 'Outlet'} • Jam: <span className="font-mono font-bold text-slate-800">{abs.jam_masuk || '16:00'}</span>
                           </p>
                         </div>
                         <div className="text-right">

@@ -54,8 +54,8 @@ export default function BranchAttendanceModal({
   const [newNama, setNewNama] = useState<string>('');
   const [newRole, setNewRole] = useState<string>('Kitchen Serabi');
   const [newUpah, setNewUpah] = useState<number>(100000);
-  const [newJamMasuk, setNewJamMasuk] = useState<string>('08:00');
-  const [newJamPulang, setNewJamPulang] = useState<string>('16:00');
+  const [newJamMasuk, setNewJamMasuk] = useState<string>('16:00');
+  const [newJamPulang, setNewJamPulang] = useState<string>('23:30');
 
   // Load workers for this branch & records on selected date
   const loadBranchData = async () => {
@@ -81,8 +81,8 @@ export default function BranchAttendanceModal({
           tipe_gaji: 'harian',
           gaji_harian: rec.upah_harian_terhitung || staffObj?.gaji_harian || 100000,
           status: rec.status || 'hadir',
-          jam_masuk: rec.jam_masuk || '08:00',
-          jam_pulang: rec.jam_pulang || '16:00',
+          jam_masuk: rec.jam_masuk || '16:00',
+          jam_pulang: rec.jam_pulang || '23:30',
           catatan: rec.catatan || '',
         });
       });
@@ -97,9 +97,9 @@ export default function BranchAttendanceModal({
             tipe_gaji: 'harian',
             gaji_harian: st.gaji_harian || (st.tipe_gaji === 'harian' ? 100000 : Math.round(st.gaji_pokok / 26)),
             status: 'hadir',
-            jam_masuk: '08:00',
-            jam_pulang: '16:00',
-            catatan: 'Hadir reguler',
+            jam_masuk: '16:00',
+            jam_pulang: '23:30',
+            catatan: 'Shift Sore-Malam',
           });
         }
       });
@@ -129,9 +129,9 @@ export default function BranchAttendanceModal({
       tipe_gaji: 'harian',
       gaji_harian: Number(newUpah) || 100000,
       status: 'hadir',
-      jam_masuk: newJamMasuk || '08:00',
-      jam_pulang: newJamPulang || '16:00',
-      catatan: 'Staf Tambahan Harian',
+      jam_masuk: newJamMasuk || '16:00',
+      jam_pulang: newJamPulang || '23:30',
+      catatan: 'Shift Sore-Malam (Staf Tambahan)',
     };
 
     // Buat juga master profil karyawan baru agar tercatat permanen di sistem & payroll
@@ -162,8 +162,8 @@ export default function BranchAttendanceModal({
       return {
         ...w,
         status,
-        jam_masuk: status === 'hadir' || status === 'setengah_hari' ? (w.jam_masuk || '08:00') : '',
-        jam_pulang: status === 'hadir' ? (w.jam_pulang || '16:00') : status === 'setengah_hari' ? '12:00' : '',
+        jam_masuk: status === 'hadir' || status === 'setengah_hari' ? (w.jam_masuk || '16:00') : '',
+        jam_pulang: status === 'hadir' ? (w.jam_pulang || '23:30') : status === 'setengah_hari' ? '20:00' : '',
       };
     }));
   };
@@ -190,8 +190,8 @@ export default function BranchAttendanceModal({
         cabang_id: cabang.id,
         cabang_nama: cabang.nama,
         tanggal: selectedDate,
-        jam_masuk: w.jam_masuk || '08:00',
-        jam_pulang: w.jam_pulang || null,
+        jam_masuk: w.jam_masuk || '16:00',
+        jam_pulang: w.jam_pulang || '23:30',
         status: w.status,
         upah_harian: Number(w.gaji_harian) || 100000,
         catatan: w.catatan,
@@ -339,7 +339,7 @@ export default function BranchAttendanceModal({
                       type="text"
                       value={newJamMasuk}
                       onChange={(e) => setNewJamMasuk(e.target.value)}
-                      placeholder="08:00"
+                      placeholder="16:00"
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-center text-slate-800 outline-none focus:border-brand-primary"
                     />
                   </div>
@@ -351,7 +351,7 @@ export default function BranchAttendanceModal({
                       type="text"
                       value={newJamPulang}
                       onChange={(e) => setNewJamPulang(e.target.value)}
-                      placeholder="16:00"
+                      placeholder="23:30"
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-center text-slate-800 outline-none focus:border-brand-primary"
                     />
                   </div>
@@ -490,7 +490,7 @@ export default function BranchAttendanceModal({
                         type="text"
                         value={worker.jam_masuk}
                         onChange={(e) => updateWorkerField(worker.karyawan_id, 'jam_masuk', e.target.value)}
-                        placeholder="08:00"
+                        placeholder="16:00"
                         className="w-16 px-2 py-1 text-center bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-800 text-[11px]"
                       />
                       <span className="text-slate-300">-</span>
@@ -498,7 +498,7 @@ export default function BranchAttendanceModal({
                         type="text"
                         value={worker.jam_pulang}
                         onChange={(e) => updateWorkerField(worker.karyawan_id, 'jam_pulang', e.target.value)}
-                        placeholder="16:00"
+                        placeholder="23:30"
                         className="w-16 px-2 py-1 text-center bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-800 text-[11px]"
                       />
                     </div>
