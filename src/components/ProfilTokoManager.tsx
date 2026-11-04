@@ -580,7 +580,7 @@ export default function ProfilTokoManager({
                 </div>
                 <div className="flex justify-between">
                   <span>Metode Bayar:</span>
-                  <span className="font-bold uppercase">QRIS BCA PUSAT</span>
+                  <span className="font-bold uppercase">QRIS</span>
                 </div>
               </div>
 

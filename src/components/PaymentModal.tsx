@@ -107,7 +107,7 @@ export default function PaymentModal({
               <span className="text-[9px] text-slate-400">Kas Laci</span>
             </button>
 
-            {/* 2. QRIS (BCA / ALL E-WALLET) */}
+            {/* 2. QRIS */}
             <button
               type="button"
               onClick={() => { setMethod('qris'); setBayarInput(total); }}
@@ -119,7 +119,7 @@ export default function PaymentModal({
             >
               <QrCode className="w-5 h-5 text-blue-600 mb-1" />
               <span className="text-xs font-black">QRIS</span>
-              <span className="text-[9px] text-slate-400">BCA / Wallet</span>
+              <span className="text-[9px] text-slate-400">Scan QR</span>
             </button>
 
             {/* 3. SHOPEEFOOD / SHOPEEPAY */}
@@ -250,7 +250,7 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* TAB 2: QRIS (BCA / ALL E-WALLET) */}
+          {/* TAB 2: QRIS */}
           {method === 'qris' && (
             <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 text-blue-950 space-y-3 text-center">
               <div className="flex items-center justify-center space-x-2">
@@ -300,11 +300,11 @@ export default function PaymentModal({
                   {formatRupiah(total)}
                 </div>
                 <p className="text-[11px] text-blue-800 leading-snug">
-                  Pelanggan scan menggunakan <strong>BCA Mobile, Livin, BRImo, GoPay, OVO, Dana, ShopeePay</strong>.
+                  Pelanggan scan menggunakan <strong>M-Banking (Semua Bank) atau E-Wallet (GoPay, OVO, Dana, ShopeePay)</strong>.
                 </p>
                 <div className="text-[10px] text-emerald-700 font-bold flex items-center justify-center space-x-1 pt-0.5">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Uang langsung masuk ke Rekening BCA Pak Agan</span>
+                  <span>Uang langsung masuk otomatis ke rekening pusat</span>
                 </div>
               </div>
             </div>

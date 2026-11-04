@@ -1041,7 +1041,7 @@ export default function SeniorBossDashboard({
               >
                 <option value="all">Semua Channel</option>
                 <option value="tunai">💵 Tunai (Laci)</option>
-                <option value="qris">📱 QRIS (BCA / E-Wallet)</option>
+                <option value="qris">📱 QRIS</option>
                 <option value="shopeefood">🟠 ShopeeFood</option>
                 <option value="gofood">🛵 GoFood</option>
                 <option value="grabfood">🟢 GrabFood</option>
@@ -1123,13 +1123,13 @@ export default function SeniorBossDashboard({
                 <span className="font-mono font-black text-sm text-emerald-900">{formatRupiah(tunaiLaci)}</span>
               </div>
 
-              {/* QRIS (BCA / All E-Wallet) */}
+              {/* QRIS */}
               <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-between">
                 <div className="flex items-center space-x-2.5">
                   <span className="text-2xl">📱</span>
                   <div>
-                    <span className="font-black text-xs text-blue-950 block">QRIS Dinamis</span>
-                    <span className="text-[10px] text-blue-700">Scan QR langsung masuk rekening BCA Pak Agan</span>
+                    <span className="font-black text-xs text-blue-950 block">QRIS</span>
+                    <span className="text-[10px] text-blue-700">Scan QR langsung masuk rekening pusat</span>
                   </div>
                 </div>
                 <span className="font-mono font-black text-sm text-blue-900">{formatRupiah(qrisTotal)}</span>
