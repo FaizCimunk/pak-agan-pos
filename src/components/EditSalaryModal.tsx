@@ -131,13 +131,17 @@ export default function EditSalaryModal({
                 />
               </div>
 
-              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] space-y-1">
-                <div className="font-bold flex justify-between">
-                  <span>Simulasi 22 Hari Kerja:</span>
-                  <span className="font-mono text-xs font-black">{formatRupiah(22 * gajiHarian)}</span>
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-[11px] space-y-1.5">
+                <div className="font-extrabold flex justify-between items-center text-emerald-900 border-b border-emerald-200/60 pb-1">
+                  <span>📅 Pencairan Mingguan (6 Hari Kerja):</span>
+                  <span className="font-mono text-xs font-black text-emerald-800">{formatRupiah(6 * gajiHarian)} /minggu</span>
                 </div>
-                <div className="text-[10px] text-emerald-700">
-                  Total Gaji = 22 hari × {formatRupiah(gajiHarian)} (Langsung bersih tanpa pecahan uang makan).
+                <div className="font-extrabold flex justify-between items-center text-slate-700">
+                  <span>🗓️ Akumulasi Bulanan (26 Hari Kerja):</span>
+                  <span className="font-mono text-xs font-black text-slate-900">{formatRupiah(26 * gajiHarian)} /bulan</span>
+                </div>
+                <div className="text-[10px] text-emerald-700 leading-tight pt-0.5">
+                  *Gaji dihitung per hari berdasarkan kehadiran nyata di kasir, dan dicairkan setiap minggu (atau tutup buku bulanan).
                 </div>
               </div>
             </div>

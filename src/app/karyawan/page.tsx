@@ -16,7 +16,14 @@ import {
   ChevronRight, 
   Wallet,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  CreditCard,
+  Clock,
+  MessageCircle,
+  AlertCircle,
+  Plus,
+  Send,
+  X
 } from 'lucide-react';
 import { Karyawan, Cabang, Payroll, Absensi, PengeluaranKasbon } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -32,8 +39,13 @@ export default function KaryawanPortalPage() {
   const [expenses, setExpenses] = useState<PengeluaranKasbon[]>([]);
   const [selectedSlip, setSelectedSlip] = useState<Payroll | null>(null);
 
-  // Tab simpel karyawan: Cuma Slip Gaji & Presensi
-  const [activeTab, setActiveTab] = useState<'slip' | 'presensi'>('slip');
+  // Tab karyawan: Slip Gaji, Presensi, Kasbon
+  const [activeTab, setActiveTab] = useState<'slip' | 'presensi' | 'kasbon'>('slip');
+  const [showKasbonModal, setShowKasbonModal] = useState<boolean>(false);
+  const [kasbonNominal, setKasbonNominal] = useState<number>(100000);
+  const [kasbonKeperluan, setKasbonKeperluan] = useState<string>('');
+  const [kasbonMetode, setKasbonMetode] = useState<'laci' | 'transfer'>('laci');
+  const [isSubmittingKasbon, setIsSubmittingKasbon] = useState<boolean>(false);
 
   const refreshUserData = async () => {
     if (typeof window === 'undefined') return;
@@ -58,7 +70,7 @@ export default function KaryawanPortalPage() {
       const myAbsensi = await db.getAbsensiList(freshUser.id);
       setAbsensiList(myAbsensi);
 
-      const allExpenses = await db.getPengeluaranList(freshUser.cabang_id);
+      const allExpenses = await db.getPengeluaranList();
       const myExpenses = allExpenses.filter(e => e.karyawan_id === freshUser.id && e.jenis === 'kasbon');
       setExpenses(myExpenses);
     } catch (e) {
@@ -221,7 +233,7 @@ export default function KaryawanPortalPage() {
           </div>
         </div>
 
-        {/* 2 PILIHAN TAB SIMPEL: SLIP GAJI & PRESENSI */}
+        {/* 3 PILIHAN TAB: SLIP GAJI, PRESENSI, & KASBON */}
         <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
           <button
             type="button"
@@ -233,7 +245,7 @@ export default function KaryawanPortalPage() {
             }`}
           >
             <FileText className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Slip Gaji Resmi</span>
+            <span>Slip Gaji</span>
           </button>
 
           <button
@@ -246,7 +258,20 @@ export default function KaryawanPortalPage() {
             }`}
           >
             <CalendarCheck className="w-3.5 h-3.5 text-blue-600" />
-            <span>Riwayat Kehadiran ({absensiList.length})</span>
+            <span>Presensi ({absensiList.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('kasbon')}
+            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center space-x-1.5 ${
+              activeTab === 'kasbon'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5 text-amber-600" />
+            <span>Kasbon &amp; Plafon ({expenses.length})</span>
           </button>
         </div>
 
@@ -363,7 +388,314 @@ export default function KaryawanPortalPage() {
           </div>
         )}
 
+        {/* TAB 3: KASBON & PLAFON PINJAMAN STAF */}
+        {activeTab === 'kasbon' && (
+          <div className="space-y-4">
+            
+            {/* HERO KARTU PLAFON */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/90 shadow-soft-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                    Batas Plafon Pinjaman Kasbon
+                  </span>
+                  <div className="text-xl sm:text-2xl font-mono font-black text-amber-900 mt-0.5">
+                    {formatRupiah(currentUser.plafon_kasbon || 500000)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowKasbonModal(true)}
+                  className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-md shadow-amber-900/20 btn-tactile transition-all flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Ajukan Kasbon Baru</span>
+                </button>
+              </div>
+
+              {/* Rincian Status Kasbon */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200">
+                  <span className="text-[10px] text-slate-500 font-bold block">Kasbon Berjalan (Belum Lunas):</span>
+                  <span className="font-mono font-extrabold text-rose-600 text-sm">
+                    {formatRupiah(utangNominal)}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200">
+                  <span className="text-[10px] text-emerald-700 font-bold block">Sisa Kuota Kasbon:</span>
+                  <span className="font-mono font-extrabold text-emerald-800 text-sm">
+                    {formatRupiah(Math.max(0, (currentUser.plafon_kasbon || 500000) - utangNominal))}
+                  </span>
+                </div>
+              </div>
+
+              {/* Banner SOP Keamanan Kasbon */}
+              <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-[11px] text-amber-950 flex items-start space-x-2">
+                <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  <strong>Aturan Kasbon Resmi:</strong> Seluruh permohonan kasbon diajukan di menu ini dan <strong>wajib ditinjau &amp; disetujui Owner (Pak Agan) di Approval Center</strong> terlebih dahulu. Kasir di toko tidak diperkenankan mencairkan uang sebelum ada persetujuan resmi.
+                </p>
+              </div>
+            </div>
+
+            {/* Riwayat Pengajuan Kasbon */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-bold px-1">
+                <span>Riwayat Pengajuan Kasbon Anda:</span>
+                <span>{expenses.length} Pengajuan</span>
+              </div>
+
+              {expenses.length === 0 ? (
+                <div className="p-8 text-center bg-white rounded-3xl border border-slate-200/80 space-y-2">
+                  <div className="text-3xl">💳</div>
+                  <h3 className="text-xs font-bold text-slate-700">Belum Ada Pengajuan Kasbon</h3>
+                  <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                    Jika membutuhkan kasbon darurat, klik tombol &quot;+ Ajukan Kasbon Baru&quot; di atas untuk mengirimkan permohonan ke Owner.
+                  </p>
+                </div>
+              ) : (
+                expenses.map(exp => (
+                  <div
+                    key={exp.id}
+                    className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm space-y-2"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono font-extrabold text-slate-900 text-sm">
+                            {formatRupiah(exp.nominal)}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                            exp.status === 'approved' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                            exp.status === 'rejected' ? 'bg-rose-100 text-rose-800 border border-rose-300' :
+                            'bg-amber-100 text-amber-900 border border-amber-300'
+                          }`}>
+                            {exp.status === 'approved' ? '✓ DISETUJUI OWNER' :
+                             exp.status === 'rejected' ? '✕ DITOLAK' : '⏳ MENUNGGU APPROVAL'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 font-medium mt-1">
+                          {exp.keperluan}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 block font-mono">
+                          {exp.tanggal ? exp.tanggal.slice(0, 10) : '2026-10-25'}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase mt-0.5 block">
+                          {exp.metode_pencairan === 'transfer' ? 'Via Transfer' : 'Via Laci Kasir'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {exp.status === 'pending' && (
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                        <span className="text-amber-700 font-medium">
+                          Sedang ditinjau oleh Pak Agan
+                        </span>
+                        <a
+                          href={`https://wa.me/6281234567890?text=${encodeURIComponent(
+                            `Halo Pak Agan, saya ${currentUser.nama} dari ${userCabang?.nama || 'Cabang'} ingin konfirmasi pengajuan kasbon sebesar ${formatRupiah(exp.nominal)} untuk keperluan: "${exp.keperluan}". Mohon persetujuannya di sistem Approval Center. Terima kasih.`
+                          )}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold hover:bg-emerald-100 transition inline-flex items-center space-x-1"
+                        >
+                          <MessageCircle className="w-3 h-3 text-emerald-600" />
+                          <span>Hubungi Owner</span>
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
+        )}
+
       </main>
+
+      {/* MODAL AJUKAN KASBON DARI PORTAL KARYAWAN */}
+      {showKasbonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-900">Ajukan Kasbon Karyawan</h4>
+                  <p className="text-[11px] text-slate-500">Kirim permohonan ke Approval Center Owner</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowKasbonModal(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (kasbonNominal <= 0) {
+                  alert('Nominal kasbon harus lebih dari Rp 0!');
+                  return;
+                }
+                const maxAvailable = Math.max(0, (currentUser.plafon_kasbon || 500000) - utangNominal);
+                if (kasbonNominal > maxAvailable) {
+                  alert(`Nominal kasbon (${formatRupiah(kasbonNominal)}) melebihi sisa kuota plafon Anda (${formatRupiah(maxAvailable)})!`);
+                  return;
+                }
+                if (!kasbonKeperluan.trim()) {
+                  alert('Tuliskan rincian alasan / keperluan kasbon!');
+                  return;
+                }
+
+                setIsSubmittingKasbon(true);
+                try {
+                  await db.createPengeluaran({
+                    cabang_id: currentUser.cabang_id,
+                    cabang_nama: userCabang?.nama || 'Cabang',
+                    karyawan_id: currentUser.id,
+                    pemohon_nama: currentUser.nama,
+                    pemohon_telepon: currentUser.telepon || '0812-3456-7890',
+                    jenis: 'kasbon',
+                    keperluan: kasbonKeperluan.trim(),
+                    nominal: kasbonNominal,
+                    metode_pencairan: kasbonMetode,
+                  });
+
+                  alert(
+                    `Permohonan kasbon sebesar ${formatRupiah(kasbonNominal)} berhasil diajukan!\n\n` +
+                    `Status: MENUNGGU PERSETUJUAN OWNER.\n` +
+                    `Uang belum boleh diambil dari kasir sebelum disetujui Pak Agan di Approval Center.`
+                  );
+
+                  // Buka WhatsApp konfirmasi ke Owner
+                  const waUrl = `https://wa.me/6281234567890?text=${encodeURIComponent(
+                    `*PENGAJUAN KASBON KARYAWAN - SERABI BAWEL & WEDANG GEPREK*\n\n` +
+                    `Halo Pak Agan, saya ingin mengajukan kasbon:\n` +
+                    `• Nama: *${currentUser.nama}* (${currentUser.role})\n` +
+                    `• Cabang: *${userCabang?.nama || 'Outlet'}*\n` +
+                    `• Nominal: *${formatRupiah(kasbonNominal)}*\n` +
+                    `• Keperluan: ${kasbonKeperluan.trim()}\n` +
+                    `• Metode: ${kasbonMetode === 'transfer' ? 'Transfer Bank' : 'Ambil di Laci Kasir'}\n\n` +
+                    `Mohon persetujuannya di sistem Approval Center. Terima kasih.`
+                  )}`;
+                  window.open(waUrl, '_blank');
+
+                  setShowKasbonModal(false);
+                  setKasbonKeperluan('');
+                  await refreshUserData();
+                } catch (err: any) {
+                  alert('Gagal mengajukan kasbon: ' + err.message);
+                } finally {
+                  setIsSubmittingKasbon(false);
+                }
+              }}
+              className="p-5 space-y-4 overflow-y-auto text-xs"
+            >
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px]">
+                <span>Sisa Kuota Plafon Anda: </span>
+                <strong className="font-mono text-amber-950 font-bold">
+                  {formatRupiah(Math.max(0, (currentUser.plafon_kasbon || 500000) - utangNominal))}
+                </strong>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Nominal Kasbon yang Diajukan (Rp):</label>
+                <input
+                  type="number"
+                  min={10000}
+                  step={10000}
+                  value={kasbonNominal}
+                  onChange={(e) => setKasbonNominal(Number(e.target.value))}
+                  required
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-amber-500"
+                />
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {[50000, 100000, 150000, 200000].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setKasbonNominal(amt)}
+                      className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-600 cursor-pointer"
+                    >
+                      +{formatRupiah(amt)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Alasan / Keperluan Mendesak:</label>
+                <textarea
+                  rows={2}
+                  value={kasbonKeperluan}
+                  onChange={(e) => setKasbonKeperluan(e.target.value)}
+                  placeholder="Contoh: Beli obat keluarga / keperluan mendesak..."
+                  required
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Pilihan Metode Pencairan:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setKasbonMetode('laci')}
+                    className={`p-2.5 rounded-xl border text-left font-bold transition cursor-pointer ${
+                      kasbonMetode === 'laci'
+                        ? 'border-amber-600 bg-amber-50 text-amber-900'
+                        : 'border-slate-200 bg-slate-50 text-slate-600'
+                    }`}
+                  >
+                    <span className="block text-xs font-black">💵 Laci Kasir</span>
+                    <span className="text-[10px] font-normal text-slate-500">Ambil tunai di kasir toko</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKasbonMetode('transfer')}
+                    className={`p-2.5 rounded-xl border text-left font-bold transition cursor-pointer ${
+                      kasbonMetode === 'transfer'
+                        ? 'border-amber-600 bg-amber-50 text-amber-900'
+                        : 'border-slate-200 bg-slate-50 text-slate-600'
+                    }`}
+                  >
+                    <span className="block text-xs font-black">💳 Transfer Bank</span>
+                    <span className="text-[10px] font-normal text-slate-500">Ditransfer dari rekening pusat</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowKasbonModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingKasbon}
+                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold shadow-md flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isSubmittingKasbon ? 'Mengirim...' : 'Kirim Pengajuan Kasbon'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Slip Modal */}
       {selectedSlip && (

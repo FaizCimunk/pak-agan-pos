@@ -309,9 +309,16 @@ export default function CreateKaryawanModal({
                     className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
                   />
                 </div>
-                <span className="text-[9px] text-slate-500 mt-1 block">
-                  Simulasi 22 Hari: <strong>Rp {formatNominal(((parseNominal(gajiHarianDisplay) || 100000) * 22).toString())}</strong>
-                </span>
+                <div className="text-[10px] text-slate-600 mt-1.5 space-y-0.5 bg-white p-2 rounded-xl border border-emerald-200/60">
+                  <div className="flex justify-between font-extrabold text-emerald-800">
+                    <span>Pencairan Mingguan (6 Hari):</span>
+                    <span className="font-mono">Rp {formatNominal(((parseNominal(gajiHarianDisplay) || 100000) * 6).toString())}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-slate-600">
+                    <span>Akumulasi Bulanan (26 Hari):</span>
+                    <span className="font-mono">Rp {formatNominal(((parseNominal(gajiHarianDisplay) || 100000) * 26).toString())}</span>
+                  </div>
+                </div>
               </div>
 
               <div>
