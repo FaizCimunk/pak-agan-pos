@@ -174,13 +174,21 @@ export default function FixedCostPaymentManager({
     });
   }, [branchRows, filterCabang, filterStatus]);
 
-  // Aggregate Metrics for all 10 branches
+  // Target rows for metric summary (reacts to branch filter)
+  const targetRowsForMetrics = useMemo(() => {
+    if (filterCabang === 'all') {
+      return branchRows;
+    }
+    return branchRows.filter(r => r.cabang.id === filterCabang);
+  }, [branchRows, filterCabang]);
+
+  // Aggregate Metrics for selected branch or all 10 branches
   const summaryMetrics = useMemo(() => {
     let grandTotalBeban = 0;
     let grandTotalLunas = 0;
     let fullLunasBranches = 0;
 
-    branchRows.forEach(r => {
+    targetRowsForMetrics.forEach(r => {
       grandTotalBeban += r.totalBeban;
       grandTotalLunas += r.nominalLunas;
       if (r.isFullLunas) fullLunasBranches++;
@@ -189,15 +197,20 @@ export default function FixedCostPaymentManager({
     const grandTotalSisa = Math.max(0, grandTotalBeban - grandTotalLunas);
     const percentLunas = grandTotalBeban > 0 ? Math.round((grandTotalLunas / grandTotalBeban) * 100) : 0;
 
+    const singleRow = filterCabang !== 'all' ? targetRowsForMetrics[0] : null;
+
     return {
       grandTotalBeban,
       grandTotalLunas,
       grandTotalSisa,
       percentLunas,
       fullLunasBranches,
-      totalBranches: branchRows.length,
+      totalBranches: targetRowsForMetrics.length,
+      singleRow,
+      selectedBranchName: singleRow ? (singleRow.cabang.nama.split('-')[1]?.trim() || singleRow.cabang.nama) : '10 Toko',
+      selectedBranchKode: singleRow ? singleRow.cabang.kode : '10 Toko',
     };
-  }, [branchRows]);
+  }, [targetRowsForMetrics, filterCabang]);
 
   // Handle Open Payment Modal
   const openPayModalFor = (cabang: Cabang, jenis: 'sewa' | 'listrik_wifi' | 'sampah_kebersihan' | 'semua_paket') => {
@@ -424,13 +437,17 @@ export default function FixedCostPaymentManager({
             {/* 1. Total Kewajiban Beban */}
             <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-soft-sm">
               <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                Total Beban Tetap 10 Toko
+                {filterCabang === 'all' 
+                  ? 'Total Beban Tetap 10 Toko' 
+                  : `Beban Tetap ${summaryMetrics.selectedBranchKode}`}
               </span>
               <div className="text-xl sm:text-2xl font-mono font-black text-slate-900 mt-1 tabular-nums">
                 {formatRupiah(summaryMetrics.grandTotalBeban)}
               </div>
-              <span className="text-[10px] text-slate-400 font-medium mt-1 block">
-                Periode {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
+              <span className="text-[10px] text-slate-400 font-medium mt-1 block truncate">
+                {filterCabang === 'all' 
+                  ? `Periode ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} • 10 Cabang` 
+                  : `${summaryMetrics.selectedBranchName} • Periode ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`}
               </span>
             </div>
 
@@ -464,22 +481,50 @@ export default function FixedCostPaymentManager({
               <div className="text-xl sm:text-2xl font-mono font-black text-amber-700 mt-1 tabular-nums">
                 {formatRupiah(summaryMetrics.grandTotalSisa)}
               </div>
-              <span className="text-[10px] text-amber-600/90 font-medium mt-1 block">
-                Kewajiban kas yang belum ditransfer
+              <span className="text-[10px] text-amber-600/90 font-medium mt-1 block truncate">
+                {summaryMetrics.grandTotalSisa === 0 
+                  ? '✓ Beban periode ini telah lunas' 
+                  : 'Kewajiban kas yang belum ditransfer'}
               </span>
             </div>
 
-            {/* 4. Outlet Lunas Penuh */}
+            {/* 4. Outlet Lunas Penuh / Status Cabang */}
             <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-soft-sm">
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                Outlet Selesai Dibayar
-              </span>
-              <div className="text-xl sm:text-2xl font-mono font-black text-slate-900 mt-1 tabular-nums">
-                {summaryMetrics.fullLunasBranches} / {summaryMetrics.totalBranches} Toko
-              </div>
-              <span className="text-[10px] text-emerald-700 font-bold mt-1 block">
-                {summaryMetrics.fullLunasBranches === summaryMetrics.totalBranches ? '✓ Seluruh Toko Telah Lunas' : `${summaryMetrics.totalBranches - summaryMetrics.fullLunasBranches} Toko masih ada tagihan`}
-              </span>
+              {filterCabang === 'all' ? (
+                <>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Outlet Selesai Dibayar
+                  </span>
+                  <div className="text-xl sm:text-2xl font-mono font-black text-slate-900 mt-1 tabular-nums">
+                    {summaryMetrics.fullLunasBranches} / {summaryMetrics.totalBranches} Toko
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-bold mt-1 block truncate">
+                    {summaryMetrics.fullLunasBranches === summaryMetrics.totalBranches 
+                      ? '✓ Seluruh Toko Telah Lunas' 
+                      : `${summaryMetrics.totalBranches - summaryMetrics.fullLunasBranches} Toko masih ada tagihan`}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Status Tagihan Outlet
+                  </span>
+                  <div className="text-xl sm:text-2xl font-mono font-black mt-1 tabular-nums">
+                    {summaryMetrics.singleRow?.isFullLunas ? (
+                      <span className="text-emerald-700 font-black">LUNAS PENUH</span>
+                    ) : summaryMetrics.singleRow && summaryMetrics.singleRow.lunasCount > 0 ? (
+                      <span className="text-amber-700 font-black">SEBAGIAN LUNAS</span>
+                    ) : (
+                      <span className="text-rose-600 font-black">BELUM DIBAYAR</span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-bold mt-1 block truncate">
+                    {summaryMetrics.singleRow 
+                      ? `${summaryMetrics.singleRow.lunasCount} dari 3 Biaya Terbayar (Sewa, Wifi, Sampah)` 
+                      : '1 Toko Terpilih'}
+                  </span>
+                </>
+              )}
             </div>
 
           </div>
