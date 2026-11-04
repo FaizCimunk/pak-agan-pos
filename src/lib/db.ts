@@ -796,6 +796,50 @@ export class PosDatabase {
     shifts.push(newShift);
     saveLocal(STORAGE_KEYS.SHIFTS, shifts);
 
+    // Otomatis catat presensi masuk kasir sesuai jam aktual buka shift
+    try {
+      const now = new Date();
+      const jamMasukAktual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const todayDate = now.toISOString().slice(0, 10);
+      const absensiList = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
+      const existingAbs = absensiList.find(a => a.karyawan_id === karyawan_id && a.tanggal === todayDate);
+
+      const karObj = await this.getKaryawanById(karyawan_id);
+      const upah = karObj?.gaji_harian || 100000;
+
+      const cabangList = await this.getCabangList();
+      const cbgObj = cabangList.find(c => c.id === cabang_id);
+
+      if (existingAbs) {
+        existingAbs.jam_masuk = jamMasukAktual;
+        existingAbs.status = 'hadir';
+        if (!existingAbs.catatan || existingAbs.catatan.includes('Shift')) {
+          existingAbs.catatan = `Buka Shift ${jamMasukAktual}`;
+        }
+      } else {
+        absensiList.push({
+          id: `abs-${karyawan_id}-${todayDate}`,
+          karyawan_id,
+          karyawan_nama,
+          cabang_id,
+          cabang_nama: cbgObj?.nama || 'Cabang Outlet',
+          tanggal: todayDate,
+          jam_masuk: jamMasukAktual,
+          jam_pulang: '23:30',
+          status: 'hadir',
+          upah_harian_terhitung: upah,
+          catatan: `Buka Shift ${jamMasukAktual}`,
+          recorded_by: karyawan_nama,
+        });
+      }
+      saveLocal(STORAGE_KEYS.ABSENSI, absensiList);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('pak_agan_db_updated'));
+      }
+    } catch (e) {
+      console.warn('Gagal auto-catat absensi saat openShift:', e);
+    }
+
     return newShift;
   }
 
@@ -884,6 +928,24 @@ export class PosDatabase {
       shifts.push(closedShift);
     }
     saveLocal(STORAGE_KEYS.SHIFTS, shifts);
+
+    // Otomatis sinkronkan jam pulang presensi kasir sesuai jam aktual tutup shift
+    try {
+      const now = new Date();
+      const jamPulangAktual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const todayDate = (active.waktu_buka ? new Date(active.waktu_buka) : now).toISOString().slice(0, 10);
+      const absensiList = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
+      const existingAbs = absensiList.find(a => a.karyawan_id === active.karyawan_id && a.tanggal === todayDate);
+      if (existingAbs) {
+        existingAbs.jam_pulang = jamPulangAktual;
+        saveLocal(STORAGE_KEYS.ABSENSI, absensiList);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('pak_agan_db_updated'));
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal update jam_pulang saat closeShift:', e);
+    }
 
     return closedShift;
   }
