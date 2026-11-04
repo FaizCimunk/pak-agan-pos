@@ -1288,7 +1288,11 @@ export default function AdminDashboardPage() {
                     <span className="text-lg">💵</span>
                     <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 uppercase">Uang Fisik</span>
                   </div>
-                  <span className="text-xs font-black text-slate-800 block mt-2">Kas Laci Kasir (10 Toko)</span>
+                  <span className="text-xs font-black text-slate-800 block mt-2">
+                    {selectedCabangId === 'all' 
+                      ? 'Kas Laci Kasir (10 Toko)' 
+                      : `Kas Laci Kasir (${cabangList.find(c => c.id === selectedCabangId)?.kode || 'Toko'})`}
+                  </span>
                   <div className="text-lg font-mono font-black text-emerald-800 mt-1">
                     {formatRupiah(channelBreakdown.tunaiTotal)}
                   </div>
