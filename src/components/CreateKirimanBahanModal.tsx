@@ -45,6 +45,12 @@ export default function CreateKirimanBahanModal({
   const [tanggal, setTanggal] = useState<string>(defaultDate || new Date().toISOString().split('T')[0]);
   const [catatan, setCatatan] = useState<string>('Pengiriman pasokan batch harian');
   const [saving, setSaving] = useState<boolean>(false);
+  const [stokGudangMap, setStokGudangMap] = useState<Record<string, { sisa_gudang: number; unit_price: number }>>({});
+
+  // Muat stok riil gudang pusat
+  useEffect(() => {
+    db.getStokGudangPusat().then(res => setStokGudangMap(res)).catch(console.error);
+  }, []);
 
   // Sync existingHargaSatuan when selectedBahanId changes
   useEffect(() => {
@@ -62,6 +68,11 @@ export default function CreateKirimanBahanModal({
   // Active Satuan & Active Harga Pokok
   const activeSatuan = isCustomBahan ? customBahanSatuan : (currentSelectedBahan?.satuan || 'kg');
   const activeHargaSatuan = isCustomBahan ? customHargaSatuan : existingHargaSatuan;
+
+  const sisaStokGudang = useMemo(() => {
+    if (isCustomBahan) return 999;
+    return stokGudangMap[selectedBahanId]?.sisa_gudang ?? 0;
+  }, [stokGudangMap, selectedBahanId, isCustomBahan]);
 
   // Real-time calculation of total shipment value
   const totalNilaiPasokan = useMemo(() => {
@@ -326,9 +337,20 @@ export default function CreateKirimanBahanModal({
           {/* Jumlah & Tanggal Kirim */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-extrabold text-slate-700 mb-1">
-                Jumlah Kiriman (Qty dalam {activeSatuan}) *
-              </label>
+              <div className="flex items-center justify-between text-[11px] font-extrabold mb-1">
+                <label className="text-slate-700">
+                  Jumlah Kiriman (Qty dalam {activeSatuan}) *
+                </label>
+                {!isCustomBahan && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                    sisaStokGudang < jumlah 
+                      ? 'bg-rose-100 text-rose-800 border border-rose-300' 
+                      : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  }`}>
+                    🏢 Stok Gudang: {sisaStokGudang} {activeSatuan}
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <input
                   type="number"
@@ -343,6 +365,11 @@ export default function CreateKirimanBahanModal({
                   {activeSatuan}
                 </span>
               </div>
+              {!isCustomBahan && sisaStokGudang < jumlah && (
+                <p className="text-[10px] text-rose-600 font-bold mt-1">
+                  ⚠️ Jumlah kiriman ({jumlah} {activeSatuan}) melebihi sisa tabungan bahan di Gudang Pusat ({sisaStokGudang} {activeSatuan}).
+                </p>
+              )}
             </div>
 
             <div>

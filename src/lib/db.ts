@@ -17,7 +17,8 @@ import {
   KirimanBahanPusat,
   AbsensiBahanHarian,
   FixedCostHarianCabang,
-  PembayaranFixedCostBulanan
+  PembayaranFixedCostBulanan,
+  PembelianBahanGudang
 } from './types';
 import { 
   INITIAL_CABANG, 
@@ -31,6 +32,7 @@ import {
   MENU_BAHAN_RESEP,
   INITIAL_KIRIMAN_BAHAN,
   INITIAL_ABSENSI_BAHAN,
+  INITIAL_PEMBELIAN_GUDANG,
   DEMO_WEEK_KARYAWAN,
   DEMO_WEEK_EXPENSES,
   DEMO_WEEK_TRANSAKSI,
@@ -51,6 +53,7 @@ const STORAGE_KEYS = {
   PAYROLL: 'pak_agan_payroll_v5_demo_week',
   ABSENSI: 'pak_agan_absensi_v5_demo_week',
   BAHAN_BAKU: 'pak_agan_bahan_baku_v5_demo_week',
+  PEMBELIAN_GUDANG: 'pak_agan_pembelian_gudang_v5_demo_week',
   KIRIMAN_BAHAN: 'pak_agan_kiriman_bahan_v5_demo_week',
   ABSENSI_BAHAN: 'pak_agan_absensi_bahan_v5_demo_week',
   FIXED_COST_PAYMENTS: 'pak_agan_fixed_cost_payments_v5_demo_week',
@@ -1263,6 +1266,53 @@ export class PosDatabase {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
     return list[idx];
+  }
+
+  // --------------------------------------------------------------------------
+  // PEMBELIAN / KULAKAN BAHAN MASUK GUDANG PUSAT (NABUNG DARI PETANI/SUPPLIER)
+  // --------------------------------------------------------------------------
+  async getPembelianGudangList(): Promise<PembelianBahanGudang[]> {
+    return loadLocal<PembelianBahanGudang[]>(STORAGE_KEYS.PEMBELIAN_GUDANG, INITIAL_PEMBELIAN_GUDANG);
+  }
+
+  async createPembelianGudang(data: Omit<PembelianBahanGudang, 'id' | 'created_at'>): Promise<PembelianBahanGudang> {
+    const all = await this.getPembelianGudangList();
+    const newBeli: PembelianBahanGudang = {
+      ...data,
+      id: 'pbl-' + Date.now(),
+      created_at: new Date().toISOString(),
+    };
+    all.unshift(newBeli);
+    saveLocal(STORAGE_KEYS.PEMBELIAN_GUDANG, all);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+    return newBeli;
+  }
+
+  // Hitung stok akumulasi di Gudang Pusat (Total Kulakan Petani - Total Dikirim ke Cabang)
+  async getStokGudangPusat(): Promise<Record<string, { total_masuk: number; total_terkirim: number; sisa_gudang: number; nilai_gudang: number; unit_price: number }>> {
+    const pembelian = await this.getPembelianGudangList();
+    const allKiriman = await this.getKirimanBahanList();
+    const bahanList = await this.getBahanBakuList();
+
+    const result: Record<string, { total_masuk: number; total_terkirim: number; sisa_gudang: number; nilai_gudang: number; unit_price: number }> = {};
+
+    for (const b of bahanList) {
+      const masuk = pembelian.filter(p => p.bahan_id === b.id).reduce((sum, p) => sum + p.jumlah_beli, 0);
+      const terkirim = allKiriman.filter(k => k.bahan_id === b.id).reduce((sum, k) => sum + k.jumlah, 0);
+      const sisa = Math.max(0, masuk - terkirim);
+      const unitPrice = b.harga_satuan || 20000;
+      result[b.id] = {
+        total_masuk: masuk,
+        total_terkirim: terkirim,
+        sisa_gudang: sisa,
+        nilai_gudang: sisa * unitPrice,
+        unit_price: unitPrice,
+      };
+    }
+
+    return result;
   }
 
   // --------------------------------------------------------------------------

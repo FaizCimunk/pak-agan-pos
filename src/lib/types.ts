@@ -215,7 +215,25 @@ export interface BahanBaku {
   satuan: string; // 'kg' | 'gram' | 'liter' | 'ml' | 'porsi' | 'bungkus' | 'butir' | 'pcs'
   kategori: 'serabi' | 'wedang' | 'kemasan' | 'umum';
   stok_minimum?: number;
+  stok_minimum_gudang?: number; // Batas aman minimum di Gudang Pusat
   harga_satuan?: number; // Harga Beli / Biaya Pokok per satuan (Rp)
+}
+
+export interface PembelianBahanGudang {
+  id: string;
+  tanggal: string; // YYYY-MM-DD
+  bahan_id: string;
+  bahan_nama: string;
+  satuan: string;
+  jumlah_beli: number;
+  harga_satuan: number;
+  total_bayar: number;
+  sumber_pemasok: string; // Contoh: 'Petani Jahe Kulon Progo (Pak Slamet)', 'Pemasok Gula Aren Cilacap'
+  sumber_dana: 'rekening_owner' | 'kas_pusat' | 'bon_petani';
+  status_bayar: 'lunas' | 'titip_dp' | 'tempo';
+  catatan?: string;
+  pembeli_nama: string; // 'Pak Agan (Owner)'
+  created_at?: string;
 }
 
 export interface ResepMenuBahan {

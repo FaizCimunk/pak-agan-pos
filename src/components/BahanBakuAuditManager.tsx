@@ -21,12 +21,17 @@ import {
   FileText, 
   Pencil,
   Sparkles,
-  PieChart
+  PieChart,
+  Sprout,
+  Warehouse,
+  Truck,
+  Building2
 } from 'lucide-react';
-import { Cabang, BahanBaku, KirimanBahanPusat, Transaksi } from '@/lib/types';
+import { Cabang, BahanBaku, KirimanBahanPusat, Transaksi, PembelianBahanGudang } from '@/lib/types';
 import { db } from '@/lib/db';
 import { formatRupiah } from '@/lib/utils';
 import CreateKirimanBahanModal from './CreateKirimanBahanModal';
+import CreatePembelianGudangModal from './CreatePembelianGudangModal';
 
 interface BahanBakuAuditManagerProps {
   cabangList: Cabang[];
@@ -51,6 +56,35 @@ export default function BahanBakuAuditManager({
   const [selectedCabangId, setSelectedCabangId] = useState<string>('all');
   const [selectedKategori, setSelectedKategori] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Sub-tabs: 'toko' | 'gudang' | 'riwayat_kirim'
+  const [activeSubTab, setActiveSubTab] = useState<'toko' | 'gudang' | 'riwayat_kirim'>('toko');
+
+  // Gudang & Kulakan Petani states
+  const [showPembelianGudangModal, setShowPembelianGudangModal] = useState<boolean>(false);
+  const [pembelianGudangList, setPembelianGudangList] = useState<PembelianBahanGudang[]>([]);
+  const [stokGudangMap, setStokGudangMap] = useState<Record<string, { total_masuk: number; total_terkirim: number; sisa_gudang: number; nilai_gudang: number; unit_price: number }>>({});
+  const [loadingGudang, setLoadingGudang] = useState<boolean>(false);
+
+  const loadGudangData = async () => {
+    setLoadingGudang(true);
+    try {
+      const [pbl, stok] = await Promise.all([
+        db.getPembelianGudangList(),
+        db.getStokGudangPusat(),
+      ]);
+      setPembelianGudangList(pbl);
+      setStokGudangMap(stok);
+    } catch (e) {
+      console.error('Gagal memuat data gudang pusat:', e);
+    } finally {
+      setLoadingGudang(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadGudangData();
+  }, [kirimanBahanList, bahanList]);
 
   // Modals
   const [showKirimanModal, setShowKirimanModal] = useState<boolean>(false);
@@ -272,6 +306,22 @@ export default function BahanBakuAuditManager({
     };
   }, [auditRows, kirimanBahanList, bahanList, selectedDate]);
 
+  // Metrik Gudang Pusat & Tabungan Petani
+  const gudangMetrics = useMemo(() => {
+    const totalNilaiGudang = Object.values(stokGudangMap).reduce((sum, item) => sum + item.nilai_gudang, 0);
+    const totalBiayaKulakan = pembelianGudangList.reduce((sum, p) => sum + p.total_bayar, 0);
+    const menipisCount = bahanList.filter(b => {
+      const sisa = stokGudangMap[b.id]?.sisa_gudang ?? 0;
+      const minGudang = b.stok_minimum_gudang || 20;
+      return sisa < minGudang;
+    }).length;
+    return {
+      totalNilaiGudang,
+      totalBiayaKulakan,
+      menipisCount,
+    };
+  }, [stokGudangMap, pembelianGudangList, bahanList]);
+
   return (
     <div className="space-y-6">
       
@@ -349,6 +399,16 @@ export default function BahanBakuAuditManager({
             </select>
           </div>
 
+          {/* Tombol Kulakan Petani / Nabung Masuk Gudang */}
+          <button
+            type="button"
+            onClick={() => setShowPembelianGudangModal(true)}
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-md shadow-amber-900/20 btn-tactile transition-all cursor-pointer"
+          >
+            <Sprout className="w-3.5 h-3.5 text-amber-200" />
+            <span>+ Kulakan Petani</span>
+          </button>
+
           {/* Tombol Tambah Master Bahan Baru */}
           <button
             type="button"
@@ -372,6 +432,75 @@ export default function BahanBakuAuditManager({
         </div>
 
       </div>
+
+      {/* SUB-TAB VIEW SWITCHER: TOKO vs GUDANG PUSAT vs RIWAYAT KIRIMAN */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('toko')}
+            className={`px-3.5 py-2 rounded-xl font-extrabold text-xs transition-all flex items-center space-x-2 btn-tactile ${
+              activeSubTab === 'toko'
+                ? 'bg-emerald-700 text-white shadow-sm'
+                : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Store className="w-4 h-4" />
+            <span>1. Audit Pemakaian &amp; Stok Dapur 10 Toko</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('gudang')}
+            className={`px-3.5 py-2 rounded-xl font-extrabold text-xs transition-all flex items-center space-x-2 btn-tactile ${
+              activeSubTab === 'gudang'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Warehouse className="w-4 h-4" />
+            <span>2. Gudang Bahan Pusat &amp; Tabungan Petani</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              activeSubTab === 'gudang' ? 'bg-amber-800 text-amber-100' : 'bg-amber-100 text-amber-900'
+            }`}>
+              {pembelianGudangList.length} Batch
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('riwayat_kirim')}
+            className={`px-3.5 py-2 rounded-xl font-extrabold text-xs transition-all flex items-center space-x-2 btn-tactile ${
+              activeSubTab === 'riwayat_kirim'
+                ? 'bg-blue-700 text-white shadow-sm'
+                : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Truck className="w-4 h-4" />
+            <span>3. Distribusi Pasokan ke Toko</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              activeSubTab === 'riwayat_kirim' ? 'bg-blue-800 text-blue-100' : 'bg-blue-100 text-blue-900'
+            }`}>
+              {kirimanBahanList.length}
+            </span>
+          </button>
+        </div>
+
+        {activeSubTab === 'gudang' && (
+          <button
+            type="button"
+            onClick={() => setShowPembelianGudangModal(true)}
+            className="px-3 py-1.5 rounded-xl bg-amber-600 text-white font-extrabold text-xs shadow-xs hover:bg-amber-700 transition-all flex items-center space-x-1.5 ml-auto"
+          >
+            <Sprout className="w-3.5 h-3.5 text-amber-200" />
+            <span>+ Beli / Kulakan dari Petani</span>
+          </button>
+        )}
+      </div>
+
+      {/* TAB 1: AUDIT & STOK DI 10 TOKO CABANG */}
+      {activeSubTab === 'toko' && (
+        <div className="space-y-6">
 
       {/* 2. 4 KARTU EKSEKUTIF ANALISA FINANSIAL BAHAN BAKU */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -631,8 +760,322 @@ export default function BahanBakuAuditManager({
         </div>
 
       </div>
+      </div>
+      )}
 
-      {/* 4. RIWAYAT PASOKAN KIRIMAN DARI GUDANG PUSAT */}
+      {/* TAB 2: GUDANG BAHAN PUSAT & TABUNGAN PETANI */}
+      {activeSubTab === 'gudang' && (
+        <div className="space-y-6">
+          
+          {/* 4 KARTU METRIK GUDANG PUSAT */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* 1. Total Nilai Stok Gudang */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-soft-sm">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                Total Nilai Stok Gudang Pusat
+              </span>
+              <div className="text-xl sm:text-2xl font-mono font-black text-amber-950 mt-1 tabular-nums">
+                {formatRupiah(gudangMetrics.totalNilaiGudang)}
+              </div>
+              <span className="text-[10px] text-amber-800 font-bold mt-1 block">
+                📦 Aset bahan mentah tersimpan di gudang
+              </span>
+            </div>
+
+            {/* 2. Total Tabungan Petani */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white border-t-[4px] border-amber-600 border-x border-b border-slate-200/80 shadow-soft-sm">
+              <span className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider block">
+                Total Belanja / Tabungan Petani
+              </span>
+              <div className="text-xl sm:text-2xl font-mono font-black text-slate-900 mt-1 tabular-nums">
+                {formatRupiah(gudangMetrics.totalBiayaKulakan)}
+              </div>
+              <span className="text-[10px] text-slate-500 font-medium mt-1 block">
+                Modal dibayar duluan ke petani &amp; supplier
+              </span>
+            </div>
+
+            {/* 3. Total Batch Masuk */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
+              <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block">
+                Pasokan Masuk dari Petani
+              </span>
+              <div className="text-xl sm:text-2xl font-mono font-black text-emerald-800 mt-1 tabular-nums">
+                {pembelianGudangList.length} Batch Kulakan
+              </div>
+              <span className="text-[10px] text-emerald-700 font-bold mt-1 block">
+                Jahe emprit, gula aren, kinca, rempah
+              </span>
+            </div>
+
+            {/* 4. Ketahanan Cadangan Gudang */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/80 shadow-soft-sm">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                Ketahanan Cadangan Gudang
+              </span>
+              <div className="text-base sm:text-lg font-black mt-1">
+                {gudangMetrics.menipisCount === 0 ? (
+                  <span className="text-emerald-700">🟢 Cadangan Aman</span>
+                ) : (
+                  <span className="text-amber-700">⚠️ {gudangMetrics.menipisCount} Perlu Kulakan</span>
+                )}
+              </div>
+              <span className="text-[10px] text-slate-500 font-medium mt-1 block">
+                Dihitung dari batas minimum stok gudang
+              </span>
+            </div>
+
+          </div>
+
+          {/* BANNER EDUKASI ALUR BISNIS */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-slate-100 border border-amber-300 text-slate-800 space-y-2">
+            <div className="flex items-center space-x-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-xs font-black uppercase tracking-wider text-amber-950">
+                Alur Rantai Pasok: Petani &rarr; Gudang Bahan Pusat &rarr; Dapur 10 Toko Cabang
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1 text-xs">
+              <div className="bg-white/80 p-3 rounded-2xl border border-amber-200/70 space-y-1">
+                <div className="font-extrabold text-amber-900 flex items-center space-x-1">
+                  <Sprout className="w-4 h-4 text-amber-600" />
+                  <span>1. Kulakan Borongan Petani</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Owner membeli bahan dalam jumlah besar langsung dari petani (misal Jahe Emprit sekarung, Gula Aren) saat panen raya dengan dana pribadi/pusat agar dapat harga murah.
+                </p>
+              </div>
+              <div className="bg-white/80 p-3 rounded-2xl border border-amber-200/70 space-y-1">
+                <div className="font-extrabold text-amber-900 flex items-center space-x-1">
+                  <Warehouse className="w-4 h-4 text-amber-600" />
+                  <span>2. Masuk Gudang Pusat</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Bahan ditampung di Gudang Pusat sebagai tabungan aset siap olah dan dipantau batas cadangan minimumnya.
+                </p>
+              </div>
+              <div className="bg-white/80 p-3 rounded-2xl border border-emerald-200/70 space-y-1">
+                <div className="font-extrabold text-emerald-900 flex items-center space-x-1">
+                  <Truck className="w-4 h-4 text-emerald-600" />
+                  <span>3. Distribusi per Toko</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Saat outlet butuh stok, Admin menekan tombol <strong>&quot;+ Kirim Bahan&quot;</strong>. Stok gudang otomatis terpotong sesuai kuantitas terkirim.
+                </p>
+              </div>
+              <div className="bg-white/80 p-3 rounded-2xl border border-emerald-200/70 space-y-1">
+                <div className="font-extrabold text-emerald-900 flex items-center space-x-1">
+                  <Building2 className="w-4 h-4 text-emerald-600" />
+                  <span>4. Terpakai Kasir &amp; Audit</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Kasir POS menjual Serabi &amp; Wedang, modal bahan otomatis dihitung HPP-nya dan fisik di dapur diaudit setiap malam.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* TABEL STOK BAHAN DI GUDANG PUSAT */}
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden space-y-3">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/70">
+              <div>
+                <h4 className="font-extrabold text-sm text-slate-900 flex items-center space-x-2">
+                  <Warehouse className="w-4 h-4 text-amber-600" />
+                  <span>Stok Bahan Mentah Tersedia di Gudang Bahan Pusat</span>
+                </h4>
+                <p className="text-[11px] text-slate-500">
+                  Total akumulasi kulakan petani dikurangi seluruh pengiriman yang sudah didistribusikan ke 10 cabang
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPembelianGudangModal(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-xs transition-all flex items-center space-x-1 self-start sm:self-auto cursor-pointer"
+              >
+                <Sprout className="w-3.5 h-3.5 text-amber-200" />
+                <span>+ Kulakan Petani Lagi</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-900 text-white uppercase text-[10px] font-black tracking-wider">
+                  <tr>
+                    <th className="py-3 px-3.5">Kode</th>
+                    <th className="py-3 px-3.5">Nama Bahan Baku</th>
+                    <th className="py-3 px-2 text-center text-amber-300">Kulakan Petani</th>
+                    <th className="py-3 px-2 text-center text-blue-300">Terkirim ke 10 Cabang</th>
+                    <th className="py-3 px-3 text-center text-emerald-300 bg-emerald-950/60">Sisa Stok Gudang</th>
+                    <th className="py-3 px-2 text-center text-slate-300">Batas Min Gudang</th>
+                    <th className="py-3 px-2 text-center">Status Cadangan</th>
+                    <th className="py-3 px-3 text-right">Harga Beli Pokok</th>
+                    <th className="py-3 px-3.5 text-right">Nilai Aset Gudang</th>
+                    <th className="py-3 px-3 text-center">Aksi Cepat</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {bahanList.map((b) => {
+                    const st = stokGudangMap[b.id] || { total_masuk: 0, total_terkirim: 0, sisa_gudang: 0, nilai_gudang: 0, unit_price: b.harga_satuan || 20000 };
+                    const minGudang = b.stok_minimum_gudang || 20;
+                    const isMenipis = st.sisa_gudang < minGudang;
+
+                    return (
+                      <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-3.5 font-mono font-bold text-slate-500 text-[11px]">
+                          {b.kode}
+                        </td>
+                        <td className="py-3 px-3.5">
+                          <span className="font-extrabold text-slate-900 block">
+                            {b.nama}
+                          </span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 capitalize">
+                            {b.kategori}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-center font-mono font-black text-amber-800 bg-amber-50/40">
+                          +{st.total_masuk} {b.satuan}
+                        </td>
+                        <td className="py-3 px-2 text-center font-mono font-black text-blue-700 bg-blue-50/40">
+                          -{st.total_terkirim} {b.satuan}
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono font-black text-sm text-emerald-900 bg-emerald-100/60">
+                          {st.sisa_gudang} <span className="text-[10px] text-emerald-700 font-bold uppercase">{b.satuan}</span>
+                        </td>
+                        <td className="py-3 px-2 text-center font-mono font-bold text-slate-500">
+                          {minGudang} {b.satuan}
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          {isMenipis ? (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-black border border-rose-300">
+                              <span>⚠️ PERLU KULAKAN</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300">
+                              <span>✓ AMAN</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-slate-700">
+                          {formatRupiah(st.unit_price)} <span className="text-[9px] text-slate-400 font-normal">/{b.satuan}</span>
+                        </td>
+                        <td className="py-3 px-3.5 text-right font-mono font-black text-amber-950 bg-amber-50/20">
+                          {formatRupiah(st.nilai_gudang)}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setShowKirimanModal(true)}
+                            className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold transition-all cursor-pointer inline-flex items-center space-x-1"
+                          >
+                            <Truck className="w-3 h-3" />
+                            <span>Kirim Toko</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* TABEL RIWAYAT KULAKAN & TABUNGAN BAHAN DARI PETANI */}
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h4 className="font-extrabold text-sm text-slate-900 flex items-center space-x-2">
+                  <Sprout className="w-4 h-4 text-amber-600" />
+                  <span>Riwayat Pembelian &amp; Tabungan Bahan dari Petani / Supplier</span>
+                </h4>
+                <p className="text-[11px] text-slate-500">
+                  Daftar transaksi belanja borongan dari petani yang dibayar/ditalangi duluan sebagai tabungan aset gudang
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPembelianGudangModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1"
+              >
+                <Plus className="w-3.5 h-3.5 text-amber-700" />
+                <span>+ Beli Bahan Petani</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 text-slate-600 uppercase font-bold text-[10px] border-b border-slate-200">
+                  <tr>
+                    <th className="py-2.5 px-3">Tanggal Masuk</th>
+                    <th className="py-2.5 px-3">Nama Bahan Baku</th>
+                    <th className="py-2.5 px-3 text-center">Jumlah Beli</th>
+                    <th className="py-2.5 px-3 text-right">Harga dari Petani</th>
+                    <th className="py-2.5 px-3 text-right">Total Nominal Dibayar</th>
+                    <th className="py-2.5 px-3">Petani / Sumber Pemasok</th>
+                    <th className="py-2.5 px-3">Sumber Dana</th>
+                    <th className="py-2.5 px-3">Status Bayar</th>
+                    <th className="py-2.5 px-3">Catatan / Memo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {pembelianGudangList.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-slate-400">
+                        Belum ada catatan kulakan bahan dari petani.
+                      </td>
+                    </tr>
+                  ) : (
+                    pembelianGudangList.map(p => (
+                      <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">
+                          {p.tanggal}
+                        </td>
+                        <td className="py-2.5 px-3 font-extrabold text-slate-900">
+                          {p.bahan_nama}
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-mono font-black text-amber-800 bg-amber-50/40">
+                          +{p.jumlah_beli} {p.satuan}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-700">
+                          {formatRupiah(p.harga_satuan)} <span className="text-[9px] text-slate-400">/{p.satuan}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-black text-amber-950 bg-amber-50/30">
+                          {formatRupiah(p.total_bayar)}
+                        </td>
+                        <td className="py-2.5 px-3 font-bold text-slate-800">
+                          {p.sumber_pemasok}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            p.sumber_dana === 'rekening_owner'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                              : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                          }`}>
+                            {p.sumber_dana === 'rekening_owner' ? '💳 Rekening Pak Agan' : '🏢 Kas Pusat'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-200">
+                            ✓ {p.status_bayar.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-500 italic max-w-xs truncate">
+                          {p.catatan || '-'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* TAB 3: RIWAYAT PASOKAN DISTRIBUSI KIRIMAN KE TOKO */}
+      {activeSubTab === 'riwayat_kirim' && (
       <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden p-5 space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
@@ -718,6 +1161,7 @@ export default function BahanBakuAuditManager({
           </table>
         </div>
       </div>
+      )}
 
       {/* 5. MODAL EDIT SATUAN & HARGA BAHAN BAKU */}
       {editingBahan && (
@@ -981,6 +1425,19 @@ export default function BahanBakuAuditManager({
 
           </div>
         </div>
+      )}
+
+      {/* 8. MODAL KULAKAN BAHAN MASUK GUDANG PUSAT DARI PETANI */}
+      {showPembelianGudangModal && (
+        <CreatePembelianGudangModal
+          bahanList={bahanList}
+          defaultDate={selectedDate}
+          onClose={() => setShowPembelianGudangModal(false)}
+          onSuccess={async () => {
+            await loadGudangData();
+            await onRefreshData();
+          }}
+        />
       )}
 
     </div>
