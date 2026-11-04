@@ -2441,16 +2441,17 @@ export default function AdminDashboardPage() {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={async () => {
-                    if (confirm('Kembalikan menu ke daftar resep bawaan demo Serabi Bawel & Wedang Geprek?')) {
+                    if (confirm('KEMBALIKAN RESEP MENU BAWAAN?\n\nFungsi ini HANYA memulihkan 14 menu standar Serabi Bawel & Wedang Geprek jika ada resep yang salah diedit.\n\n✓ AMAN: Transaksi omzet, data toko cabang, kasir, dan keuangan Anda TIDAK AKAN terhapus.')) {
                       await db.resetMenuDefault();
                       await refreshAllData();
+                      alert('Daftar 14 menu asli Serabi Bawel & Wedang Geprek berhasil dipulihkan.');
                     }
                   }}
                   className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-colors"
-                  title="Kembalikan ke resep bawaan demo"
+                  title="Kembalikan daftar menu ke 14 resep asli Serabi & Wedang (Aman: Tidak menghapus transaksi)"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset Default</span>
+                  <span>Pulihkan 14 Menu Asli</span>
                 </button>
 
                 <button
