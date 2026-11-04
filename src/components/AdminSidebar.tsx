@@ -72,7 +72,7 @@ export default function AdminSidebar({
     },
   ];
 
-  // Identik dengan Grup Abdi Membangun (SDM & KEUANGAN)
+  // GRUP 2: SDM & KEUANGAN
   const sdmKeuanganItems = [
     {
       id: 'karyawan',
@@ -197,7 +197,7 @@ export default function AdminSidebar({
           })}
         </div>
 
-        {/* GRUP 2: SDM & KEUANGAN (Ala Abdi Membangun) */}
+        {/* GRUP 2: SDM & KEUANGAN */}
         <div className="space-y-1 pt-1">
           <div className="text-[10px] uppercase font-black tracking-widest text-emerald-800 px-3 py-1 flex items-center justify-between">
             <span>SDM &amp; Keuangan</span>
@@ -274,7 +274,7 @@ export default function AdminSidebar({
 
   return (
     <>
-      {/* 1. Permanent Desktop Sidebar (Ala Abdi Membangun, Branding Serabi Bawel & Wedang Geprek) */}
+      {/* 1. Permanent Desktop Sidebar (Branding Serabi Bawel & Wedang Geprek) */}
       <aside className="hidden md:flex w-64 border-r border-slate-200/80 bg-white flex-col flex-shrink-0 z-30 shadow-soft-sm h-screen sticky top-0 overflow-hidden">
         {sidebarContent}
       </aside>

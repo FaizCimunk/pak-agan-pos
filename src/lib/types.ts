@@ -40,7 +40,7 @@ export interface Karyawan {
   role: 'owner' | 'supervisor' | 'kasir' | 'kitchen' | 'helper';
   telepon: string;
   pin_hash: string;
-  password_plain?: string; // Sandi teks untuk transparansi Master Admin ala Abdi Membangun
+  password_plain?: string; // Sandi teks untuk transparansi Master Admin
   is_locked?: boolean; // Status gembok keamanan akun
   tipe_gaji?: 'bulanan' | 'harian';
   gaji_harian?: number; // Contoh: Rp 100.000 / hari kehadiran

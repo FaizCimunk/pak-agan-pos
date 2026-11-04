@@ -291,7 +291,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Powered by ivokgrup Pill Badge (Exact Abdi Membangun) */}
+        {/* Powered by ivokgrup Pill Badge */}
         <AiBadgeFooter className="mt-4" />
       </div>
     </main>

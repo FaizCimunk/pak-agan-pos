@@ -107,7 +107,7 @@ export function generateWhatsAppApprovalLink({
   return `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
 }
 
-// Generate WhatsApp link for Employee Digital Payroll Slip (Ala Abdi Membangun)
+// Generate WhatsApp link for Employee Digital Payroll Slip
 export function generateWhatsAppPayrollSlipLink({
   telepon,
   nama,

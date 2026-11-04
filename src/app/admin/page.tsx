@@ -144,7 +144,7 @@ export default function AdminDashboardPage() {
   const [belanjaSearch, setBelanjaSearch] = useState<string>('');
   const [showCreateExpenseModal, setShowCreateExpenseModal] = useState<boolean>(false);
 
-  // User Search & Credentials Visibility ala Abdi Membangun
+  // User Search & Credentials Visibility
   const [userSearch, setUserSearch] = useState<string>('');
   const [karyawanBranchFilter, setKaryawanBranchFilter] = useState<string>('all');
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
@@ -201,7 +201,7 @@ export default function AdminDashboardPage() {
     alert('Gembok akun berhasil dibuka! Staf dapat langsung login kembali.');
   };
 
-  // Payroll Period & Branch Filters (Ala Abdi Membangun Cetak Rekap Per-Cabang)
+  // Payroll Period & Branch Filters (Cetak Rekap Per-Cabang)
   const [payrollMode, setPayrollMode] = useState<'harian' | 'rentang' | 'bulanan'>('rentang');
   const [payrollBranchFilter, setPayrollBranchFilter] = useState<string>('all');
   const [payrollSingleDate, setPayrollSingleDate] = useState<string>('2026-10-25');
@@ -433,7 +433,7 @@ export default function AdminDashboardPage() {
         });
         const totalKasbon = unsettled.reduce((sum, e) => sum + e.nominal, 0);
 
-        // Kehadiran Staf per Tanggal Terpilih (Ala Abdi Membangun)
+        // Kehadiran Staf per Tanggal Terpilih
         let staffPresence = 0;
         if (payrollMode === 'harian') {
           const match = absensiList.filter(a => a.karyawan_id === kar.id && a.tanggal === payrollSingleDate && a.status === 'hadir');
@@ -785,7 +785,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // AUTHENTICATED: DEDICATED FINTECH BACKOFFICE (ALA ABDI MEMBANGUN, BRANDING SERABI BAWEL & WEDANG GEPREK)
+  // AUTHENTICATED: DEDICATED FINTECH BACKOFFICE (BRANDING SERABI BAWEL & WEDANG GEPREK)
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row text-slate-800">
       
@@ -843,7 +843,7 @@ export default function AdminDashboardPage() {
         {activeTab === 'ringkasan' && (
           <div className="space-y-6">
             
-            {/* Desktop Top Header Bar ala Abdi Membangun (Hanya Tampil di Menu Ringkasan) */}
+            {/* Desktop Top Header Bar (Hanya Tampil di Menu Ringkasan) */}
             <div className="hidden md:flex flex-row items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
               <div className="flex items-center space-x-3">
                 <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 border border-emerald-600/30 flex items-center justify-center text-white text-2xl shadow-md shrink-0">
@@ -1812,7 +1812,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB 2.5: BUKU BELANJA KEBUTUHAN & KAS KECIL 10 CABANG (ALA ABDI MEMBANGUN) */}
+        {/* TAB 2.5: BUKU BELANJA KEBUTUHAN & KAS KECIL 10 CABANG */}
         {activeTab === 'gaji' && (
           <div className="space-y-5">
             {/* Top Bar Title & Explanation */}
@@ -2140,7 +2140,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB: MONITOR ABSENSI 10 CABANG (ALA ABDI MEMBANGUN) */}
+        {/* TAB: MONITOR ABSENSI 10 CABANG */}
         {activeTab === 'absensi' && (
           <div className="space-y-5">
             {/* Top Bar Filter & Title */}
@@ -2153,7 +2153,7 @@ export default function AdminDashboardPage() {
                   </h3>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Presensi dicatat dan divalidasi langsung oleh Admin Cabang / Kepala Outlet (ala Abdi Membangun)
+                  Presensi dicatat dan divalidasi langsung oleh Admin Cabang / Kepala Outlet
                 </p>
               </div>
 
@@ -2363,7 +2363,7 @@ export default function AdminDashboardPage() {
             <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-start space-x-2">
               <ShieldCheck className="w-5 h-5 text-brand-primary shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <span className="font-bold block">Sistem Presensi Anti-Kecurangan ala Abdi Membangun:</span>
+                <span className="font-bold block">Sistem Presensi Terverifikasi Anti-Kecurangan:</span>
                 <p className="text-[11px] text-emerald-800 leading-relaxed">
                   Staf karyawan tidak bisa memanipulasi presensi sendiri. Setiap presensi diverifikasi langsung oleh Admin Cabang / Penanggung Jawab Outlet pada tablet kasir, dan secara realtime mengalir ke Modul Payroll Tutup Buku Pusat.
                 </p>
@@ -2530,11 +2530,11 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB 4: DATA PEKERJA & PENGGAJIAN PER-TOKO ALA ABDI MEMBANGUN */}
+        {/* TAB 4: DATA PEKERJA & PENGGAJIAN PER-TOKO */}
         {activeTab === 'karyawan' && (
           <div className="space-y-6">
             
-            {/* Store Selection & Top Header Ala Abdi Membangun */}
+            {/* Store Selection & Top Header */}
             <div className="bg-white p-5 rounded-3xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 
@@ -2549,7 +2549,7 @@ export default function AdminDashboardPage() {
                         SDM &amp; Penggajian Terpadu
                       </span>
                       <span className="text-[10px] text-slate-400 font-bold">
-                        • Struktur Per-Toko Ala Abdi Membangun
+                        • Struktur Manajemen Per-Toko
                       </span>
                     </div>
                     <h3 className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
@@ -2655,7 +2655,7 @@ export default function AdminDashboardPage() {
 
             </div>
 
-            {/* Karyawan & Credentials Table Ala Abdi Membangun */}
+            {/* Karyawan & Credentials Table */}
             <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm p-5 space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3 border-slate-100">
                 <div>
@@ -2891,7 +2891,7 @@ export default function AdminDashboardPage() {
 
               {/* Filter Tanggal & Tombol Cetak PDF */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Branch Filter (Per-Cabang Ala Abdi Membangun) */}
+                {/* Branch Filter Per-Cabang */}
                 <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold">
                   <Building2 className="w-3.5 h-3.5 text-brand-primary shrink-0" />
                   <select
@@ -3091,7 +3091,7 @@ export default function AdminDashboardPage() {
                           <button
                             onClick={() => setSelectedPayrollSlip(draft)}
                             className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-full text-xs font-bold transition shadow-xs btn-tactile"
-                            title="Buka Rincian Absensi, Kasbon & Slip Gaji (Ala Abdi Membangun)"
+                            title="Buka Rincian Absensi, Kasbon & Slip Gaji Digital"
                           >
                             <span>🔍</span>
                             <span>Buka Rincian &amp; Slip</span>
@@ -3215,7 +3215,7 @@ export default function AdminDashboardPage() {
         />
       )}
 
-      {/* Modal Ploting Cabang Karyawan (Ala Abdi Membangun) */}
+      {/* Modal Ploting Cabang Karyawan */}
       {selectedKaryawanForPlot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden">

@@ -47,7 +47,7 @@ export default function CreateKaryawanModal({
   const [plafonKasbonDisplay, setPlafonKasbonDisplay] = useState<string>('500.000');
   const [saving, setSaving] = useState<boolean>(false);
 
-  // Auto-generate strong password ala Abdi Membangun
+  // Auto-generate strong password
   const handleGeneratePassword = () => {
     const strong = generateStrongPassword();
     setPassword(strong);

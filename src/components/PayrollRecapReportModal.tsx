@@ -195,7 +195,7 @@ export default function PayrollRecapReportModal({
         <div className="p-6 md:p-8 overflow-y-auto space-y-5 text-slate-900 print:p-0 print:overflow-visible">
           <div id="printable-report" className="space-y-4">
             
-            {/* Kop Resmi Surat Rekap Ala Abdi Membangun */}
+            {/* Kop Resmi Surat Rekap */}
             <div className="flex justify-between items-end border-b-2 border-slate-900 pb-4">
               <div>
                 <span className="text-xs font-black tracking-widest text-emerald-800 uppercase block">

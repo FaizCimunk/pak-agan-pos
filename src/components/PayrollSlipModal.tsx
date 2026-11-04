@@ -39,7 +39,7 @@ export default function PayrollSlipModal({
   onClose,
   onSuccess,
 }: PayrollSlipModalProps) {
-  // Tab view: 'rincian' (default - exactly like Abdi Membangun) or 'slip' (Bank-Grade Slip)
+  // Tab view: 'rincian' (default) or 'slip' (Bank-Grade Slip)
   const [activeView, setActiveView] = useState<'rincian' | 'slip'>('rincian');
   const [currentPayroll, setCurrentPayroll] = useState<Payroll>(initialPayroll);
   const [showPayoutModal, setShowPayoutModal] = useState<boolean>(false);
@@ -245,12 +245,12 @@ export default function PayrollSlipModal({
         <div className="p-6 sm:p-8 overflow-y-auto space-y-6 flex-1 text-xs print:overflow-visible print:h-auto print:p-0 print:max-h-none" id="printable-content">
           
           {/* ================================================================= */}
-          {/* VIEW 1: RINCIAN ABSENSI & KASBON (EXACT ABDI MEMBANGUN STYLE)    */}
+          {/* VIEW 1: RINCIAN ABSENSI & KASBON                                  */}
           {/* ================================================================= */}
           {activeView === 'rincian' && (
             <div className="space-y-6 animate-fadeIn">
               
-              {/* Profil Singkat & Status Skema Penggajian (Exact Abdi Membangun) */}
+              {/* Profil Singkat & Status Skema Penggajian */}
               <div className="bg-white rounded-2xl shadow-soft-sm border border-slate-200/80 p-5 flex flex-col lg:flex-row gap-5 lg:items-center justify-between">
                 
                 <div className="flex items-start sm:items-center gap-4">
@@ -335,12 +335,12 @@ export default function PayrollSlipModal({
 
               </div>
 
-              {/* Action Buttons Top Bar (Ala Abdi Membangun) */}
+              {/* Action Buttons Top Bar */}
               <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200/80 print:hidden">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-bold text-slate-600">Aksi Pembayaran:</span>
 
-                  {/* Tombol Cairkan Dana (Hijau) ala Abdi Membangun */}
+                  {/* Tombol Cairkan Dana (Hijau) */}
                   {currentPayroll.status === 'paid' || currentPayroll.gaji_bersih <= 0 ? (
                     <span className="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 font-black text-xs border border-emerald-300 flex items-center space-x-1.5 shadow-xs">
                       <Check className="w-3.5 h-3.5" />
@@ -358,7 +358,7 @@ export default function PayrollSlipModal({
                     </button>
                   )}
 
-                  {/* Tombol Beri Hutangan (Rose) ala Abdi Membangun */}
+                  {/* Tombol Beri Hutangan (Rose) */}
                   <button
                     type="button"
                     onClick={() => setShowLoanModal(true)}

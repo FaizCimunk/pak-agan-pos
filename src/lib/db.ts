@@ -306,7 +306,7 @@ export class PosDatabase {
     return all.filter(k => k.cabang_id === cabangId && k.is_active);
   }
 
-  // Ploting Penempatan Cabang Karyawan / Kasir (Ala Abdi Membangun)
+  // Ploting Penempatan Cabang Karyawan / Kasir
   async assignKaryawanCabang(karyawanId: string, cabangId: string): Promise<Karyawan> {
     const list = await this.getAllKaryawan();
     const index = list.findIndex(k => k.id === karyawanId);
@@ -549,7 +549,7 @@ export class PosDatabase {
   }
 
   // --------------------------------------------------------------------------
-  // ABSENSI & PRESENSI HARIAN (DICATAT OLEH KEPALA CABANG / ADMIN OUTLET ALA ABDI MEMBANGUN)
+  // ABSENSI & PRESENSI HARIAN (DICATAT OLEH KEPALA CABANG / ADMIN OUTLET)
   // --------------------------------------------------------------------------
   async getAbsensiList(karyawanId?: string, cabangId?: string, tanggal?: string): Promise<Absensi[]> {
     if (isSupabaseConfigured && supabase) {
@@ -1048,7 +1048,7 @@ export class PosDatabase {
   }
 
   // --------------------------------------------------------------------------
-  // PENCAIRAN GAJI TUNGGAL (INDIVIDUAL SALARY PAYOUT ALA ABDI MEMBANGUN)
+  // PENCAIRAN GAJI TUNGGAL (INDIVIDUAL SALARY PAYOUT)
   // --------------------------------------------------------------------------
   async payoutKaryawanSalary(params: {
     payroll: Payroll;

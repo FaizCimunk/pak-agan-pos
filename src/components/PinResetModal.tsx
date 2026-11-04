@@ -121,7 +121,7 @@ export default function PinResetModal({
               <KeyRound className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold tracking-wider text-amber-700">Keamanan Ala Abdi Membangun</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-amber-700">Keamanan Akun &amp; Sandi Kasir</span>
               <h3 className="text-base font-extrabold text-slate-900">Kelola Kredensial &amp; Sandi Staf</h3>
             </div>
           </div>
@@ -315,7 +315,7 @@ export default function PinResetModal({
             </div>
           )}
 
-          {/* Security Notice ala Abdi Membangun */}
+          {/* Security Notice */}
           <div className="flex items-start space-x-2 text-[11px] text-amber-900 bg-amber-50/90 p-3 rounded-2xl border border-amber-200">
             <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <span className="leading-relaxed">
