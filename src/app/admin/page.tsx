@@ -89,7 +89,7 @@ export default function AdminDashboardPage() {
   const [authError, setAuthError] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  const [activeTab, setActiveTab] = useState<'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko'>('ringkasan');
+  const [activeTab, setActiveTab] = useState<'ringkasan' | 'mutasi' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko'>('ringkasan');
   const [cabangList, setCabangList] = useState<Cabang[]>([]);
   const [selectedCabangId, setSelectedCabangId] = useState<string>('all');
   const [selectedAbsensiDate, setSelectedAbsensiDate] = useState<string>('2026-10-25');
@@ -1441,7 +1441,42 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Mutasi Transaksi Feed dengan Navigasi Hari, Bulan, Tahun & Slide Pagination */}
+            {/* Quick-Access Banner: Buku Mutasi Penjualan Kini Memiliki Menu Sendiri */}
+            <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-slate-950 p-5 rounded-3xl text-white flex flex-col sm:flex-row items-center justify-between gap-4 border border-emerald-500/30 shadow-lg">
+              <div className="flex items-center space-x-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-800/80 border border-emerald-400/40 flex items-center justify-center text-amber-300 shadow-md shrink-0">
+                  <Receipt className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-300 bg-emerald-900/60 border border-emerald-500/40 px-2 py-0.5 rounded-full">
+                      Menu Tersendiri • Tidak Numpuk
+                    </span>
+                  </div>
+                  <h4 className="font-extrabold text-sm sm:text-base text-white mt-1">
+                    Buku Mutasi Penjualan &amp; Rekap Struk Outlet
+                  </h4>
+                  <p className="text-xs text-emerald-200/80 mt-0.5">
+                    Data transaksi, filter per Hari/Bulan/Tahun, AOV, dan unduh CSV kini dipisah ke menu tersendiri di bilah navigasi kiri agar dashboard ini tetap ringkas.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('mutasi')}
+                className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition-all flex items-center space-x-1.5 shrink-0 btn-tactile cursor-pointer"
+              >
+                <span>Buka Buku Mutasi Lengkap →</span>
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* TAB DEDIKASI: BUKU MUTASI PENJUALAN OUTLET */}
+        {activeTab === 'mutasi' && (
+          <div className="space-y-6">
             <MutasiPenjualanStatement
               transaksiList={transaksiList}
               cabangList={cabangList}

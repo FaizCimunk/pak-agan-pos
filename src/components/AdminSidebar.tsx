@@ -22,8 +22,8 @@ import {
 } from 'lucide-react';
 
 interface AdminSidebarProps {
-  activeTab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko';
-  onTabChange: (tab: 'ringkasan' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko') => void;
+  activeTab: 'ringkasan' | 'mutasi' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko';
+  onTabChange: (tab: 'ringkasan' | 'mutasi' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko') => void;
   pendingCount: number;
   onLogout: () => void;
   isMobileOpen?: boolean;
@@ -44,6 +44,12 @@ export default function AdminSidebar({
       id: 'ringkasan',
       label: 'Ringkasan & 10 Cabang',
       sub: 'Hub rinci 10 toko & uang Boss',
+      icon: Coins,
+    },
+    {
+      id: 'mutasi',
+      label: 'Buku Mutasi Penjualan',
+      sub: 'Struk kasir, omzet & filter tanggal',
       icon: Receipt,
     },
     {
