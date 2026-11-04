@@ -863,6 +863,19 @@ export class PosDatabase {
       }
     }
     const all = loadLocal<Transaksi[]>(STORAGE_KEYS.TRANSAKSI, INITIAL_TRANSAKSI);
+    // Ensure all INITIAL_TRANSAKSI are included if missing (e.g. newly added demo channel orders)
+    const existingIds = new Set(all.map(t => t.id));
+    let hasNew = false;
+    for (const initTrx of INITIAL_TRANSAKSI) {
+      if (!existingIds.has(initTrx.id)) {
+        all.push(initTrx);
+        hasNew = true;
+      }
+    }
+    if (hasNew) {
+      all.sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime());
+      saveLocal(STORAGE_KEYS.TRANSAKSI, all);
+    }
     if (cabangId) return all.filter(t => t.cabang_id === cabangId);
     return all;
   }

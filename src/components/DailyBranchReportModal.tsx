@@ -82,7 +82,22 @@ export default function DailyBranchReportModal({
     .filter(t => t.metode_bayar === 'transfer')
     .reduce((sum, t) => sum + t.total, 0);
 
-  const totalOmzetKotor = totalTunai + totalQris + totalTransfer;
+  // Online Food Delivery Channels (ShopeeFood, GoFood, GrabFood)
+  const totalShopeeFood = dayTransactions
+    .filter(t => (t.metode_bayar as any) === 'shopeefood' || (t.metode_bayar as any) === 'shopeepay')
+    .reduce((sum, t) => sum + t.total, 0);
+
+  const totalGoFood = dayTransactions
+    .filter(t => (t.metode_bayar as any) === 'gofood' || (t.metode_bayar as any) === 'gopay')
+    .reduce((sum, t) => sum + t.total, 0);
+
+  const totalGrabFood = dayTransactions
+    .filter(t => (t.metode_bayar as any) === 'grabfood' || (t.metode_bayar as any) === 'ovo')
+    .reduce((sum, t) => sum + t.total, 0);
+
+  const totalOnlineMerchant = totalShopeeFood + totalGoFood + totalGrabFood;
+
+  const totalOmzetKotor = totalTunai + totalQris + totalTransfer + totalOnlineMerchant;
 
   // Filtered Expenses for this branch & date
   const dayExpenses = useMemo(() => {
@@ -117,14 +132,17 @@ export default function DailyBranchReportModal({
   // Modal Awal Laci
   const modalAwal = 200000;
 
-  // RECONCILIATION TOTALS (THE 2 GOLDEN PILLARS)
+  // RECONCILIATION TOTALS (THE 3 GOLDEN PILLARS)
   // 1. Physical Cash in Drawer (Uang Tunai Kasir)
   const saldoFisikKasirWajib = modalAwal + totalTunai - totalPengeluaranLaci;
 
   // 2. Bank / Digital Transfer (Uang Masuk ke Rekening Owner)
   const totalDanaBankMasuk = totalQris + totalTransfer - totalPengeluaranBank;
 
-  // 3. Net Daily Profit / Sisa Kas
+  // 3. Online Delivery Channels (ShopeeFood, GoFood, GrabFood)
+  const totalDanaMerchantOnline = totalOnlineMerchant;
+
+  // 4. Net Daily Profit / Sisa Kas Operasional
   const sisaKasBersihHariIni = totalOmzetKotor - grandTotalPengeluaran;
 
   // Generate WhatsApp Message (Optionally to Owner or to Branch PIC)
@@ -157,9 +175,16 @@ export default function DailyBranchReportModal({
       `   • (+) Transfer Bank: +${formatRupiah(totalTransfer)}`,
       `   • (-) Belanja via Transfer: -${formatRupiah(belanjaTransfer)}`,
       `   👉 *TOTAL REKENING BANK: ${formatRupiah(totalDanaBankMasuk)}*`,
+      ``,
+      `🛵 *3. SALDO MERCHANT ONLINE (SHOPEEFOOD, GOFOOD, GRABFOOD):*`,
+      `   • (+) ShopeeFood / ShopeePay: +${formatRupiah(totalShopeeFood)}`,
+      `   • (+) GoFood (GoBiz Resto): +${formatRupiah(totalGoFood)}`,
+      `   • (+) GrabFood (GrabMerchant): +${formatRupiah(totalGrabFood)}`,
+      `   👉 *TOTAL MERCHANT ONLINE: ${formatRupiah(totalDanaMerchantOnline)}*`,
       `-----------------------------------------`,
       `📊 *RINGKASAN OMZET & PENGELUARAN:*`,
       `   • Total Omzet Penjualan: *${formatRupiah(totalOmzetKotor)}* (${dayTransactions.length} Struk)`,
+      `     (Tunai: ${formatRupiah(totalTunai)} | Bank: ${formatRupiah(totalQris + totalTransfer)} | Ojol: ${formatRupiah(totalDanaMerchantOnline)})`,
       `   • Total Belanja Toko & Kasbon: *${formatRupiah(grandTotalPengeluaran)}*`,
       `   • Laba Operasional Bersih: *${formatRupiah(sisaKasBersihHariIni)}*`,
       `-----------------------------------------`,
@@ -241,9 +266,11 @@ export default function DailyBranchReportModal({
             /* Monochrome Black Ink Cards & Outlines */
             #printable-daily-report .bg-emerald-50\\/70,
             #printable-daily-report .bg-blue-50\\/70,
+            #printable-daily-report .bg-amber-50\\/70,
             #printable-daily-report .bg-slate-50,
             #printable-daily-report .bg-emerald-50,
             #printable-daily-report .bg-blue-50,
+            #printable-daily-report .bg-amber-50,
             #printable-daily-report .bg-rose-100,
             #printable-daily-report .bg-emerald-600 {
               background-color: #ffffff !important;
@@ -252,11 +279,27 @@ export default function DailyBranchReportModal({
 
             #printable-daily-report .border-emerald-300,
             #printable-daily-report .border-blue-300,
+            #printable-daily-report .border-amber-300,
             #printable-daily-report .border-emerald-200,
             #printable-daily-report .border-blue-200,
+            #printable-daily-report .border-amber-200,
             #printable-daily-report .border-slate-200,
             #printable-daily-report .border-slate-100 {
               border-color: #000000 !important;
+            }
+
+            /* Ensure 3-pillar layout prints side-by-side cleanly on A4 */
+            #printable-daily-report .report-pillars-grid {
+              display: grid !important;
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+              gap: 8px !important;
+            }
+
+            /* Expand tables to show all rows in print mode */
+            #printable-daily-report .max-h-56,
+            #printable-daily-report .overflow-y-auto {
+              max-height: none !important;
+              overflow: visible !important;
             }
 
             /* Badges & Stamps */
@@ -318,10 +361,10 @@ export default function DailyBranchReportModal({
             <span className="text-xl">📊</span>
             <div>
               <h3 className="text-sm font-extrabold text-slate-900">
-                Laporan Rekonsiliasi Kas &amp; Bank Cabang Harian
+                Laporan Rekonsiliasi Kas, Bank &amp; Merchant Cabang Harian
               </h3>
               <p className="text-[11px] text-slate-500">
-                Pemisahan uang tunai fisik di kasir vs uang masuk rekening bank QRIS
+                Pemisahan uang tunai fisik kasir vs rekening bank QRIS vs saldo merchant online (ShopeeFood, GoFood &amp; GrabFood)
               </p>
             </div>
           </div>
@@ -416,7 +459,7 @@ export default function DailyBranchReportModal({
                   SERABI BAWEL &amp; WEDANG GEPREK
                 </h1>
                 <p className="text-[11px] text-slate-600 font-medium">
-                  Laporan Rekonsiliasi Kas Laci &amp; Rekening Bank Harian
+                  Laporan Rekonsiliasi Kas Laci, Rekening Bank &amp; Saldo Merchant Online (ShopeeFood, GoFood, GrabFood)
                 </p>
               </div>
             </div>
@@ -428,93 +471,152 @@ export default function DailyBranchReportModal({
             </div>
           </div>
 
-          {/* 2. DUA KARTU UTAMA REKONSILIASI (CASH VS BANK) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 2. TIGA PILAR UTAMA REKONSILIASI (CASH VS BANK VS MERCHANT OJOL) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 report-pillars-grid">
             
             {/* KARTU 1: UANG TUNAI FISIK LACI KASIR */}
-            <div className="p-4 rounded-2xl bg-emerald-50/70 border-2 border-emerald-300 text-slate-800 space-y-2.5">
-              <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
-                <div className="flex items-center space-x-1.5 font-black text-xs text-emerald-900 uppercase">
-                  <Coins className="w-4 h-4 text-emerald-700" />
-                  <span>1. Uang Tunai Fisik di Kasir</span>
+            <div className="p-4 rounded-2xl bg-emerald-50/70 border-2 border-emerald-300 text-slate-800 space-y-2.5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between border-b border-emerald-200 pb-2 mb-2.5">
+                  <div className="flex items-center space-x-1.5 font-black text-xs text-emerald-900 uppercase">
+                    <Coins className="w-4 h-4 text-emerald-700" />
+                    <span>1. Uang Tunai Fisik di Kasir</span>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900">
+                    Wajib Disetor Tunai
+                  </span>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900">
-                  Wajib Disetor Tunai
-                </span>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Modal Awal Kas Laci:</span>
+                    <span className="font-mono font-semibold">{formatRupiah(modalAwal)}</span>
+                  </div>
+                  <div className="flex justify-between text-emerald-800 font-semibold">
+                    <span>(+) Penjualan Tunai Masuk:</span>
+                    <span className="font-mono font-bold">+{formatRupiah(totalTunai)}</span>
+                  </div>
+                  <div className="flex justify-between text-rose-600">
+                    <span>(-) Belanja Toko dari Kasir:</span>
+                    <span className="font-mono font-semibold">-{formatRupiah(belanjaLaci)}</span>
+                  </div>
+                  <div className="flex justify-between text-rose-600">
+                    <span>(-) Kasbon Staf dari Kasir:</span>
+                    <span className="font-mono font-semibold">-{formatRupiah(kasbonLaci)}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-1.5 text-[11px]">
-                <div className="flex justify-between text-slate-600">
-                  <span>Modal Awal Kas Laci:</span>
-                  <span className="font-mono font-semibold">{formatRupiah(modalAwal)}</span>
-                </div>
-                <div className="flex justify-between text-emerald-800 font-semibold">
-                  <span>(+) Penjualan Tunai Masuk:</span>
-                  <span className="font-mono font-bold">+{formatRupiah(totalTunai)}</span>
-                </div>
-                <div className="flex justify-between text-rose-600">
-                  <span>(-) Belanja Toko dari Kasir:</span>
-                  <span className="font-mono font-semibold">-{formatRupiah(belanjaLaci)}</span>
-                </div>
-                <div className="flex justify-between text-rose-600">
-                  <span>(-) Kasbon Staf dari Kasir:</span>
-                  <span className="font-mono font-semibold">-{formatRupiah(kasbonLaci)}</span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-emerald-300 flex items-center justify-between">
+              <div className="pt-2 border-t border-emerald-300 flex items-center justify-between mt-2">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-emerald-800 block">Total Uang Fisik Kasir:</span>
-                  <span className="text-xl font-mono font-black text-emerald-950">
+                  <span className="text-lg font-mono font-black text-emerald-950">
                     {formatRupiah(saldoFisikKasirWajib)}
                   </span>
                 </div>
-                <span className="text-[10px] font-extrabold text-emerald-800 bg-white px-2 py-1 rounded-lg border border-emerald-200">
+                <span className="text-[9px] font-extrabold text-emerald-800 bg-white px-2 py-1 rounded-lg border border-emerald-200">
                   ✓ Cocok Fisik
                 </span>
               </div>
             </div>
 
             {/* KARTU 2: DANA MASUK KE REKENING BANK OWNER */}
-            <div className="p-4 rounded-2xl bg-blue-50/70 border-2 border-blue-300 text-slate-800 space-y-2.5">
-              <div className="flex items-center justify-between border-b border-blue-200 pb-2">
-                <div className="flex items-center space-x-1.5 font-black text-xs text-blue-900 uppercase">
-                  <CreditCard className="w-4 h-4 text-blue-700" />
-                  <span>2. Rekening Bank / QRIS</span>
+            <div className="p-4 rounded-2xl bg-blue-50/70 border-2 border-blue-300 text-slate-800 space-y-2.5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between border-b border-blue-200 pb-2 mb-2.5">
+                  <div className="flex items-center space-x-1.5 font-black text-xs text-blue-900 uppercase">
+                    <CreditCard className="w-4 h-4 text-blue-700" />
+                    <span>2. Rekening Bank / QRIS</span>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-200 text-blue-900">
+                    Cek Mutasi Rekening
+                  </span>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-200 text-blue-900">
-                  Cek m-Banking Owner
-                </span>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex justify-between text-blue-800 font-semibold">
+                    <span>(+) Pemasukan QRIS Merchant:</span>
+                    <span className="font-mono font-bold">+{formatRupiah(totalQris)}</span>
+                  </div>
+                  <div className="flex justify-between text-blue-800 font-semibold">
+                    <span>(+) Pemasukan Transfer Bank:</span>
+                    <span className="font-mono font-bold">+{formatRupiah(totalTransfer)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500">
+                    <span>(-) Belanja Ditalangi Transfer:</span>
+                    <span className="font-mono">-{formatRupiah(belanjaTransfer)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500">
+                    <span>(-) Kasbon via Transfer:</span>
+                    <span className="font-mono">-{formatRupiah(kasbonTransfer)}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-1.5 text-[11px]">
-                <div className="flex justify-between text-blue-800 font-semibold">
-                  <span>(+) Pemasukan QRIS Merchant:</span>
-                  <span className="font-mono font-bold">+{formatRupiah(totalQris)}</span>
-                </div>
-                <div className="flex justify-between text-blue-800 font-semibold">
-                  <span>(+) Pemasukan Transfer Bank:</span>
-                  <span className="font-mono font-bold">+{formatRupiah(totalTransfer)}</span>
-                </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>(-) Belanja Ditalangi Transfer:</span>
-                  <span className="font-mono">-{formatRupiah(belanjaTransfer)}</span>
-                </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>(-) Kasbon via Transfer:</span>
-                  <span className="font-mono">-{formatRupiah(kasbonTransfer)}</span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-blue-300 flex items-center justify-between">
+              <div className="pt-2 border-t border-blue-300 flex items-center justify-between mt-2">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-blue-800 block">Total Masuk ke Bank:</span>
-                  <span className="text-xl font-mono font-black text-blue-950">
+                  <span className="text-lg font-mono font-black text-blue-950">
                     {formatRupiah(totalDanaBankMasuk)}
                   </span>
                 </div>
-                <span className="text-[10px] font-extrabold text-blue-800 bg-white px-2 py-1 rounded-lg border border-blue-200">
+                <span className="text-[9px] font-extrabold text-blue-800 bg-white px-2 py-1 rounded-lg border border-blue-200">
                   ✓ Bank Valid
+                </span>
+              </div>
+            </div>
+
+            {/* KARTU 3: SALDO MERCHANT ONLINE (SHOPEEFOOD, GOFOOD, GRABFOOD) */}
+            <div className="p-4 rounded-2xl bg-amber-50/70 border-2 border-amber-300 text-slate-800 space-y-2.5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between border-b border-amber-200 pb-2 mb-2.5">
+                  <div className="flex items-center space-x-1.5 font-black text-xs text-amber-950 uppercase">
+                    <span className="text-sm">🛵</span>
+                    <span>3. Merchant Online (Ojol)</span>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                    Shopee • Go • Grab
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex justify-between text-amber-950 font-semibold items-center">
+                    <span className="flex items-center space-x-1">
+                      <span>🟠</span>
+                      <span>ShopeeFood / ShopeePay:</span>
+                    </span>
+                    <span className="font-mono font-bold">+{formatRupiah(totalShopeeFood)}</span>
+                  </div>
+                  <div className="flex justify-between text-rose-950 font-semibold items-center">
+                    <span className="flex items-center space-x-1">
+                      <span>🛵</span>
+                      <span>GoFood (GoBiz Resto):</span>
+                    </span>
+                    <span className="font-mono font-bold">+{formatRupiah(totalGoFood)}</span>
+                  </div>
+                  <div className="flex justify-between text-emerald-950 font-semibold items-center">
+                    <span className="flex items-center space-x-1">
+                      <span>🟢</span>
+                      <span>GrabFood (GrabMerchant):</span>
+                    </span>
+                    <span className="font-mono font-bold">+{formatRupiah(totalGrabFood)}</span>
+                  </div>
+                  <div className="text-[10px] text-amber-800/80 pt-1 italic flex items-center justify-between">
+                    <span>Pencairan Merchant:</span>
+                    <span className="font-medium text-[9px] bg-amber-100/80 px-1.5 py-0.5 rounded">Otomatis Cair H+1</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-amber-300 flex items-center justify-between mt-2">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-amber-800 block">Total Saldo Merchant:</span>
+                  <span className="text-lg font-mono font-black text-amber-950">
+                    {formatRupiah(totalDanaMerchantOnline)}
+                  </span>
+                </div>
+                <span className="text-[9px] font-extrabold text-amber-900 bg-white px-2 py-1 rounded-lg border border-amber-200">
+                  ✓ Saldo Ojol
                 </span>
               </div>
             </div>
@@ -532,8 +634,8 @@ export default function DailyBranchReportModal({
                 <span className="text-lg font-mono font-black text-slate-900">
                   {formatRupiah(totalOmzetKotor)}
                 </span>
-                <span className="text-[10px] text-slate-500 block">
-                  {dayTransactions.length} Struk Penjualan Selesai
+                <span className="text-[10px] text-slate-500 block leading-tight">
+                  {dayTransactions.length} Struk • Tunai {formatRupiah(totalTunai)} | Bank {formatRupiah(totalQris + totalTransfer)} | Ojol {formatRupiah(totalDanaMerchantOnline)}
                 </span>
               </div>
             </div>
@@ -660,14 +762,28 @@ export default function DailyBranchReportModal({
                           {t.items?.map(it => `${it.nama_menu} (${it.qty})`).join(', ') || 'Menu Serabi & Wedang'}
                         </td>
                         <td className="py-1.5 px-3 font-bold uppercase text-[10px]">
-                          <span className={`px-2 py-0.5 rounded-full ${
+                          <span className={`px-2 py-0.5 rounded-full inline-flex items-center gap-1 border font-bold ${
                             t.metode_bayar === 'tunai' 
-                              ? 'bg-emerald-100 text-emerald-800' 
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
                               : t.metode_bayar === 'qris'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-purple-100 text-purple-800'
+                              ? 'bg-blue-100 text-blue-800 border-blue-300'
+                              : t.metode_bayar === 'transfer'
+                              ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                              : (t.metode_bayar as any) === 'shopeefood' || (t.metode_bayar as any) === 'shopeepay'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : (t.metode_bayar as any) === 'gofood' || (t.metode_bayar as any) === 'gopay'
+                              ? 'bg-rose-100 text-rose-900 border-rose-300'
+                              : (t.metode_bayar as any) === 'grabfood' || (t.metode_bayar as any) === 'ovo'
+                              ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                              : 'bg-slate-100 text-slate-800 border-slate-300'
                           }`}>
-                            {t.metode_bayar}
+                            {t.metode_bayar === 'shopeefood' && '🟠 ShopeeFood'}
+                            {t.metode_bayar === 'gofood' && '🛵 GoFood'}
+                            {t.metode_bayar === 'grabfood' && '🟢 GrabFood'}
+                            {t.metode_bayar === 'tunai' && '💵 Tunai'}
+                            {t.metode_bayar === 'qris' && '📱 QRIS'}
+                            {t.metode_bayar === 'transfer' && '🏦 Transfer'}
+                            {!['shopeefood', 'gofood', 'grabfood', 'tunai', 'qris', 'transfer'].includes(t.metode_bayar) && t.metode_bayar}
                           </span>
                         </td>
                         <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
