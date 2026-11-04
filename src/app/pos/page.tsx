@@ -285,7 +285,14 @@ export default function PosPage() {
         activeShift={activeShift}
         onOpenShiftClick={() => setIsShiftOpenOpen(true)}
         onCloseShiftClick={() => setIsShiftCloseOpen(true)}
-        onExpenseClick={() => setIsExpenseOpen(true)}
+        onExpenseClick={() => {
+          if (!activeShift) {
+            alert('Silakan buka shift kasir terlebih dahulu untuk mencatat belanja toko / kasbon.');
+            setIsShiftOpenOpen(true);
+            return;
+          }
+          setIsExpenseOpen(true);
+        }}
         onAttendanceClick={() => setIsAttendanceOpen(true)}
         onMaterialStockClick={() => setIsMaterialStockOpen(true)}
         onDailyReportClick={() => setIsDailyReportOpen(true)}
