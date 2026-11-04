@@ -292,6 +292,7 @@ export const INITIAL_MENU: MenuItem[] = [
     gambar: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=500&q=80',
     is_favorite: false,
     is_active: true,
+    cabang_ids: ['cbg-1', 'cbg-2', 'cbg-3'], // Khusus 3 cabang resto utama
   },
 
   // --- WEDANG GEPREK REMPAH ---
@@ -372,6 +373,7 @@ export const INITIAL_MENU: MenuItem[] = [
     gambar: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&q=80',
     is_favorite: false,
     is_active: true,
+    cabang_ids: ['cbg-1', 'cbg-2', 'cbg-3'], // Khusus 3 cabang resto utama
   },
   {
     id: 'm-5',
@@ -424,6 +426,7 @@ export const INITIAL_MENU: MenuItem[] = [
     gambar: 'https://images.unsplash.com/photo-1528751014936-863e6e7a319c?w=500&q=80',
     is_favorite: false,
     is_active: true,
+    cabang_ids: ['cbg-1', 'cbg-2', 'cbg-3'], // Khusus 3 cabang resto utama
   },
   {
     id: 'm-14',
@@ -437,6 +440,7 @@ export const INITIAL_MENU: MenuItem[] = [
     gambar: 'https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?w=500&q=80',
     is_favorite: false,
     is_active: true,
+    cabang_ids: ['cbg-1', 'cbg-2', 'cbg-3'], // Khusus 3 cabang resto utama
   },
 ];
 

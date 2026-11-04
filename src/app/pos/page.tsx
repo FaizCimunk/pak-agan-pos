@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import PosHeader from '@/components/PosHeader';
 import PosTouchGrid from '@/components/PosTouchGrid';
 import PosCartDrawer from '@/components/PosCartDrawer';
@@ -264,6 +264,19 @@ export default function PosPage() {
     );
   }
 
+  // Filter menu yang aktif dan dijual di cabang kasir saat ini
+  const branchMenuList = useMemo(() => {
+    if (!currentCabang) return menuList.filter(m => m.is_active !== false);
+    return menuList.filter(item => {
+      if (item.is_active === false) return false;
+      // Jika cabang_ids tidak diset atau kosong, menu dijual di seluruh cabang
+      if (!item.cabang_ids || item.cabang_ids.length === 0 || item.cabang_ids.includes('all')) {
+        return true;
+      }
+      return item.cabang_ids.includes(currentCabang.id);
+    });
+  }, [menuList, currentCabang]);
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-fintech-bg select-none">
       {/* Dedicated Tablet POS Header (Clean, No Admin links) */}
@@ -285,7 +298,7 @@ export default function PosPage() {
         {/* Left Side: POS Touch Grid */}
         <section className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <PosTouchGrid
-            menuList={menuList}
+            menuList={branchMenuList}
             kategoriList={kategoriList}
             onAddToCart={handleAddToCart}
             cart={cart}

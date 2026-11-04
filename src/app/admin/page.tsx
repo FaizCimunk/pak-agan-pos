@@ -56,6 +56,7 @@ import {
   CalendarCheck,
   UserCheck,
   CheckCircle2,
+  Check,
   Printer,
   Eye,
   EyeOff,
@@ -127,6 +128,7 @@ export default function AdminDashboardPage() {
   const [showDailyReportModal, setShowDailyReportModal] = useState<boolean>(false);
   const [selectedMenuForEdit, setSelectedMenuForEdit] = useState<MenuItem | null>(null);
   const [isAddingNewMenu, setIsAddingNewMenu] = useState<boolean>(false);
+  const [selectedMenuCabangFilter, setSelectedMenuCabangFilter] = useState<string>('all');
 
   // Approval Center Filters & State
   const [approvalDateFilter, setApprovalDateFilter] = useState<string>('2026-10-25');
@@ -390,6 +392,34 @@ export default function AdminDashboardPage() {
       await refreshAllData();
     } catch (err: any) {
       alert(err.message || 'Gagal menghapus menu');
+    }
+  };
+
+  // Toggle Penjualan Menu di Cabang Tertentu (1-Click Quick Toggle)
+  const handleToggleMenuBranch = async (item: MenuItem, targetCabangId: string) => {
+    let currentBranchIds: string[];
+    const isAll = !item.cabang_ids || item.cabang_ids.length === 0 || item.cabang_ids.includes('all');
+
+    if (isAll) {
+      // Sebelumnya aktif di semua cabang, sekarang matikan untuk targetCabangId
+      currentBranchIds = cabangList.map(c => c.id).filter(id => id !== targetCabangId);
+    } else if (item.cabang_ids && item.cabang_ids.includes(targetCabangId)) {
+      // Sebelumnya aktif di cabang ini, matikan
+      currentBranchIds = item.cabang_ids.filter(id => id !== targetCabangId);
+    } else {
+      // Sebelumnya tidak aktif di cabang ini, aktifkan
+      currentBranchIds = [...(item.cabang_ids || []), targetCabangId];
+      // Jika setelah ditambah ternyata mencakup seluruh cabang, kembalikan ke [] (semua cabang)
+      if (cabangList.length > 0 && currentBranchIds.length >= cabangList.length) {
+        currentBranchIds = [];
+      }
+    }
+
+    try {
+      await db.saveMenu({ id: item.id, cabang_ids: currentBranchIds });
+      await refreshAllData();
+    } catch (err: any) {
+      alert(err.message || 'Gagal mengubah ketersediaan cabang');
     }
   };
 
@@ -2400,7 +2430,7 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Resep dan harga resmi dikontrol 100% oleh Admin Pusat. Tablet kasir cabang berstatus Read-Only (kasir tidak bisa ubah/hapus).
+                  Resep, harga dan ketersediaan menu per cabang dikontrol 100% oleh Admin Pusat. Tablet kasir cabang berstatus Read-Only.
                 </p>
               </div>
 
@@ -2429,6 +2459,51 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
+            {/* Filter Outlet & Kontrol Ketersediaan Per Cabang */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/70">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center space-x-2 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-2xs">
+                  <Store className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="text-xs font-bold text-slate-700">Filter Outlet Cabang:</span>
+                  <select
+                    value={selectedMenuCabangFilter}
+                    onChange={(e) => setSelectedMenuCabangFilter(e.target.value)}
+                    className="bg-transparent font-extrabold text-xs text-slate-900 focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">Semua Cabang (10 Cabang Resmi)</option>
+                    {cabangList.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.kode} - {c.nama.replace(/^(Cabang \d+ - )/, '')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedMenuCabangFilter !== 'all' && (
+                  <div className="flex items-center space-x-1.5">
+                    <span className="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 font-extrabold text-[11px]">
+                      {cabangList.find(c => c.id === selectedMenuCabangFilter)?.nama.replace(/^(Cabang \d+ - )/, '')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMenuCabangFilter('all')}
+                      className="px-2 py-1 rounded-xl hover:bg-slate-200 text-slate-500 text-xs font-bold transition-colors"
+                    >
+                      Tampilkan Semua Cabang
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="text-[11px] text-slate-500 font-medium">
+                {selectedMenuCabangFilter !== 'all' ? (
+                  <span>💡 Klik tombol pada kolom <strong>Ketersediaan Cabang</strong> untuk langsung mengaktifkan/mematikan menu di cabang ini.</span>
+                ) : (
+                  <span>Pilih cabang untuk mengaktifkan/menonaktifkan menu di outlet tertentu dengan 1-klik.</span>
+                )}
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
@@ -2439,6 +2514,7 @@ export default function AdminDashboardPage() {
                     <th className="py-3 px-4 text-right">HPP Bahan (Resep)</th>
                     <th className="py-3 px-4 text-right">Laba Kotor</th>
                     <th className="py-3 px-4 text-center">Margin %</th>
+                    <th className="py-3 px-4 text-center">Ketersediaan Cabang</th>
                     <th className="py-3 px-4 text-center">Status</th>
                     <th className="py-3 px-4 text-center">Aksi (Admin Pusat)</th>
                   </tr>
@@ -2481,6 +2557,77 @@ export default function AdminDashboardPage() {
                             {margin}%
                           </span>
                         </td>
+
+                        {/* Ketersediaan Cabang */}
+                        <td className="py-3 px-4 text-center">
+                          {selectedMenuCabangFilter === 'all' ? (
+                            <div>
+                              {(!item.cabang_ids || item.cabang_ids.length === 0 || item.cabang_ids.includes('all')) ? (
+                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-extrabold text-[10px]">
+                                  <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                                  <span>Semua 10 Cabang</span>
+                                </span>
+                              ) : (
+                                <div className="inline-flex flex-col items-center">
+                                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-extrabold text-[10px]">
+                                    <Store className="w-2.5 h-2.5 text-amber-600" />
+                                    <span>{item.cabang_ids.length} dari {cabangList.length || 10} Cabang</span>
+                                  </span>
+                                  <div className="flex flex-wrap gap-1 justify-center mt-1 max-w-[170px]">
+                                    {item.cabang_ids.slice(0, 4).map(cId => {
+                                      const c = cabangList.find(cb => cb.id === cId);
+                                      return (
+                                        <span key={cId} className="px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-mono text-[9px] font-bold">
+                                          {c ? c.kode : cId}
+                                        </span>
+                                      );
+                                    })}
+                                    {item.cabang_ids.length > 4 && (
+                                      <span className="px-1 py-0.2 rounded bg-slate-100 text-slate-400 font-mono text-[9px]">
+                                        +{item.cabang_ids.length - 4}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            (() => {
+                              const isSold = !item.cabang_ids || item.cabang_ids.length === 0 || item.cabang_ids.includes('all') || item.cabang_ids.includes(selectedMenuCabangFilter);
+                              const targetBranch = cabangList.find(c => c.id === selectedMenuCabangFilter);
+                              const branchCode = targetBranch?.kode || 'Cabang Ini';
+
+                              return (
+                                <div className="inline-flex items-center justify-center">
+                                  {isSold ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleMenuBranch(item, selectedMenuCabangFilter)}
+                                      className="group inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-rose-50 text-emerald-800 hover:text-rose-700 border border-emerald-300 hover:border-rose-300 font-extrabold text-[10px] transition-all shadow-2xs"
+                                      title={`Klik untuk menonaktifkan menu ini di ${branchCode}`}
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 group-hover:hidden" />
+                                      <XCircle className="w-3.5 h-3.5 text-rose-600 hidden group-hover:inline" />
+                                      <span className="group-hover:hidden">Dijual di {branchCode}</span>
+                                      <span className="hidden group-hover:inline">Nonaktifkan di {branchCode}</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleMenuBranch(item, selectedMenuCabangFilter)}
+                                      className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 font-bold text-[10px] transition-all"
+                                      title={`Klik untuk mengaktifkan penjualan menu ini di ${branchCode}`}
+                                    >
+                                      <Plus className="w-3 h-3 text-slate-400" />
+                                      <span>+ Aktifkan di {branchCode}</span>
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })()
+                          )}
+                        </td>
+
                         <td className="py-3 px-4 text-center">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
                             item.is_active
@@ -2517,15 +2664,23 @@ export default function AdminDashboardPage() {
               </table>
             </div>
 
-            {/* Security note */}
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs flex items-center justify-between">
+            {/* Security & Count note */}
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-brand-primary shrink-0" />
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span className="font-semibold text-[11px]">
-                  <strong>Hak Akses Terkunci:</strong> Tablet kasir cabang berstatus Read-Only. Staf kasir tidak bisa mengubah harga, merubah nama, atau menghapus menu resmi.
+                  <strong>Hak Akses Terkunci:</strong> Tablet kasir cabang berstatus Read-Only. Staf kasir hanya bisa melihat dan mentransaksikan menu yang telah diaktifkan untuk cabangnya.
                 </span>
               </div>
-              <span className="font-mono text-[10px] font-bold text-slate-500">Total: {menuList.length} Menu Terdaftar</span>
+              <div className="flex items-center space-x-2 shrink-0 text-[10px] font-mono font-bold">
+                {selectedMenuCabangFilter !== 'all' ? (
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-200">
+                    {menuList.filter(item => !item.cabang_ids || item.cabang_ids.length === 0 || item.cabang_ids.includes('all') || item.cabang_ids.includes(selectedMenuCabangFilter)).length} dari {menuList.length} Menu Aktif di Cabang Ini
+                  </span>
+                ) : (
+                  <span className="text-slate-500">Total: {menuList.length} Menu Terdaftar</span>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -3358,6 +3513,7 @@ export default function AdminDashboardPage() {
         <EditMenuModal
           menu={selectedMenuForEdit}
           isNew={isAddingNewMenu}
+          cabangList={cabangList}
           onClose={() => {
             setSelectedMenuForEdit(null);
             setIsAddingNewMenu(false);

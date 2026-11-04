@@ -88,6 +88,7 @@ export interface MenuItem {
   gambar: string;
   is_favorite: boolean;
   is_active: boolean;
+  cabang_ids?: string[]; // Daftar ID Cabang yang menjual menu ini. Undefined atau kosong = Semua Cabang
   created_at?: string;
 }
 

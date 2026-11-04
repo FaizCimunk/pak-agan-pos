@@ -9,15 +9,18 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Check,
-  Lock
+  Lock,
+  Store,
+  MapPin
 } from 'lucide-react';
-import { MenuItem } from '@/lib/types';
+import { MenuItem, Cabang } from '@/lib/types';
 import { db } from '@/lib/db';
 import { formatRupiah, formatNominal, parseNominal } from '@/lib/utils';
 
 interface EditMenuModalProps {
   menu: MenuItem | null;
   isNew?: boolean;
+  cabangList?: Cabang[];
   onClose: () => void;
   onSuccess: (menu: MenuItem) => void;
 }
@@ -33,6 +36,7 @@ const KATEGORI_OPTIONS = [
 export default function EditMenuModal({
   menu,
   isNew = false,
+  cabangList = [],
   onClose,
   onSuccess,
 }: EditMenuModalProps) {
@@ -44,6 +48,8 @@ export default function EditMenuModal({
   const [deskripsi, setDeskripsi] = useState<string>('');
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   const [isActive, setIsActive] = useState<boolean>(true);
+  const [isAllBranches, setIsAllBranches] = useState<boolean>(true);
+  const [selectedCabangIds, setSelectedCabangIds] = useState<string[]>([]);
 
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -59,6 +65,15 @@ export default function EditMenuModal({
       setDeskripsi(menu.deskripsi || '');
       setIsFavorite(!!menu.is_favorite);
       setIsActive(menu.is_active ?? true);
+
+      const cIds = menu.cabang_ids;
+      if (!cIds || cIds.length === 0 || cIds.includes('all')) {
+        setIsAllBranches(true);
+        setSelectedCabangIds(cabangList.length > 0 ? cabangList.map(c => c.id) : []);
+      } else {
+        setIsAllBranches(false);
+        setSelectedCabangIds(cIds);
+      }
     } else {
       setNama('');
       setKode(`MN-${Math.floor(10 + Math.random() * 90)}`);
@@ -68,8 +83,10 @@ export default function EditMenuModal({
       setDeskripsi('');
       setIsFavorite(false);
       setIsActive(true);
+      setIsAllBranches(true);
+      setSelectedCabangIds(cabangList.length > 0 ? cabangList.map(c => c.id) : []);
     }
-  }, [menu]);
+  }, [menu, cabangList]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +107,11 @@ export default function EditMenuModal({
       return;
     }
 
+    if (!isAllBranches && selectedCabangIds.length === 0) {
+      setErrorMsg('Pilih minimal 1 cabang atau pilih "Semua 10 Cabang"!');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -106,6 +128,7 @@ export default function EditMenuModal({
         gambar: '', // Tanpa gambar sesuai permintaan
         is_favorite: isFavorite,
         is_active: isActive,
+        cabang_ids: isAllBranches ? [] : selectedCabangIds,
       };
 
       const saved = await db.saveMenu(payload);
@@ -288,6 +311,151 @@ export default function EditMenuModal({
             <p className="text-[10px] text-slate-400 leading-tight">
               *HPP ini otomatis mengalir ke Laporan Laba Rugi Cabang (P&amp;L) saat menu ini terjual di kasir.
             </p>
+          </div>
+
+          {/* Section: Ketersediaan di Outlet Cabang */}
+          <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-slate-800 flex items-center space-x-1.5 text-xs">
+                <Store className="w-4 h-4 text-emerald-700" />
+                <span>Ketersediaan Menu di Outlet Cabang</span>
+              </label>
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Multi-Outlet Control
+              </span>
+            </div>
+
+            {/* Pilihan: Semua Toko vs Toko Tertentu */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAllBranches(true);
+                  if (cabangList && cabangList.length > 0) {
+                    setSelectedCabangIds(cabangList.map(c => c.id));
+                  }
+                }}
+                className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                  isAllBranches
+                    ? 'bg-emerald-600 border-emerald-700 text-white shadow-sm'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center space-x-1.5">
+                  <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                    isAllBranches ? 'border-white bg-white' : 'border-slate-400'
+                  }`}>
+                    {isAllBranches && <div className="w-1.5 h-1.5 rounded-full bg-emerald-600" />}
+                  </div>
+                  <span className="font-extrabold text-xs">Semua 10 Cabang</span>
+                </div>
+                <span className={`text-[10px] mt-1 pl-5 ${isAllBranches ? 'text-emerald-100' : 'text-slate-400'}`}>
+                  Tersedia di semua outlet
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsAllBranches(false)}
+                className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                  !isAllBranches
+                    ? 'bg-emerald-600 border-emerald-700 text-white shadow-sm'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                      !isAllBranches ? 'border-white bg-white' : 'border-slate-400'
+                    }`}>
+                      {!isAllBranches && <div className="w-1.5 h-1.5 rounded-full bg-emerald-600" />}
+                    </div>
+                    <span className="font-extrabold text-xs">Cabang Tertentu</span>
+                  </div>
+                  {!isAllBranches && (
+                    <span className="px-1.5 py-0.2 rounded bg-amber-400 text-slate-900 font-bold text-[9px]">
+                      {selectedCabangIds.length} Toko
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[10px] mt-1 pl-5 ${!isAllBranches ? 'text-emerald-100' : 'text-slate-400'}`}>
+                  Pilih cabang spesifik
+                </span>
+              </button>
+            </div>
+
+            {/* Checkbox Grid saat pilih Cabang Tertentu */}
+            {!isAllBranches && (
+              <div className="pt-2 border-t border-emerald-200/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700">
+                    Pilih outlet yang berhak menjual menu ini:
+                  </span>
+                  <div className="flex items-center space-x-2 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCabangIds(cabangList.map(c => c.id))}
+                      className="text-emerald-700 hover:underline font-bold"
+                    >
+                      Pilih Semua
+                    </button>
+                    <span className="text-slate-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCabangIds([])}
+                      className="text-rose-600 hover:underline font-bold"
+                    >
+                      Kosongkan
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                  {cabangList.map(cabang => {
+                    const isChecked = selectedCabangIds.includes(cabang.id);
+                    return (
+                      <button
+                        key={cabang.id}
+                        type="button"
+                        onClick={() => {
+                          if (isChecked) {
+                            setSelectedCabangIds(selectedCabangIds.filter(id => id !== cabang.id));
+                          } else {
+                            setSelectedCabangIds([...selectedCabangIds, cabang.id]);
+                          }
+                        }}
+                        className={`p-2 rounded-xl border text-left flex items-start space-x-2 transition-all ${
+                          isChecked
+                            ? 'bg-white border-emerald-500 shadow-2xs text-emerald-950 font-bold'
+                            : 'bg-white/60 border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className={`mt-0.5 w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-colors ${
+                          isChecked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'
+                        }`}>
+                          {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center space-x-1">
+                            <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-bold">
+                              {cabang.kode}
+                            </span>
+                            <span className="text-[11px] truncate">
+                              {cabang.nama.replace(/^(Cabang \d+ - )/, '')}
+                            </span>
+                          </div>
+                          <p className="text-[9px] text-slate-400 truncate mt-0.5">{cabang.alamat.split(',')[0]}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="text-[10px] text-emerald-800 leading-tight">
+                  💡 Di tablet kasir cabang yang tidak dicentang, menu ini otomatis tidak akan muncul di layar kasir POS.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Deskripsi & Khasiat */}

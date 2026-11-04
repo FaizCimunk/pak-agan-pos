@@ -241,6 +241,7 @@ export class PosDatabase {
         gambar: item.gambar || 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&q=80',
         is_favorite: !!item.is_favorite,
         is_active: item.is_active ?? true,
+        cabang_ids: item.cabang_ids || [],
         created_at: new Date().toISOString(),
       };
       current.push(savedItem);
