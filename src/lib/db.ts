@@ -355,6 +355,13 @@ export class PosDatabase {
     });
 
     if (matchedBranch) {
+      if (matchedBranch.is_kasir_locked) {
+        return { 
+          success: false, 
+          message: `Akses tablet kasir ${matchedBranch.nama} saat ini sedang DIGEMBOK / DINONAKTIFKAN oleh Admin Pusat! Hubungi Pak Agan untuk membuka akses.` 
+        };
+      }
+
       const isBranchPinValid = 
         inputPin === matchedBranch.kasir_pin || 
         inputPin === matchedBranch.kasir_password_plain || 
