@@ -118,6 +118,8 @@ export function generateWhatsAppPayrollSlipLink({
   gajiPokok,
   tunjangan = 0,
   potonganKasbon,
+  potonganTabungan = 0,
+  totalTabungan = 0,
   gajiBersih,
   totalHari,
   tipeGaji,
@@ -132,6 +134,8 @@ export function generateWhatsAppPayrollSlipLink({
   gajiPokok: number;
   tunjangan?: number;
   potonganKasbon: number;
+  potonganTabungan?: number;
+  totalTabungan?: number;
   gajiBersih: number;
   totalHari?: number;
   tipeGaji?: string;
@@ -144,6 +148,10 @@ export function generateWhatsAppPayrollSlipLink({
       ? cleanPhone
       : '6281234567890';
 
+  const tabunganSection = (potonganTabungan && potonganTabungan > 0)
+    ? `\n*TABUNGAN RUTIN KARYAWAN:*\n• Disisihkan ke Celengan : -${formatRupiah(potonganTabungan)}\n• Total Saldo Tabungan Anda Saat Ini : *${formatRupiah(totalTabungan || potonganTabungan)}*\n`
+    : '';
+
   const text = `🥞 *SLIP GAJI DIGITAL & BUKTI TRANSFER* 🥞\n` +
     `*SERABI BAWEL & WEDANG GEPREK*\n` +
     `================================\n` +
@@ -153,13 +161,14 @@ export function generateWhatsAppPayrollSlipLink({
     `👤 *Nama Staf:* *${nama}* (${(role || 'kasir').toUpperCase()})\n` +
     `================================\n\n` +
     `*RINCIAN PENGHASILAN:*\n` +
-    `• Gaji Harian : ${formatRupiah(gajiPokok)} ${tipeGaji === 'harian' ? `(${totalHari || 22} Hari Hadir @ ${formatRupiah(upahHarian || 120000)})` : ''}\n` +
+    `• Upah Harian : ${formatRupiah(gajiPokok)} ${tipeGaji === 'harian' ? `(${totalHari || 22} Hari Hadir @ ${formatRupiah(upahHarian || 100000)})` : ''}\n` +
     `• *Total Gaji Kotor* : *${formatRupiah(gajiPokok)}*\n\n` +
     `*POTONGAN HUTANG / KASBON:*\n` +
     `• Total Kasbon Berjalan   : -${formatRupiah(potonganKasbon)}\n` +
-    `• Status Pelunasan        : *LUNAS (Dipotong Otomatis Saat Pencairan)*\n\n` +
-    `================================\n` +
-    `*TOTAL GAJI BERSIH (TAKE HOME PAY)*\n` +
+    `• Status Pelunasan        : *LUNAS (Dipotong Otomatis Saat Pencairan)*\n` +
+    tabunganSection +
+    `\n================================\n` +
+    `*TOTAL GAJI BERSIH DITRANSFER (TAKE HOME)*\n` +
     `👉 *${formatRupiah(gajiBersih)}*\n` +
     `================================\n\n` +
     `_Status: TELAH DITRANSFER / LUNAS RESMI_\n` +

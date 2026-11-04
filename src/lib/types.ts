@@ -45,6 +45,8 @@ export interface Karyawan {
   tipe_gaji?: 'bulanan' | 'harian';
   gaji_harian?: number; // Contoh: Rp 100.000 / hari kehadiran
   tunjangan_harian?: number; // Contoh: Rp 20.000 uang makan / hari
+  tabungan_rutin_mingguan?: number; // Contoh: Rp 200.000 / minggu disisihkan otomatis ke celengan staf
+  total_tabungan?: number; // Akumulasi total saldo tabungan karyawan yang tersimpan aman di Boss
   gaji_pokok: number;
   tunjangan: number;
   plafon_kasbon: number;
@@ -200,12 +202,29 @@ export interface Payroll {
   gaji_pokok: number;
   tunjangan: number;
   potongan_kasbon: number;
+  potongan_tabungan?: number; // Potongan simpanan tabungan mingguan (misal Rp 200.000)
+  total_tabungan_snapshot?: number; // Total saldo tabungan staf terkumpul setelah payroll ini
   gaji_bersih: number;
   status: 'draft' | 'locked' | 'paid';
   tanggal_kunci: string;
   karyawan_telepon?: string;
   keterangan?: string;
   kasbon_details?: PengeluaranKasbon[];
+}
+
+export interface TabunganKaryawanItem {
+  id: string;
+  karyawan_id: string;
+  karyawan_nama?: string;
+  cabang_id?: string;
+  cabang_nama?: string;
+  tanggal: string; // YYYY-MM-DD
+  tipe: 'setor' | 'tarik';
+  nominal: number;
+  saldo_setelah: number;
+  keterangan: string; // Misal: "Simpanan Tabungan Gaji Mingguan (19 - 25 Okt 2026)" atau "Pencairan Tabungan ke Rekening Staf"
+  dicatat_oleh?: string;
+  created_at?: string;
 }
 
 export interface BahanBaku {

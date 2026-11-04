@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, DollarSign, Coins, ShieldCheck, Check } from 'lucide-react';
+import { X, DollarSign, Coins, ShieldCheck, Check, PiggyBank, Calendar, Wallet } from 'lucide-react';
 import { Karyawan } from '@/lib/types';
 import { db } from '@/lib/db';
 import { formatRupiah, formatNominal, parseNominal } from '@/lib/utils';
@@ -19,22 +19,31 @@ export default function EditSalaryModal({
 }: EditSalaryModalProps) {
   const [tipeGaji, setTipeGaji] = useState<'bulanan' | 'harian'>(karyawan.tipe_gaji || 'harian');
   const [gajiPokok, setGajiPokok] = useState<number>(karyawan.gaji_pokok || 2600000);
-  const [gajiHarian, setGajiHarian] = useState<number>(karyawan.gaji_harian || 120000);
-  const [plafonKasbon, setPlafonKasbon] = useState<number>(karyawan.plafon_kasbon || 1000000);
+  const [gajiHarian, setGajiHarian] = useState<number>(karyawan.gaji_harian || 100000);
+  const [tabunganMingguan, setTabunganMingguan] = useState<number>(karyawan.tabungan_rutin_mingguan ?? 200000);
+  const [plafonKasbon, setPlafonKasbon] = useState<number>(karyawan.plafon_kasbon || 500000);
   const [loading, setLoading] = useState<boolean>(false);
+
+  // Estimasi Gaji Mingguan & Bersih Transfer
+  const estimasiKotor6Hari = 6 * gajiHarian;
+  const estimasiKotor7Hari = 7 * gajiHarian;
+  const estimasiTransferMingguan = Math.max(0, estimasiKotor6Hari - tabunganMingguan);
+  const estimasiSebulan26Hari = 26 * gajiHarian;
+  const estimasiTabunganSebulan = 4 * tabunganMingguan;
 
   const handleSave = async () => {
     setLoading(true);
     try {
       await db.updateKaryawanSalary(karyawan.id, {
         tipe_gaji: tipeGaji,
-        gaji_pokok: tipeGaji === 'harian' ? (22 * gajiHarian) : gajiPokok,
+        gaji_pokok: tipeGaji === 'harian' ? (26 * gajiHarian) : gajiPokok,
         gaji_harian: gajiHarian,
+        tabungan_rutin_mingguan: tabunganMingguan,
         tunjangan_harian: 0,
         tunjangan: 0,
         plafon_kasbon: plafonKasbon,
       });
-      alert(`Gaji harian & plafon kasbon ${karyawan.nama} berhasil diperbarui!`);
+      alert(`Skema gaji mingguan & celengan tabungan ${karyawan.nama} berhasil diperbarui!`);
       onSuccess();
     } catch (e: any) {
       alert('Gagal memperbarui: ' + e.message);
@@ -45,18 +54,18 @@ export default function EditSalaryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col">
+      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-brand-subtle/60">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50/70 shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-xl bg-brand-primary text-white flex items-center justify-center font-bold shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold shadow-sm">
               <DollarSign className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-slate-900">Ubah Gaji & Plafon Kasbon</h3>
+              <h3 className="text-base font-extrabold text-slate-900">Ubah Gaji Mingguan &amp; Tabungan</h3>
               <p className="text-[11px] text-slate-500 font-medium">
-                {karyawan.nama} ({karyawan.role.toUpperCase()})
+                {karyawan.nama} ({karyawan.role.toUpperCase()}) • Saldo Tabungan: <span className="font-bold text-emerald-800">{formatRupiah(karyawan.total_tabungan || 0)}</span>
               </p>
             </div>
           </div>
@@ -68,36 +77,36 @@ export default function EditSalaryModal({
           </button>
         </div>
 
-        {/* Form Body */}
-        <div className="p-6 space-y-4 text-xs">
+        {/* Form Body (Scrollable) */}
+        <div className="p-6 space-y-4 text-xs overflow-y-auto">
           
-          {/* Tipe Gaji Selector */}
+          {/* Tipe Gaji Selector (Fokus Utama: Upah Harian Diambil Tiap Minggu) */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1.5">
-              Skema Penggajian Staf:
+            <label className="font-extrabold text-slate-700 block mb-1.5">
+              Skema Penggajian Staf Toko:
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setTipeGaji('bulanan')}
-                className={`py-2 px-3 rounded-xl font-bold border transition-all ${
-                  tipeGaji === 'bulanan'
-                    ? 'border-brand-primary bg-brand-subtle text-brand-dark'
+                onClick={() => setTipeGaji('harian')}
+                className={`py-2 px-3 rounded-xl font-bold border transition-all text-center ${
+                  tipeGaji === 'harian'
+                    ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20 font-black'
                     : 'border-slate-200 bg-slate-50 text-slate-600'
                 }`}
               >
-                Gaji Pokok Bulanan
+                Upah Harian (Diambil Mingguan)
               </button>
               <button
                 type="button"
-                onClick={() => setTipeGaji('harian')}
-                className={`py-2 px-3 rounded-xl font-bold border transition-all ${
-                  tipeGaji === 'harian'
-                    ? 'border-brand-primary bg-brand-subtle text-brand-dark'
+                onClick={() => setTipeGaji('bulanan')}
+                className={`py-2 px-3 rounded-xl font-bold border transition-all text-center ${
+                  tipeGaji === 'bulanan'
+                    ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20 font-black'
                     : 'border-slate-200 bg-slate-50 text-slate-600'
                 }`}
               >
-                Upah Harian Lepas
+                Gaji Pokok Bulanan (Tetap)
               </button>
             </div>
           </div>
@@ -113,78 +122,163 @@ export default function EditSalaryModal({
                 value={gajiPokok === 0 ? '' : formatNominal(gajiPokok)}
                 onChange={(e) => setGajiPokok(parseNominal(e.target.value))}
                 placeholder="Contoh: 2.600.000"
-                className="w-full px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-brand-primary"
+                className="w-full px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
           ) : (
             <div className="space-y-3">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  Gaji Harian per Kehadiran (Rp)
+                <label className="font-extrabold text-slate-800 block mb-1 flex items-center justify-between">
+                  <span>Upah Harian per Kehadiran Kasir (Rp):</span>
+                  <span className="text-[10px] text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md font-bold">
+                    Dihitung Tiap Masuk Kerja
+                  </span>
                 </label>
                 <input
                   type="text"
                   value={gajiHarian === 0 ? '' : formatNominal(gajiHarian)}
                   onChange={(e) => setGajiHarian(parseNominal(e.target.value))}
-                  placeholder="Contoh: 120.000"
-                  className="w-full px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-brand-primary"
+                  placeholder="Contoh: 100.000"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-300 font-mono font-black text-sm text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white"
                 />
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-[11px] space-y-1.5">
-                <div className="font-extrabold flex justify-between items-center text-emerald-900 border-b border-emerald-200/60 pb-1">
-                  <span>📅 Pencairan Mingguan (6 Hari Kerja):</span>
-                  <span className="font-mono text-xs font-black text-emerald-800">{formatRupiah(6 * gajiHarian)} /minggu</span>
+              {/* Rincian Siklus Mingguan & Sebulan Tanpa Bon */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-200 text-slate-800 text-[11px] space-y-2">
+                <div className="flex items-center justify-between border-b border-emerald-200/60 pb-1.5 font-bold text-emerald-950">
+                  <span className="flex items-center space-x-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Gaji Diambil Tiap Minggu (6 Hari Kerja):</span>
+                  </span>
+                  <span className="font-mono text-xs font-black text-emerald-800">
+                    {formatRupiah(estimasiKotor6Hari)} /minggu
+                  </span>
                 </div>
-                <div className="font-extrabold flex justify-between items-center text-slate-700">
-                  <span>🗓️ Akumulasi Bulanan (26 Hari Kerja):</span>
-                  <span className="font-mono text-xs font-black text-slate-900">{formatRupiah(26 * gajiHarian)} /bulan</span>
+
+                <div className="flex items-center justify-between text-slate-600 text-[10.5px]">
+                  <span>• Bila Masuk 7 Hari Penuh (Tanpa Libur):</span>
+                  <span className="font-mono font-bold text-slate-800">
+                    {formatRupiah(estimasiKotor7Hari)} /minggu
+                  </span>
                 </div>
-                <div className="text-[10px] text-emerald-700 leading-tight pt-0.5">
-                  *Gaji dihitung per hari berdasarkan kehadiran nyata di kasir, dan dicairkan setiap minggu (atau tutup buku bulanan).
+
+                <div className="border-t border-dashed border-emerald-200 pt-1.5 flex items-center justify-between font-extrabold text-slate-900">
+                  <span className="flex items-center space-x-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Jumlah Sebulan Penuh (Jika Tanpa Bon/Kasbon):</span>
+                  </span>
+                  <span className="font-mono text-xs font-black text-emerald-900 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                    {formatRupiah(estimasiSebulan26Hari)} /bulan
+                  </span>
                 </div>
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  *Jika staf rajin hadir (26 hari kerja) dan tidak mengambil kasbon, total uang yang dibawa pulang utuh mencapai {formatRupiah(estimasiSebulan26Hari)}.
+                </p>
               </div>
             </div>
           )}
 
+          {/* FITUR CELENGAN / TABUNGAN KARYAWAN OTOMATIS */}
+          <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-300 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="font-black text-amber-950 flex items-center space-x-1.5 text-xs">
+                <PiggyBank className="w-4 h-4 text-amber-700" />
+                <span>Titip Tabungan Rutin Mingguan:</span>
+              </label>
+              <span className="text-[10px] font-bold text-amber-900 bg-amber-200/70 px-2 py-0.5 rounded-full">
+                Otomatis Simpan di Boss
+              </span>
+            </div>
+
+            <p className="text-[10.5px] text-amber-900/90 leading-tight">
+              Karyawan dapat menyisihkan sebagian upah mingguan untuk ditabung. Nominal ini otomatis dipotong dari transfer gaji mingguan dan dicatat ke <strong>Buku Tabungan Karyawan</strong>.
+            </p>
+
+            {/* Tombol Pilihan Cepat Tabungan */}
+            <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+              {[0, 50000, 100000, 200000].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setTabunganMingguan(amt)}
+                  className={`py-1.5 px-1 rounded-xl text-[10.5px] font-extrabold border transition-all text-center ${
+                    tabunganMingguan === amt
+                      ? 'bg-amber-600 text-white border-amber-700 shadow-sm'
+                      : 'bg-white text-amber-950 border-amber-200 hover:bg-amber-100'
+                  }`}
+                >
+                  {amt === 0 ? 'Tanpa Nabung' : formatRupiah(amt)}
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-1 flex items-center space-x-2">
+              <span className="text-[11px] font-bold text-amber-950 shrink-0">Nominal Kustom:</span>
+              <input
+                type="text"
+                value={tabunganMingguan === 0 ? '' : formatNominal(tabunganMingguan)}
+                onChange={(e) => setTabunganMingguan(parseNominal(e.target.value))}
+                placeholder="0"
+                className="w-full px-3 py-1.5 bg-white rounded-xl border border-amber-300 font-mono font-bold text-xs text-amber-950 focus:outline-none focus:border-amber-600"
+              />
+            </div>
+
+            {/* Simulasi Nyata Transfer Gaji Mingguan */}
+            {tabunganMingguan > 0 && (
+              <div className="p-2.5 rounded-xl bg-white/90 border border-amber-200 text-[10.5px] space-y-1 text-slate-800">
+                <div className="flex justify-between items-center text-slate-600">
+                  <span>Upah Kotor 6 Hari Kerja:</span>
+                  <span className="font-mono font-bold">{formatRupiah(estimasiKotor6Hari)}</span>
+                </div>
+                <div className="flex justify-between items-center text-amber-900 font-bold">
+                  <span>• Disisihkan ke Celengan Tabungan:</span>
+                  <span className="font-mono text-rose-700">-{formatRupiah(tabunganMingguan)}</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-slate-200 pt-1 font-black text-emerald-900">
+                  <span>Uang Bersih Ditransfer ke Rekening/Kasir:</span>
+                  <span className="font-mono text-xs">{formatRupiah(estimasiTransferMingguan)} /minggu</span>
+                </div>
+                <div className="text-[9.5px] text-amber-800 font-medium pt-0.5">
+                  ★ Saldo tabungan staf akan bertambah <strong>{formatRupiah(tabunganMingguan)}</strong> tiap minggu ({formatRupiah(estimasiTabunganSebulan)} sebulan) dan bisa ditarik kapan saja.
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Plafon Kasbon */}
           <div>
             <label className="font-bold text-slate-700 block mb-1 flex items-center justify-between">
-              <span>Batas Plafon Kasbon Maksimal (Rp)</span>
-              <span className="text-[10px] text-accent-gold font-bold">Mencegah Over-Bon</span>
+              <span>Batas Plafon Kasbon Maksimal (Rp):</span>
+              <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                Mencegah Over-Bon
+              </span>
             </label>
             <input
               type="text"
               value={plafonKasbon === 0 ? '' : formatNominal(plafonKasbon)}
               onChange={(e) => setPlafonKasbon(parseNominal(e.target.value))}
-              placeholder="Contoh: 1.000.000"
-              className="w-full px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 font-mono font-bold text-sm text-accent-gold focus:outline-none focus:border-brand-primary"
+              placeholder="Contoh: 500.000"
+              className="w-full px-3 py-2 bg-slate-50 rounded-xl border border-slate-300 font-mono font-bold text-xs text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white"
             />
-          </div>
-
-          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] flex items-start space-x-2">
-            <ShieldCheck className="w-4 h-4 text-accent-gold shrink-0 mt-0.5" />
-            <span>
-              Perubahan gaji & plafon ini langsung terhubung dengan kalkulator gaji payroll bulanan dan batas kasbon di portal staf karyawan.
-            </span>
           </div>
 
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-end space-x-3">
+        <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end space-x-3 shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors"
+            className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
           >
             Batal
           </button>
           <button
             onClick={handleSave}
             disabled={loading}
-            className="px-6 py-2.5 rounded-xl font-extrabold text-xs bg-brand-primary hover:bg-brand-dark text-white shadow-md shadow-brand-dark/20 btn-tactile transition-all"
+            className="px-6 py-2.5 rounded-xl font-black text-xs bg-emerald-700 hover:bg-emerald-800 text-white shadow-md shadow-emerald-900/20 btn-tactile transition-all cursor-pointer flex items-center space-x-1.5"
           >
-            {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+            <Check className="w-4 h-4" />
+            <span>{loading ? 'Menyimpan...' : 'Simpan Skema Gaji & Tabungan'}</span>
           </button>
         </div>
 

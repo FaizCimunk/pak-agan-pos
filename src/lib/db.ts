@@ -18,7 +18,8 @@ import {
   AbsensiBahanHarian,
   FixedCostHarianCabang,
   PembayaranFixedCostBulanan,
-  PembelianBahanGudang
+  PembelianBahanGudang,
+  TabunganKaryawanItem
 } from './types';
 import { 
   INITIAL_CABANG, 
@@ -38,6 +39,7 @@ import {
   DEMO_WEEK_TRANSAKSI,
   DEMO_WEEK_ABSENSI,
   INITIAL_FIXED_COST_PAYMENTS,
+  INITIAL_TABUNGAN_KARYAWAN,
   DEFAULT_PIN_HASH 
 } from './mock-data';
 import { hashPin } from './utils';
@@ -57,6 +59,7 @@ const STORAGE_KEYS = {
   KIRIMAN_BAHAN: 'pak_agan_kiriman_bahan_v5_demo_week',
   ABSENSI_BAHAN: 'pak_agan_absensi_bahan_v5_demo_week',
   FIXED_COST_PAYMENTS: 'pak_agan_fixed_cost_payments_v5_demo_week',
+  TABUNGAN_KARYAWAN: 'pak_agan_tabungan_karyawan_v1',
   ACTIVE_SHIFT_PREFIX: 'pak_agan_active_shift_v5_demo_week_',
 };
 
@@ -323,6 +326,10 @@ export class PosDatabase {
     list[index] = updated;
     saveLocal(STORAGE_KEYS.KARYAWAN, list);
 
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+
     if (isSupabaseConfigured && supabase) {
       try {
         await supabase.from('karyawan').update({ cabang_id: cabangId }).eq('id', karyawanId);
@@ -511,6 +518,7 @@ export class PosDatabase {
     gaji_pokok?: number;
     tunjangan?: number;
     plafon_kasbon?: number;
+    tabungan_rutin_mingguan?: number;
   }): Promise<Karyawan> {
     const list = await this.getAllKaryawan();
     const pinHashed = await hashPin(data.pin || '1234');
@@ -526,15 +534,20 @@ export class PosDatabase {
       password_plain: data.password_plain || data.pin || '1234',
       tipe_gaji: data.tipe_gaji || 'harian',
       gaji_harian: data.gaji_harian || 100000,
-      gaji_pokok: data.gaji_pokok || 2200000,
+      gaji_pokok: data.gaji_pokok || 2600000,
       tunjangan: data.tunjangan || 0,
       plafon_kasbon: data.plafon_kasbon || 500000,
+      tabungan_rutin_mingguan: data.tabungan_rutin_mingguan ?? 200000,
+      total_tabungan: 0,
       is_locked: false,
       is_active: true,
       created_at: new Date().toISOString(),
     };
     list.push(newK);
     saveLocal(STORAGE_KEYS.KARYAWAN, list);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
     return newK;
   }
 
@@ -558,11 +571,16 @@ export class PosDatabase {
       tipe_gaji?: 'bulanan' | 'harian'; 
       gaji_harian?: number;
       tunjangan_harian?: number;
+      tabungan_rutin_mingguan?: number;
+      total_tabungan?: number;
     }
   ): Promise<boolean> {
     const list = await this.getAllKaryawan();
     const updated = list.map(k => k.id === karyawanId ? { ...k, ...data } : k);
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
     return true;
   }
 
@@ -1166,6 +1184,100 @@ export class PosDatabase {
     return loadLocal<Payroll[]>(STORAGE_KEYS.PAYROLL, []);
   }
 
+  // --------------------------------------------------------------------------
+  // TABUNGAN RUTIN KARYAWAN (CELENGAN MINGGUAN KARYAWAN DISIMPAN OWNER)
+  // --------------------------------------------------------------------------
+  async getTabunganKaryawanList(karyawanId?: string): Promise<TabunganKaryawanItem[]> {
+    const all = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+    if (!karyawanId) return all;
+    return all.filter(t => t.karyawan_id === karyawanId);
+  }
+
+  async setorTabunganKaryawan(
+    karyawanId: string, 
+    nominal: number, 
+    keterangan: string,
+    dicatatOleh: string = 'Pak Agan (Owner)'
+  ): Promise<TabunganKaryawanItem> {
+    const all = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+    const kars = await this.getAllKaryawan();
+    const kar = kars.find(k => k.id === karyawanId);
+    
+    const saldoAwal = kar?.total_tabungan || 0;
+    const saldoAkhir = saldoAwal + nominal;
+
+    const newItem: TabunganKaryawanItem = {
+      id: `tab-${karyawanId}-${Date.now()}`,
+      karyawan_id: karyawanId,
+      karyawan_nama: kar?.nama || 'Karyawan',
+      cabang_id: kar?.cabang_id,
+      tanggal: new Date().toISOString().slice(0, 10),
+      tipe: 'setor',
+      nominal,
+      saldo_setelah: saldoAkhir,
+      keterangan,
+      dicatat_oleh: dicatatOleh,
+      created_at: new Date().toISOString(),
+    };
+
+    all.unshift(newItem);
+    saveLocal(STORAGE_KEYS.TABUNGAN_KARYAWAN, all);
+
+    // Update saldo kumulatif di data Karyawan
+    const updatedKars = kars.map(k => k.id === karyawanId ? { ...k, total_tabungan: saldoAkhir } : k);
+    saveLocal(STORAGE_KEYS.KARYAWAN, updatedKars);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+
+    return newItem;
+  }
+
+  async tarikTabunganKaryawan(
+    karyawanId: string, 
+    nominal: number, 
+    keterangan: string,
+    dicatatOleh: string = 'Pak Agan (Owner)'
+  ): Promise<TabunganKaryawanItem> {
+    const all = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+    const kars = await this.getAllKaryawan();
+    const kar = kars.find(k => k.id === karyawanId);
+    
+    const saldoAwal = kar?.total_tabungan || 0;
+    if (nominal > saldoAwal) {
+      throw new Error(`Saldo tabungan tidak mencukupi! Saldo saat ini: Rp ${saldoAwal.toLocaleString('id-ID')}`);
+    }
+    const saldoAkhir = Math.max(0, saldoAwal - nominal);
+
+    const newItem: TabunganKaryawanItem = {
+      id: `tab-tarik-${karyawanId}-${Date.now()}`,
+      karyawan_id: karyawanId,
+      karyawan_nama: kar?.nama || 'Karyawan',
+      cabang_id: kar?.cabang_id,
+      tanggal: new Date().toISOString().slice(0, 10),
+      tipe: 'tarik',
+      nominal,
+      saldo_setelah: saldoAkhir,
+      keterangan,
+      dicatat_oleh: dicatatOleh,
+      created_at: new Date().toISOString(),
+    };
+
+    all.unshift(newItem);
+    saveLocal(STORAGE_KEYS.TABUNGAN_KARYAWAN, all);
+
+    // Update saldo kumulatif di data Karyawan
+    const updatedKars = kars.map(k => k.id === karyawanId ? { ...k, total_tabungan: saldoAkhir } : k);
+    saveLocal(STORAGE_KEYS.KARYAWAN, updatedKars);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+
+    return newItem;
+  }
+
   async lockPayroll(records: Payroll[]): Promise<boolean> {
     const existing = await this.getPayrollList();
     const stampedRecords = records.map(r => ({
@@ -1188,6 +1300,21 @@ export class PosDatabase {
     });
 
     saveLocal(STORAGE_KEYS.EXPENSES, updatedExpenses);
+
+    // Auto-Setor Tabungan Karyawan jika payroll menyertakan potongan tabungan rutin
+    for (const r of records) {
+      if (r.potongan_tabungan && r.potongan_tabungan > 0) {
+        await this.setorTabunganKaryawan(
+          r.karyawan_id,
+          r.potongan_tabungan,
+          `Auto-Simpan Tabungan Gaji Mingguan (Slip #${r.slip_no})`
+        );
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
     return true;
   }
 
@@ -1245,6 +1372,15 @@ export class PosDatabase {
     updatedExpenses.unshift(payoutRecord);
 
     saveLocal(STORAGE_KEYS.EXPENSES, updatedExpenses);
+
+    // Auto-Setor Tabungan Karyawan jika payroll menyertakan potongan tabungan rutin
+    if (params.payroll.potongan_tabungan && params.payroll.potongan_tabungan > 0) {
+      await this.setorTabunganKaryawan(
+        params.payroll.karyawan_id,
+        params.payroll.potongan_tabungan,
+        `Auto-Simpan Tabungan Gaji Mingguan (Slip #${params.payroll.slip_no})`
+      );
+    }
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));

@@ -634,6 +634,19 @@ export default function PayrollSlipModal({
                     </div>
                   </div>
 
+                  {/* Tabungan Rutin Mingguan */}
+                  {Boolean(currentPayroll.potongan_tabungan && currentPayroll.potongan_tabungan > 0) && (
+                    <div className="space-y-1.5 pt-2 border-t border-dashed border-slate-300">
+                      <div className="flex justify-between text-amber-800 font-bold">
+                        <span>3. Disisihkan ke Celengan Tabungan Karyawan</span>
+                        <span className="font-mono tabular-nums">-{formatRupiah(currentPayroll.potongan_tabungan!)}</span>
+                      </div>
+                      <div className="text-[10px] text-amber-700">
+                        *Tersimpan aman di buku tabungan staf (Saldo sekarang: {formatRupiah(currentPayroll.total_tabungan_snapshot || currentPayroll.potongan_tabungan!)}).
+                      </div>
+                    </div>
+                  )}
+
                   {/* Gaji Bersih */}
                   <div className="p-3.5 rounded-xl bg-emerald-50 border-2 border-emerald-500/40 flex items-center justify-between text-emerald-950">
                     <div className="space-y-0.5">

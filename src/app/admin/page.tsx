@@ -21,6 +21,7 @@ import ProfilTokoManager from '@/components/ProfilTokoManager';
 import MutasiPenjualanStatement from '@/components/MutasiPenjualanStatement';
 import FixedCostPaymentManager from '@/components/FixedCostPaymentManager';
 import BahanBakuAuditManager from '@/components/BahanBakuAuditManager';
+import BukuTabunganModal from '@/components/BukuTabunganModal';
 
 import { 
   Cabang, 
@@ -68,6 +69,7 @@ import {
   Trash2,
   Building2,
   ArrowRightLeft,
+  PiggyBank,
   MapPin,
   X,
   ShoppingBag,
@@ -120,6 +122,7 @@ export default function AdminDashboardPage() {
   const [selectedExpenseForApproval, setSelectedExpenseForApproval] = useState<PengeluaranKasbon | null>(null);
   const [selectedKaryawanForPinReset, setSelectedKaryawanForPinReset] = useState<Karyawan | null>(null);
   const [selectedKaryawanForSalaryEdit, setSelectedKaryawanForSalaryEdit] = useState<Karyawan | null>(null);
+  const [selectedKaryawanForTabungan, setSelectedKaryawanForTabungan] = useState<Karyawan | null>(null);
   const [selectedKaryawanForPlot, setSelectedKaryawanForPlot] = useState<Karyawan | null>(null);
   const [targetBranchIdForPlot, setTargetBranchIdForPlot] = useState<string>('');
   const [selectedPayrollSlip, setSelectedPayrollSlip] = useState<Payroll | null>(null);
@@ -482,7 +485,13 @@ export default function AdminDashboardPage() {
 
         const gajiPokok = isHarian ? (staffPresence * upahRate) : kar.gaji_pokok;
         const tunjangan = 0; // Langsung gaji harian bersih tanpa pecahan uang makan
-        const gajiBersih = gajiPokok - totalKasbon;
+        
+        // Tabungan Rutin Mingguan: disisihkan otomatis jika ada sisa upah setelah kasbon
+        const tabunganRutin = kar.tabungan_rutin_mingguan || 0;
+        const sisaSetelahKasbon = Math.max(0, gajiPokok - totalKasbon);
+        const potonganTabungan = Math.min(tabunganRutin, sisaSetelahKasbon);
+        const gajiBersih = Math.max(0, sisaSetelahKasbon - potonganTabungan);
+        const snapshotTotalTabungan = (kar.total_tabungan || 0) + potonganTabungan;
 
         const draft: Payroll = {
           id: `pay-${kar.id}-${payrollMode}-${payrollSingleDate || payrollMonth}`,
@@ -501,7 +510,9 @@ export default function AdminDashboardPage() {
           gaji_pokok: gajiPokok,
           tunjangan: 0,
           potongan_kasbon: totalKasbon,
-          gaji_bersih: Math.max(0, gajiBersih),
+          potongan_tabungan: potonganTabungan,
+          total_tabungan_snapshot: snapshotTotalTabungan,
+          gaji_bersih: gajiBersih,
           status: 'draft',
           tanggal_kunci: new Date().toISOString(),
           kasbon_details: unsettled,
@@ -2864,8 +2875,9 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-3">Penempatan Cabang</th>
                       <th className="py-3 px-3">Skema Gaji</th>
                       <th className="py-3 px-3 text-right">Tarif Gaji Harian</th>
+                      <th className="py-3 px-3 text-right">Gaji Mingguan &amp; Sebulan</th>
                       <th className="py-3 px-3 text-right">Plafon Kasbon</th>
-                      <th className="py-3 px-3 text-right">Simulasi 22 Hari Hadir</th>
+                      <th className="py-3 px-3 text-center">Celengan Tabungan</th>
                       <th className="py-3 px-3 text-center">PIN &amp; Sandi Guard</th>
                       <th className="py-3 px-3 text-center">Aksi Kelola</th>
                     </tr>
@@ -2875,8 +2887,9 @@ export default function AdminDashboardPage() {
                       const branch = cabangList.find(c => c.id === kar.cabang_id);
                       const isRevealed = revealedPasswords[kar.id];
                       const isHarian = kar.tipe_gaji === 'harian';
-                      const uHarian = kar.gaji_harian || 120000;
-                      const estimasi22Hari = isHarian ? (22 * uHarian) : kar.gaji_pokok;
+                      const uHarian = kar.gaji_harian || 100000;
+                      const estimasiMingguan = 6 * uHarian;
+                      const estimasiSebulan26 = 26 * uHarian;
 
                       return (
                         <tr key={kar.id} className="hover:bg-slate-50/70 transition-colors">
@@ -2899,7 +2912,7 @@ export default function AdminDashboardPage() {
                           <td className="py-3 px-3">
                             {isHarian ? (
                               <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
-                                <span>Gaji Harian</span>
+                                <span>Upah Harian (Mingguan)</span>
                               </span>
                             ) : (
                               <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
@@ -2922,12 +2935,38 @@ export default function AdminDashboardPage() {
                             )}
                           </td>
 
-                          <td className="py-3 px-3 text-right font-mono font-bold text-accent-gold tabular-nums">
+                          {/* Gaji Mingguan (6 Hari) & Sebulan (26 Hari Tanpa Bon) */}
+                          <td className="py-3 px-3 text-right tabular-nums">
+                            <div className="font-mono font-black text-emerald-800 text-xs">
+                              {formatRupiah(estimasiMingguan)} <span className="text-[9px] font-normal text-slate-500">/mg</span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-bold font-mono">
+                              {formatRupiah(estimasiSebulan26)} <span className="text-[8.5px] text-slate-400 font-sans font-normal">(26 hr tanpa bon)</span>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-3 text-right font-mono font-bold text-amber-700 tabular-nums">
                             {formatRupiah(kar.plafon_kasbon)}
                           </td>
 
-                          <td className="py-3 px-3 text-right font-mono font-extrabold text-brand-dark tabular-nums">
-                            {formatRupiah(estimasi22Hari)}
+                          {/* Celengan Tabungan Karyawan */}
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedKaryawanForTabungan(kar)}
+                              className="inline-flex flex-col items-center p-1.5 rounded-xl bg-amber-50 hover:bg-amber-100/90 border border-amber-200 transition text-amber-950 cursor-pointer shadow-2xs group"
+                              title="Buka Buku Tabungan Karyawan"
+                            >
+                              <div className="flex items-center space-x-1">
+                                <PiggyBank className="w-3.5 h-3.5 text-amber-600 group-hover:scale-110 transition-transform" />
+                                <span className="font-mono font-black text-xs text-amber-950">
+                                  {formatRupiah(kar.total_tabungan || 0)}
+                                </span>
+                              </div>
+                              <span className="text-[9px] font-bold text-amber-800">
+                                {kar.tabungan_rutin_mingguan ? `+${formatRupiah(kar.tabungan_rutin_mingguan)}/mg` : 'Tanpa Nabung'}
+                              </span>
+                            </button>
                           </td>
 
                           {/* Sandi / PIN & Status Gembok */}
@@ -2995,6 +3034,15 @@ export default function AdminDashboardPage() {
                               >
                                 <DollarSign className="w-3 h-3" />
                                 <span>Ubah Gaji</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedKaryawanForTabungan(kar)}
+                                className="px-2 py-1 text-[11px] font-bold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-300 transition-colors inline-flex items-center space-x-0.5 shadow-2xs"
+                                title="Buka Buku Tabungan &amp; Celengan Karyawan"
+                              >
+                                <PiggyBank className="w-3 h-3 text-amber-700" />
+                                <span>Tabungan</span>
                               </button>
                               <button
                                 onClick={() => setSelectedKaryawanForPinReset(kar)}
@@ -3180,19 +3228,20 @@ export default function AdminDashboardPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
                   <tr>
-                    <th className="py-3 px-4">Nama Staf & Outlet</th>
+                    <th className="py-3 px-4">Nama Staf &amp; Outlet</th>
                     <th className="py-3 px-4">Kehadiran</th>
-                    <th className="py-3 px-4 text-right">Gaji Harian</th>
-                    <th className="py-3 px-4 text-right">Total Gaji Hadir</th>
+                    <th className="py-3 px-4 text-right">Upah Harian</th>
+                    <th className="py-3 px-4 text-right">Total Upah Hadir</th>
                     <th className="py-3 px-4 text-right text-rose-600">Hutang / Kasbon (Auto-Potong)</th>
-                    <th className="py-3 px-4 text-right font-extrabold text-brand-dark">Gaji Bersih (Take Home)</th>
+                    <th className="py-3 px-4 text-right text-amber-700">Celengan Tabungan</th>
+                    <th className="py-3 px-4 text-right font-extrabold text-brand-dark">Gaji Bersih Ditransfer</th>
                     <th className="py-3 px-4 text-center">Slip Digital &amp; Kirim WA</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {calculatedPayrollDrafts.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                      <td colSpan={8} className="py-12 text-center text-slate-400 text-xs">
                         <div className="flex flex-col items-center justify-center space-y-1">
                           <span className="text-2xl">💰</span>
                           <span className="font-extrabold text-slate-700">Belum Ada Karyawan untuk Dihitung Gajinya (Mulai dari 0)</span>
@@ -3213,7 +3262,7 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-semibold text-slate-700 tabular-nums">
-                        {formatRupiah(draft.upah_harian || 120000)} <span className="text-[10px] text-slate-400">/ hari</span>
+                        {formatRupiah(draft.upah_harian || 100000)} <span className="text-[10px] text-slate-400">/ hari</span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 tabular-nums">
                         {formatRupiah(draft.gaji_pokok)}
@@ -3228,6 +3277,21 @@ export default function AdminDashboardPage() {
                           <span className="text-[9px] text-slate-400 font-medium">Nihil / Lunas</span>
                         )}
                       </td>
+
+                      {/* Celengan Tabungan Karyawan */}
+                      <td className="py-3 px-4 text-right font-mono font-bold text-amber-800 tabular-nums">
+                        {draft.potongan_tabungan && draft.potongan_tabungan > 0 ? (
+                          <div>
+                            <span className="text-amber-900">-{formatRupiah(draft.potongan_tabungan)}</span>
+                            <span className="text-[9px] text-amber-700 block font-semibold">
+                              Saldo: {formatRupiah(draft.total_tabungan_snapshot || 0)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-normal">Rp 0 (Tanpa Nabung)</span>
+                        )}
+                      </td>
+
                       <td className="py-3 px-4 text-right font-mono font-extrabold text-brand-dark tabular-nums text-sm">
                         {formatRupiah(draft.gaji_bersih)}
                       </td>
@@ -3269,6 +3333,8 @@ export default function AdminDashboardPage() {
                                 gajiPokok: draft.gaji_pokok,
                                 tunjangan: 0,
                                 potonganKasbon: draft.potongan_kasbon,
+                                potonganTabungan: draft.potongan_tabungan,
+                                totalTabungan: draft.total_tabungan_snapshot,
                                 gajiBersih: draft.gaji_bersih,
                                 totalHari: draft.total_kehadiran_hari,
                                 tipeGaji: draft.tipe_gaji,
@@ -3370,6 +3436,17 @@ export default function AdminDashboardPage() {
           onClose={() => setSelectedKaryawanForSalaryEdit(null)}
           onSuccess={async () => {
             setSelectedKaryawanForSalaryEdit(null);
+            await refreshAllData();
+          }}
+        />
+      )}
+
+      {selectedKaryawanForTabungan && (
+        <BukuTabunganModal
+          karyawan={selectedKaryawanForTabungan}
+          cabangNama={cabangList.find(c => c.id === selectedKaryawanForTabungan.cabang_id)?.nama}
+          onClose={() => setSelectedKaryawanForTabungan(null)}
+          onSuccess={async () => {
             await refreshAllData();
           }}
         />
