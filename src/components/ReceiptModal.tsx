@@ -110,7 +110,10 @@ export default function ReceiptModal({
           {/* Top Minimal Bar */}
           <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
             <div className="flex items-center space-x-2">
-              <span className="text-sm">🥞</span>
+              <div className="flex items-center -space-x-1 text-sm">
+                <span>🥞</span>
+                <span>🍵</span>
+              </div>
               <span className="text-xs font-black tracking-wider uppercase text-slate-700">
                 {cabang.nama.split('-')[1]?.trim() || cabang.nama}
               </span>

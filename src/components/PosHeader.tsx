@@ -134,8 +134,11 @@ export default function PosHeader({
         <div className="hidden sm:flex px-4 py-2 items-center justify-between">
           {/* Left: Brand Identity & Locked Cabang */}
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 border border-emerald-500/30 flex items-center justify-center text-white shadow-md shadow-emerald-950/20 shrink-0">
-              <span className="font-bold text-lg">🥞</span>
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-950 border border-emerald-500/40 flex items-center justify-center text-white shadow-md shadow-emerald-950/20 shrink-0">
+              <div className="flex items-center justify-center -space-x-1 drop-shadow-md">
+                <span className="text-base select-none transform -rotate-6">🥞</span>
+                <span className="text-base select-none transform rotate-6">🍵</span>
+              </div>
             </div>
 
             <div>
@@ -244,8 +247,11 @@ export default function PosHeader({
             
             {/* Brand + Branch */}
             <div className="flex items-center space-x-2 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 flex items-center justify-center text-white shadow-sm shrink-0">
-                <span className="text-sm font-bold">🥞</span>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 border border-emerald-500/30 flex items-center justify-center text-white shadow-sm shrink-0">
+                <div className="flex items-center justify-center -space-x-1 text-xs">
+                  <span>🥞</span>
+                  <span>🍵</span>
+                </div>
               </div>
               <div className="min-w-0">
                 <span className="font-extrabold text-slate-900 text-xs block leading-tight truncate">

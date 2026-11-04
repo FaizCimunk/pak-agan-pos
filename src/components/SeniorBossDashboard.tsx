@@ -264,8 +264,11 @@ export default function SeniorBossDashboard({
         <div className="flex items-center justify-between">
           {/* Logo Brand Emblem */}
           <div className="flex items-center space-x-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-slate-950 text-white flex items-center justify-center text-xl shadow-md shrink-0">
-              🥞
+            <div className="w-11 h-11 rounded-2xl bg-slate-950 text-white flex items-center justify-center shadow-md shrink-0 border border-amber-300/30">
+              <div className="flex items-center justify-center -space-x-1 drop-shadow-md">
+                <span className="text-base transform -rotate-6">🥞</span>
+                <span className="text-base transform rotate-6">🍵</span>
+              </div>
             </div>
             <div>
               <div className="flex items-center space-x-1.5">

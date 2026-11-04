@@ -189,7 +189,10 @@ export default function PayrollSlipModal({
         {/* Top Header Bar (Hidden on print) */}
         <div className="px-6 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between print:hidden">
           <div className="flex items-center space-x-2">
-            <span className="text-xl">🥞</span>
+            <div className="flex items-center -space-x-1 text-xl">
+              <span>🥞</span>
+              <span>🍵</span>
+            </div>
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800">

@@ -117,8 +117,11 @@ export default function KaryawanPortalPage() {
       <header className="bg-white border-b border-slate-200/90 sticky top-0 z-20 shadow-soft-sm">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-950/20">
-              🥞
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white flex items-center justify-center shadow-md shadow-emerald-950/20 shrink-0 border border-emerald-500/30">
+              <div className="flex items-center justify-center -space-x-1 drop-shadow-md">
+                <span className="text-base transform -rotate-6">🥞</span>
+                <span className="text-base transform rotate-6">🍵</span>
+              </div>
             </div>
             <div>
               <div className="flex items-center space-x-1.5">

@@ -402,8 +402,11 @@ export default function DailyBranchReportModal({
           {/* 1. KOP RESMI LAPORAN */}
           <div className="border-b-2 border-slate-900 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white flex items-center justify-center text-2xl shadow-md border border-emerald-400/40">
-                🥞
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white flex items-center justify-center shadow-md border border-emerald-400/40">
+                <div className="flex items-center -space-x-1 text-xl">
+                  <span>🥞</span>
+                  <span>🍵</span>
+                </div>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800">

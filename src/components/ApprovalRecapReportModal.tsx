@@ -198,7 +198,10 @@ export default function ApprovalRecapReportModal({
           <div className="border-b-2 border-slate-900 pb-4 flex items-start justify-between">
             <div className="space-y-1">
               <div className="flex items-center space-x-2">
-                <span className="text-2xl">🥞</span>
+                <div className="flex items-center -space-x-1 text-2xl">
+                  <span>🥞</span>
+                  <span>🍵</span>
+                </div>
                 <span className="text-xl font-black text-slate-950 tracking-tight">
                   SERABI BAWEL &amp; WEDANG GEPREK
                 </span>

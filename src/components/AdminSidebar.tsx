@@ -125,18 +125,25 @@ export default function AdminSidebar({
       {/* Brand Header */}
       <div className="p-4 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-800 to-emerald-950 border border-emerald-500/30 flex items-center justify-center text-white shadow-md shadow-emerald-950/20 shrink-0">
-            <span className="text-xl">🥞</span>
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-950 border border-emerald-500/40 flex items-center justify-center text-white shadow-md shadow-emerald-950/25 shrink-0 relative overflow-hidden">
+            <div className="flex items-center justify-center -space-x-1 drop-shadow-md">
+              <span className="text-base select-none transform -rotate-6" title="Serabi Bawel">🥞</span>
+              <span className="text-base select-none transform rotate-6" title="Wedang Geprek">🍵</span>
+            </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center space-x-1.5">
-              <span className="font-extrabold text-brand-dark text-sm sm:text-base tracking-tight leading-none">SERABI BAWEL</span>
-              <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-accent-light text-accent-gold border border-accent-amber/20">
+              <span className="font-black text-brand-dark text-sm sm:text-base tracking-tight leading-none truncate">
+                SERABI BAWEL
+              </span>
+              <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded-full bg-accent-light text-accent-gold border border-accent-amber/20 shrink-0">
                 PUSAT
               </span>
             </div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-              Wedang Geprek • Multi-Cabang
+            <div className="text-[10px] text-emerald-800 font-extrabold mt-0.5 flex items-center space-x-1 truncate">
+              <span>Wedang Geprek</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-slate-500 font-medium">Multi-Cabang</span>
             </div>
           </div>
         </div>
