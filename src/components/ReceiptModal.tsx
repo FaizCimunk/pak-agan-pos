@@ -302,6 +302,19 @@ export default function ReceiptModal({
                     <div className="text-center text-[9px] text-slate-500 pt-1 whitespace-pre-line leading-relaxed">
                       {cabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda\n--- www.pakagan.id ---'}
                     </div>
+
+                    {/* Footer Promosi Permanen ivokgrup */}
+                    <div className="mt-2 pt-1.5 border-t border-dashed border-slate-300 text-center space-y-0.5">
+                      <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-800">
+                        ⚡ DIGITALISASI BISNIS MULTI-CABANG ⚡
+                      </div>
+                      <div className="text-[8px] text-slate-600 font-bold leading-tight">
+                        Sistem POS Kasir, Keuangan &amp; Presensi Karyawan Custom
+                      </div>
+                      <div className="text-[7.5px] text-slate-500 font-medium">
+                        Dipercaya 1.000+ Pengusaha Bersama ivokgrup • www.ivokgrup.com
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -385,6 +398,19 @@ export default function ReceiptModal({
         <div className="border-t border-dashed border-black my-1" />
         <div className="text-center text-[9px] pt-1 whitespace-pre-line leading-relaxed">
           {cabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda!\n--- www.pakagan.id ---'}
+        </div>
+
+        {/* Footer Promosi Permanen ivokgrup Print */}
+        <div className="mt-2 pt-1 border-t border-dashed border-black text-center space-y-0.5">
+          <div className="text-[8px] font-black uppercase tracking-wider">
+            ⚡ DIGITALISASI BISNIS MULTI-CABANG ⚡
+          </div>
+          <div className="text-[7.5px] font-bold leading-tight">
+            Sistem POS Kasir, Keuangan &amp; Presensi Karyawan Custom
+          </div>
+          <div className="text-[7px]">
+            Dipercaya 1.000+ Pengusaha Bersama ivokgrup • www.ivokgrup.com
+          </div>
         </div>
       </div>
     </>

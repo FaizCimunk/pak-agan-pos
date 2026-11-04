@@ -248,6 +248,20 @@ class BluetoothPrinterService {
       builder.text('--- www.pakagan.id ---');
     }
     builder.newLine();
+
+    // Footer Promosi Permanen ivokgrup untuk Printer Thermal 58mm
+    builder.line('-', 32);
+    builder.bold(true);
+    builder.text('DIGITALISASI MULTI-CABANG');
+    builder.newLine();
+    builder.bold(false);
+    builder.text('POS & Finansial Custom Bisnis');
+    builder.newLine();
+    builder.text('Dipercaya 1.000+ Pengusaha');
+    builder.newLine();
+    builder.text('Bersama ivokgrup - ivok.id');
+    builder.newLine();
+
     builder.cut();
 
     return builder.getBytes();

@@ -167,12 +167,18 @@ export default function ProfilTokoManager({
         </div>
       </div>
 
-      {/* Switcher Tab Outlet Cabang (Pilih Toko Cepat) */}
-      <div className="bg-white p-3 rounded-2xl border border-slate-200/90 shadow-soft-sm">
-        <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin">
-          <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider pl-2 pr-1 shrink-0">
-            Pilih Toko:
+      {/* Switcher Tab Outlet Cabang (Pilih Toko Cepat - Dibuat ke Bawah / Wrap) */}
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-soft-sm space-y-2.5">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center space-x-1.5">
+            <Store className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Pilih Toko Cabang ({cabangList.length} Outlet Resmi Terdaftar):</span>
           </span>
+          <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+            Aktif: {activeCabang?.nama}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           {cabangList.map(c => {
             const isSelected = c.id === selectedCabangId;
             return (
@@ -180,15 +186,15 @@ export default function ProfilTokoManager({
                 key={c.id}
                 type="button"
                 onClick={() => setSelectedCabangId(c.id)}
-                className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition shrink-0 flex items-center space-x-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition flex items-center space-x-1.5 cursor-pointer border ${
                   isSelected
-                    ? 'bg-emerald-700 text-white shadow-md shadow-emerald-800/20'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-emerald-700 text-white border-emerald-800 shadow-md shadow-emerald-800/20 ring-2 ring-emerald-500/30'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50 hover:border-emerald-300'
                 }`}
               >
-                <span>#{c.nomor}</span>
-                <span>{c.kode}</span>
-                <span className="text-[11px] opacity-80">({c.kota})</span>
+                <span className="opacity-90">#{c.nomor}</span>
+                <span className="font-mono">{c.kode}</span>
+                <span className="text-[11px] opacity-75 font-normal">({c.kota})</span>
               </button>
             );
           })}
@@ -645,9 +651,25 @@ export default function ProfilTokoManager({
 
               <div className="border-t border-dashed border-slate-400 my-2" />
 
-              {/* Footer Struk */}
+              {/* Footer Struk Toko */}
               <div className="text-center text-[10px] text-slate-600 pt-1 whitespace-pre-line leading-relaxed">
                 {strukFooter || 'Khasiat Alami, Tubuh Sehat\nMatur Nuwun Sampun Rawuh!\n--- www.pakagan.id ---'}
+              </div>
+
+              {/* FOOTER PROMOSI PERMANEN IVOKGRUP (DIGITALISASI SISTEM KEUANGAN) */}
+              <div className="mt-3 pt-2.5 border-t border-dashed border-slate-300 text-center space-y-1">
+                <div className="text-[9px] font-black uppercase tracking-wider text-slate-900">
+                  ⚡ DIGITALISASI BISNIS MULTI-CABANG ⚡
+                </div>
+                <div className="text-[8.5px] text-slate-700 font-extrabold leading-snug">
+                  Sistem POS Kasir, Finansial &amp; Presensi Karyawan Custom
+                </div>
+                <div className="text-[8px] text-slate-500 font-medium">
+                  Dipercaya 1.000+ Pengusaha Bersama ivokgrup
+                </div>
+                <div className="text-[8px] text-emerald-800 font-mono font-bold tracking-tight">
+                  Konsultasi Sistem Usaha: www.ivokgrup.com
+                </div>
               </div>
 
             </div>
