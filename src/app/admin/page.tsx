@@ -686,7 +686,7 @@ export default function AdminDashboardPage() {
   }, [bossDailyProfits, selectedCabangId, cabangList, fixedCostPayments, fixedCostDeductionMode, selectedBossSummaryDate]);
 
   // --------------------------------------------------------------------------
-  // POSISI UANG KASIR & CHANNEL TRANSAKSI (LACI, QRIS BCA, SHOPEE, GOFOOD, GRAB)
+  // POSISI UANG KASIR & CHANNEL TRANSAKSI (LACI, QRIS, SHOPEE, GOFOOD, GRAB)
   // --------------------------------------------------------------------------
   const channelBreakdown = useMemo(() => {
     const targetDate = selectedBossSummaryDate;
@@ -1218,7 +1218,7 @@ export default function AdminDashboardPage() {
                     <span>Pesanan Kasir POS</span>
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Staf kasir input order Serabi Bawel &amp; Wedang di tablet. Uang masuk dari <strong>Tunai, QRIS BCA, GrabFood, GoFood, &amp; ShopeeFood</strong> menjadi <strong>Omzet Kotor</strong>.
+                    Staf kasir input order Serabi Bawel &amp; Wedang di tablet. Uang masuk dari <strong>Tunai, QRIS, GrabFood, GoFood, &amp; ShopeeFood</strong> menjadi <strong>Omzet Kotor</strong>.
                   </p>
                 </div>
 
@@ -1269,7 +1269,7 @@ export default function AdminDashboardPage() {
                       Posisi Saldo Realtime: Uang Hari Ini Ada di Mana Saja?
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Rincian fisik di laci kasir vs transfer QRIS BCA vs saldo tertampung di akun merchant ShopeeFood, GoFood, &amp; GrabFood.
+                      Rincian fisik di laci kasir vs transfer QRIS vs saldo tertampung di akun merchant ShopeeFood, GoFood, &amp; GrabFood.
                     </p>
                   </div>
                 </div>
@@ -1297,18 +1297,18 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
 
-                {/* 2. QRIS BCA */}
-                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200">
+                {/* 2. QRIS */}
+                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200">
                   <div className="flex items-center justify-between">
                     <span className="text-lg">📱</span>
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 uppercase">Bank BCA</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-200 text-blue-900 uppercase">QRIS</span>
                   </div>
-                  <span className="text-xs font-black text-slate-800 block mt-2">QRIS Rekening Pak Agan</span>
-                  <div className="text-lg font-mono font-black text-amber-700 mt-1">
+                  <span className="text-xs font-black text-slate-800 block mt-2">QRIS Rekening Pusat</span>
+                  <div className="text-lg font-mono font-black text-blue-800 mt-1">
                     {formatRupiah(channelBreakdown.qrisTotal)}
                   </div>
                   <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
-                    Scan QR langsung masuk rekening BCA pusat
+                    Scan QR langsung masuk rekening pusat
                   </span>
                 </div>
 
