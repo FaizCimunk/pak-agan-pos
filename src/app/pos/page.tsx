@@ -311,18 +311,7 @@ export default function PosPage() {
     setCustomerName('Pelanggan Walk-in');
   };
 
-  if (!currentCabang) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center space-y-2">
-          <div className="text-3xl animate-spin">🌿</div>
-          <div className="text-xs font-bold text-slate-500">Memuat Sesi Tablet Kasir...</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Filter menu yang aktif dan dijual di cabang kasir saat ini
+  // Filter menu yang aktif dan dijual di cabang kasir saat ini (Wajib di atas early return agar urutan hooks konsisten)
   const branchMenuList = useMemo(() => {
     if (!currentCabang) return menuList.filter(m => m.is_active !== false);
     return menuList.filter(item => {
@@ -334,6 +323,17 @@ export default function PosPage() {
       return item.cabang_ids.includes(currentCabang.id);
     });
   }, [menuList, currentCabang]);
+
+  if (!currentCabang) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center space-y-2">
+          <div className="text-3xl animate-spin">🌿</div>
+          <div className="text-xs font-bold text-slate-500">Memuat Sesi Tablet Kasir...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-fintech-bg select-none">
