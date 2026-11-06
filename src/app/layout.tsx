@@ -13,8 +13,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Serabi Bawel & Wedang Geprek - Sistem Kasir & Manajemen Multi-Cabang",
-  description: "Sistem Kasir & POS Modern Ala Fintech, Multi-Cabang & Portal Gaji Karyawan Serabi Bawel dan Wedang Geprek",
+  title: "Serabi Bawel & Wedang Geprek Grup",
+  description: "Aplikasi Resmi Serabi Bawel & Wedang Geprek Grup",
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",
