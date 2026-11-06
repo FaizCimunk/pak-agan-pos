@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import PosHeader from '@/components/PosHeader';
 import PosTouchGrid from '@/components/PosTouchGrid';
 import PosCartDrawer from '@/components/PosCartDrawer';
@@ -60,62 +61,71 @@ export default function PosPage() {
   const [expenseList, setExpenseList] = useState<PengeluaranKasbon[]>([]);
   const [lastTransaksi, setLastTransaksi] = useState<Transaksi | null>(null);
 
+  const router = useRouter();
+  const currentCabangRef = useRef<Cabang | null>(null);
+  currentCabangRef.current = currentCabang;
+
   // Initial Load & Device Binding
   const loadData = useCallback(async () => {
-    // Check kasir session
-    if (typeof window !== 'undefined') {
-      const isSession = sessionStorage.getItem('pakagan_kasir_session');
-      if (!isSession) {
-        window.location.href = '/';
+    try {
+      const cabangs = await db.getCabangList();
+      setCabangList(cabangs);
+
+      // Check persistent locked branch
+      let lockedCabangId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null;
+      let targetCabang = cabangs.find(c => c.id === lockedCabangId);
+
+      if (!targetCabang) {
+        // Default to Cabang 1 on first launch, or prompt setup
+        targetCabang = cabangs[0] || null;
+        if (targetCabang && typeof window !== 'undefined') {
+          localStorage.setItem(DEVICE_LOCK_KEY, targetCabang.id);
+        }
+      }
+
+      // Check / auto-ensure kasir session if device is bound
+      if (typeof window !== 'undefined') {
+        const isSession = sessionStorage.getItem('pakagan_kasir_session');
+        const isOwner = sessionStorage.getItem('pakagan_owner_authenticated');
+        const isUser = sessionStorage.getItem('pakagan_user');
+        if (!isSession && !isOwner && !isUser && targetCabang) {
+          sessionStorage.setItem('pakagan_kasir_session', targetCabang.kasir_username || targetCabang.nama || 'Kasir Cabang');
+        }
+      }
+
+      // CEK GEMBOK KEAMANAN CABANG
+      if (targetCabang && targetCabang.is_kasir_locked) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('pakagan_kasir_session');
+          sessionStorage.removeItem('pakagan_user');
+        }
+        alert(`AKSES DITOLAK:\nAkses tablet kasir "${targetCabang.nama}" sedang DIGEMBOK oleh Admin Pusat (Pak Agan)! Hubungi Owner untuk membuka gembok.`);
+        window.location.replace('/');
         return;
       }
-    }
 
-    const cabangs = await db.getCabangList();
-    setCabangList(cabangs);
+      setCurrentCabang(targetCabang);
 
-    // Check persistent locked branch
-    let lockedCabangId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null;
-    let targetCabang = cabangs.find(c => c.id === lockedCabangId);
+      const menus = await db.getMenuList();
+      setMenuList(menus);
 
-    if (!targetCabang) {
-      // Default to Cabang 1 on first launch, or prompt setup
-      targetCabang = cabangs[0] || null;
-      if (targetCabang && typeof window !== 'undefined') {
-        localStorage.setItem(DEVICE_LOCK_KEY, targetCabang.id);
+      const kategories = await db.getKategoriList();
+      setKategoriList(kategories);
+
+      if (targetCabang) {
+        const shift = await db.getActiveShift(targetCabang.id);
+        setActiveShift(shift);
+        const kars = await db.getKaryawanByCabang(targetCabang.id);
+        setKaryawanList(kars);
       }
+
+      const trxs = await db.getTransaksiList();
+      setTransaksiList(trxs);
+      const exps = await db.getPengeluaranList();
+      setExpenseList(exps);
+    } catch (err) {
+      console.error('Error loading POS data:', err);
     }
-
-    // CEK GEMBOK KEAMANAN CABANG
-    if (targetCabang && targetCabang.is_kasir_locked) {
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('pakagan_kasir_session');
-        sessionStorage.removeItem('pakagan_user');
-      }
-      alert(`AKSES DITOLAK:\nAkses tablet kasir "${targetCabang.nama}" sedang DIGEMBOK oleh Admin Pusat (Pak Agan)! Hubungi Owner untuk membuka gembok.`);
-      window.location.href = '/';
-      return;
-    }
-
-    setCurrentCabang(targetCabang);
-
-    const menus = await db.getMenuList();
-    setMenuList(menus);
-
-    const kategories = await db.getKategoriList();
-    setKategoriList(kategories);
-
-    if (targetCabang) {
-      const shift = await db.getActiveShift(targetCabang.id);
-      setActiveShift(shift);
-      const kars = await db.getKaryawanByCabang(targetCabang.id);
-      setKaryawanList(kars);
-    }
-
-    const trxs = await db.getTransaksiList();
-    setTransaksiList(trxs);
-    const exps = await db.getPengeluaranList();
-    setExpenseList(exps);
   }, []);
 
   useEffect(() => {
@@ -123,38 +133,42 @@ export default function PosPage() {
 
     // SINKRONISASI REALTIME KASIR: Nama toko, alamat, promo struk baru & deteksi gembok
     const handleStorageUpdate = async () => {
-      const cabangs = await db.getCabangList();
-      setCabangList(cabangs);
+      try {
+        const cabangs = await db.getCabangList();
+        setCabangList(cabangs);
 
-      const lockedId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null;
-      const target = cabangs.find(c => c.id === (currentCabang?.id || lockedId)) || cabangs[0] || null;
+        const lockedId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null;
+        const target = cabangs.find(c => c.id === (currentCabangRef.current?.id || lockedId)) || cabangs[0] || null;
 
-      if (target) {
-        // Cek gembok keamanan realtime saat POS sedang berjalan
-        if (target.is_kasir_locked) {
-          if (typeof window !== 'undefined') {
-            sessionStorage.removeItem('pakagan_kasir_session');
-            sessionStorage.removeItem('pakagan_user');
+        if (target) {
+          // Cek gembok keamanan realtime saat POS sedang berjalan
+          if (target.is_kasir_locked) {
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem('pakagan_kasir_session');
+              sessionStorage.removeItem('pakagan_user');
+            }
+            alert(`PERHATIAN KEAMANAN:\nAkses tablet kasir "${target.nama}" telah DIGEMBOK / DINONAKTIFKAN oleh Admin Pusat! Aplikasi kasir otomatis keluar.`);
+            window.location.replace('/');
+            return;
           }
-          alert(`PERHATIAN KEAMANAN:\nAkses tablet kasir "${target.nama}" telah DIGEMBOK / DINONAKTIFKAN oleh Admin Pusat! Aplikasi kasir otomatis keluar.`);
-          window.location.href = '/';
-          return;
+
+          // Sinkronisasi realtime profil cabang terkini ke state POS
+          setCurrentCabang(target);
+          const shift = await db.getActiveShift(target.id);
+          setActiveShift(shift);
+          const kars = await db.getKaryawanByCabang(target.id);
+          setKaryawanList(kars);
         }
 
-        // Sinkronisasi realtime profil cabang terkini ke state POS
-        setCurrentCabang(target);
-        const shift = await db.getActiveShift(target.id);
-        setActiveShift(shift);
-        const kars = await db.getKaryawanByCabang(target.id);
-        setKaryawanList(kars);
+        const menus = await db.getMenuList();
+        setMenuList(menus);
+        const trxs = await db.getTransaksiList();
+        setTransaksiList(trxs);
+        const exps = await db.getPengeluaranList();
+        setExpenseList(exps);
+      } catch (err) {
+        console.warn('Storage sync error:', err);
       }
-
-      const menus = await db.getMenuList();
-      setMenuList(menus);
-      const trxs = await db.getTransaksiList();
-      setTransaksiList(trxs);
-      const exps = await db.getPengeluaranList();
-      setExpenseList(exps);
     };
 
     window.addEventListener('pak_agan_db_updated', handleStorageUpdate);
@@ -164,7 +178,7 @@ export default function PosPage() {
       window.removeEventListener('pak_agan_db_updated', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
     };
-  }, [loadData, currentCabang]);
+  }, [loadData]);
 
   // Lock Device to a specific Cabang
   const handleLockDevice = async (cabangId: string) => {

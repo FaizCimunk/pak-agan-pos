@@ -148,7 +148,7 @@ export default function PosHeader({
                 </span>
                 <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold shrink-0">
                   <Lock className="w-2.5 h-2.5 text-emerald-600" />
-                  <span>{currentCabang.kode} • {currentCabang.nama.split('-')[1]?.trim() || currentCabang.nama}</span>
+                  <span>{currentCabang?.kode || 'CBG'} • {currentCabang?.nama?.split('-')[1]?.trim() || currentCabang?.nama || 'Cabang'}</span>
                 </div>
               </div>
               <div className="text-[11px] text-slate-500 font-medium mt-0.5">
@@ -258,7 +258,7 @@ export default function PosHeader({
                   SERABI BAWEL
                 </span>
                 <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md inline-block">
-                  {currentCabang.kode}
+                  {currentCabang?.kode || 'CBG'}
                 </span>
               </div>
             </div>
@@ -337,7 +337,7 @@ export default function PosHeader({
                     Menu Operasional Toko
                   </h3>
                   <p className="text-xs text-slate-500 font-medium truncate">
-                    {currentCabang.nama} • Kasir: <span className="font-bold text-slate-700">{shortCashierName}</span>
+                    {currentCabang?.nama || 'Cabang Resmi'} • Kasir: <span className="font-bold text-slate-700">{shortCashierName}</span>
                   </p>
                 </div>
               </div>
