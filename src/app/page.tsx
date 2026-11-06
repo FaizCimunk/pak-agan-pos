@@ -216,23 +216,11 @@ export default function LoginPage() {
           </form>
 
           {/* FOOTER HELPER INFO */}
-          <div className="mt-6 pt-4 border-t border-slate-100 text-center relative z-10 space-y-2">
+          <div className="mt-6 pt-4 border-t border-slate-100 text-center relative z-10">
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 font-medium">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>Enkripsi Bank-Grade Aktif &bull; Terhubung ke 10 Cabang Resmi</span>
             </div>
-            
-            <p className="text-[10px] text-slate-400">
-              Lupa sandi akun atau PIN tablet? Hubungi{' '}
-              <a
-                href="https://wa.me/6281234567890?text=Halo%20Pak%20Agan,%20saya%20butuh%20bantuan%20reset%20kredensial%20login%20POS%20Serabi%20Bawel."
-                target="_blank"
-                rel="noreferrer"
-                className="font-bold text-emerald-800 hover:underline"
-              >
-                Owner Pusat (Pak Agan)
-              </a>
-            </p>
           </div>
 
         </div>
