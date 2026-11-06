@@ -9,8 +9,7 @@ import {
   ShieldCheck, 
   ArrowRight, 
   KeyRound,
-  AlertCircle,
-  Sparkles
+  AlertCircle
 } from 'lucide-react';
 import { db } from '@/lib/db';
 import AiBadgeFooter from '@/components/AiBadgeFooter';
@@ -18,8 +17,8 @@ import AiBadgeFooter from '@/components/AiBadgeFooter';
 export default function LoginPage() {
   const router = useRouter();
 
-  // Unified Single-Door Login State
-  const [identifier, setIdentifier] = useState<string>('pakagan');
+  // Unified Single-Door Login State (Clean & Neutral, Zero Pre-filled Sensitive Data)
+  const [identifier, setIdentifier] = useState<string>('');
   const [pin, setPin] = useState<string>('');
   const [showPin, setShowPin] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -33,11 +32,11 @@ export default function LoginPage() {
     const targetPin = pin.trim();
 
     if (!targetIdentifier) {
-      setErrorMsg('Harap masukkan Username, ID Kasir, atau Nomor WhatsApp.');
+      setErrorMsg('Harap masukkan Username, ID Akun, atau Nomor WhatsApp.');
       return;
     }
     if (!targetPin) {
-      setErrorMsg('Harap masukkan PIN atau Sandi Keamanan.');
+      setErrorMsg('Harap masukkan Sandi Keamanan atau PIN.');
       return;
     }
 
@@ -46,7 +45,7 @@ export default function LoginPage() {
       const res = await db.authenticateUser(targetIdentifier, targetPin);
 
       if (!res.success || !res.user) {
-        setErrorMsg(res.message || 'Username atau Sandi salah. Periksa kembali kredensial Anda.');
+        setErrorMsg(res.message || 'Kredensial tidak valid. Periksa kembali akun Anda.');
         setLoading(false);
         return;
       }
@@ -82,7 +81,7 @@ export default function LoginPage() {
       }
       router.push('/karyawan');
     } catch (err: any) {
-      setErrorMsg('Terjadi kendala saat memverifikasi login: ' + (err.message || 'Error'));
+      setErrorMsg('Terjadi kendala saat verifikasi: ' + (err.message || 'Error'));
       setLoading(false);
     }
   };
@@ -125,12 +124,11 @@ export default function LoginPage() {
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
               SERABI BAWEL &amp; WEDANG GEPREK
             </h1>
-            <p className="text-xs font-bold text-slate-500 mt-1">
-              Sistem Kasir &amp; Manajemen Multi-Cabang
-            </p>
-            <span className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold uppercase tracking-wider shadow-xs">
+            
+            {/* Pill Badge Branding Grup */}
+            <span className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black uppercase tracking-wider shadow-xs">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Portal Terpadu Satu Pintu</span>
+              <span>SERABI BAWEL &amp; WEDANG GEPREK GRUP</span>
             </span>
           </div>
 
@@ -145,7 +143,7 @@ export default function LoginPage() {
           {/* MAIN SECURE UNIFIED LOGIN FORM */}
           <form onSubmit={handleLogin} className="space-y-4 relative z-10">
             
-            {/* INPUT IDENTIFIER (USERNAME / NO HP / ID TOKO) */}
+            {/* INPUT IDENTIFIER (USERNAME / NO HP / ID AKUN) */}
             <div>
               <label className="block text-xs font-extrabold text-slate-800 mb-1.5">
                 Username / ID Akun / No. WhatsApp:
@@ -155,9 +153,10 @@ export default function LoginPage() {
                   type="text"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="Contoh: pakagan / kasir_cbg1 / siti"
+                  placeholder="Masukkan Username atau No. WhatsApp"
                   required
                   autoCapitalize="none"
+                  autoComplete="username"
                   className="w-full pl-10 pr-3.5 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-slate-900 bg-slate-50 text-xs font-bold transition-all shadow-inner"
                 />
                 <div className="w-5 h-5 absolute left-3 top-3.5 flex items-center justify-center text-slate-400">
@@ -189,6 +188,7 @@ export default function LoginPage() {
                   onChange={(e) => setPin(e.target.value)}
                   placeholder="Masukkan Sandi Keamanan atau PIN"
                   required
+                  autoComplete="current-password"
                   className="w-full pl-10 pr-10 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-slate-900 bg-slate-50 text-xs font-bold transition-all shadow-inner"
                 />
                 <div className="w-5 h-5 absolute left-3 top-3.5 flex items-center justify-center text-slate-400">
@@ -197,17 +197,11 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* AUTO-ROUTING HINT BANNER */}
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-2 text-[10px] text-slate-500 font-semibold">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <span>Sistem otomatis mendeteksi akses Anda (Owner, Kasir, atau Karyawan) setelah login.</span>
-            </div>
-
             {/* SUBMIT BUTTON (TEBAL & TAKTIL HIJAU EMERALD) */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 rounded-2xl font-black text-sm tracking-wide transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer btn-tactile bg-gradient-to-r from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-700 hover:to-emerald-900 text-white shadow-emerald-700/30 border border-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full py-3.5 px-4 rounded-2xl font-black text-sm tracking-wide transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer btn-tactile bg-gradient-to-r from-emerald-600 via-emerald-700 to-emerald-800 hover:from-emerald-700 hover:to-emerald-900 text-white shadow-emerald-700/30 border border-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed mt-2"
             >
               <span>{loading ? 'MEMVERIFIKASI KREDENSIAL...' : 'MASUK KE SISTEM'}</span>
               <ArrowRight className="w-4 h-4 shrink-0" />
@@ -219,7 +213,7 @@ export default function LoginPage() {
           <div className="mt-6 pt-4 border-t border-slate-100 text-center relative z-10">
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 font-medium">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Enkripsi Bank-Grade Aktif &bull; Terhubung ke 10 Cabang Resmi</span>
+              <span>Sistem Terenkripsi &bull; Akses Resmi Terlindungi</span>
             </div>
           </div>
 
