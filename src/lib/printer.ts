@@ -100,15 +100,33 @@ class BluetoothPrinterService {
   private device: any = null;
   private characteristic: any = null;
 
+  isNativeApp(): boolean {
+    return typeof window !== 'undefined' && !!(window as any).ReactNativeWebView;
+  }
+
   async isBluetoothAvailable(): Promise<boolean> {
+    if (this.isNativeApp()) return true;
     if (typeof window === 'undefined') return false;
     return !!(navigator as any).bluetooth;
   }
 
   async connect(): Promise<{ success: boolean; name?: string; message?: string }> {
+    // 1. Jika berjalan di dalam Native Android APK (seperti Ivok Laundry)
+    if (this.isNativeApp()) {
+      try {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'BT_GET_PAIRED_DEVICES',
+        }));
+        return { success: true, name: 'Printer Native Android Aktif' };
+      } catch (e: any) {
+        return { success: false, message: e.message || 'Gagal memanggil native printer bridge.' };
+      }
+    }
+
+    // 2. Fallback Web Bluetooth BLE untuk browser desktop / Chrome kompatibel
     try {
       if (!(await this.isBluetoothAvailable())) {
-        return { success: false, message: 'Web Bluetooth API tidak didukung di browser ini.' };
+        return { success: false, message: 'Web Bluetooth API tidak didukung di browser ini. Gunakan Aplikasi APK Kasir untuk mencetak ke printer thermal Bluetooth.' };
       }
 
       const bluetooth = (navigator as any).bluetooth;
@@ -145,6 +163,26 @@ class BluetoothPrinterService {
   }
 
   async printRaw(bytes: Uint8Array): Promise<boolean> {
+    // 1. Jika berjalan di Android APK Native Shell (Ivok Laundry Bridge)
+    if (this.isNativeApp()) {
+      try {
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'BT_PRINT_RECEIPT',
+          rawBytes: Array.from(bytes),
+          text: binary,
+          openDrawer: true,
+        }));
+        return true;
+      } catch (e) {
+        console.warn('Native WebView bridge print error:', e);
+      }
+    }
+
+    // 2. Web Bluetooth BLE Characteristic
     if (!this.characteristic) return false;
     try {
       const CHUNK_SIZE = 512;
