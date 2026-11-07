@@ -85,6 +85,136 @@ function saveLocal<T>(key: string, val: T): void {
   }
 }
 
+// ----------------------------------------------------------------------------
+// SUPABASE UUID & MULTI-CABANG COMPATIBILITY NORMALIZERS
+// ----------------------------------------------------------------------------
+export const CABANG_MAP_INFO = [
+  { nomor: 1, kode: 'CBG-01', id: 'cbg-1', uuid: '033131aa-c935-475c-bba5-c8d383207cdc', nama: 'Cabang 01 - Malioboro Pusat' },
+  { nomor: 2, kode: 'CBG-02', id: 'cbg-2', uuid: '1725e780-62fd-4fc7-9579-8bc1072f9bde', nama: 'Cabang 02 - Seturan Premium' },
+  { nomor: 3, kode: 'CBG-03', id: 'cbg-3', uuid: 'd820c1e2-ff24-45db-a5e9-afc3693858fa', nama: 'Cabang 03 - Jakal KM 5 Kampus' },
+  { nomor: 4, kode: 'CBG-04', id: 'cbg-4', uuid: '13f42afb-cc08-4432-88e3-7c2a3f9ae58e', nama: 'Cabang 04 - Gejayan Santai' },
+  { nomor: 5, kode: 'CBG-05', id: 'cbg-5', uuid: '7420a530-75ff-4738-9d8a-33f524c6f0a0', nama: 'Cabang 05 - Bantul Heritage' },
+  { nomor: 6, kode: 'CBG-06', id: 'cbg-6', uuid: 'c944d25a-ad4d-4f7c-8b15-53f1835a4bc3', nama: 'Cabang 06 - Solo Paragon' },
+  { nomor: 7, kode: 'CBG-07', id: 'cbg-7', uuid: 'cf96130a-3d7f-414c-a24d-63ff531832c6', nama: 'Cabang 07 - Simpang Lima' },
+  { nomor: 8, kode: 'CBG-08', id: 'cbg-8', uuid: '36f63123-9e00-4f0e-a994-aca423217563', nama: 'Cabang 08 - Sudirman CBD' },
+  { nomor: 9, kode: 'CBG-09', id: 'cbg-9', uuid: 'b989aa0d-0287-4beb-8756-2b04762410ec', nama: 'Cabang 09 - Dago Asri' },
+  { nomor: 10, kode: 'CBG-10', id: 'cbg-10', uuid: 'f3704352-1bc3-490d-9e95-c305c8238c12', nama: 'Cabang 10 - Gubeng Raya' },
+];
+
+export const MENU_UUID_MAP: Record<string, string> = {
+  'SB-01': '0f86c544-4c70-4aac-a1e7-b645b62df6f1',
+  'sb-durian': '0f86c544-4c70-4aac-a1e7-b645b62df6f1',
+  'SB-02': 'c88c523f-3cc2-473d-9a42-4920afc6ba92',
+  'sb-keju': 'c88c523f-3cc2-473d-9a42-4920afc6ba92',
+  'SB-03': '9206368e-c97d-4bb4-8ccb-075c986965fe',
+  'sb-oncom': '9206368e-c97d-4bb4-8ccb-075c986965fe',
+  'SB-04': '89b3c8a8-be68-4ea8-a085-54a51d84f2e5',
+  'sb-pandan': '89b3c8a8-be68-4ea8-a085-54a51d84f2e5',
+  'SB-05': 'e994bca7-37b4-42f2-a4f5-5ea7d641cab7',
+  'sb-telur': 'e994bca7-37b4-42f2-a4f5-5ea7d641cab7',
+  'WD-01': 'b9ae10a9-726c-4e04-9146-f016a0fa2ad1',
+  'wd-jahe': 'b9ae10a9-726c-4e04-9146-f016a0fa2ad1',
+  'WD-02': '2f00cac6-f672-493a-9139-758845aa4767',
+  'wd-uwuh': '2f00cac6-f672-493a-9139-758845aa4767',
+  'WD-03': '3b128a5e-f6c3-4d22-b716-d3c7da74711a',
+  'wd-ronde': '3b128a5e-f6c3-4d22-b716-d3c7da74711a',
+  'WD-04': 'bffba394-9b97-449a-8016-07c55255fea3',
+  'wd-kopi': 'bffba394-9b97-449a-8016-07c55255fea3',
+  'ES-01': 'cdaea903-ea85-4589-bcea-b452f930bae0',
+  'es-kunyit': 'cdaea903-ea85-4589-bcea-b452f930bae0',
+  'ES-02': '144f051e-a93d-4de6-a1a5-d0dca503a965',
+  'es-beras': '144f051e-a93d-4de6-a1a5-d0dca503a965',
+  'ST-01': 'f16c3c3e-4e87-4209-bdbe-d6b24fbe99b0',
+  'st-stmj': 'f16c3c3e-4e87-4209-bdbe-d6b24fbe99b0',
+  'ST-02': '90b24ec2-cc5c-486f-af83-932701cf53ee',
+  'st-bajigur': '90b24ec2-cc5c-486f-af83-932701cf53ee',
+  'CM-01': '03761f55-7207-4034-a0c9-0d1ccbab67fe',
+  'cm-pisang': '03761f55-7207-4034-a0c9-0d1ccbab67fe',
+  'CM-02': '870a21f6-523a-4851-9385-aee4daf5074a',
+  'cm-singkong': '870a21f6-523a-4851-9385-aee4daf5074a',
+};
+
+export const KARYAWAN_UUID_MAP: Record<string, string> = {
+  'owner': 'b75325fa-cedb-407d-a42d-9a21a05a0be8',
+  'pakagan': 'b75325fa-cedb-407d-a42d-9a21a05a0be8',
+  'kar-1': '9d4ff5e1-cadc-40bc-86a0-d337263a5d46',
+  'siti': '9d4ff5e1-cadc-40bc-86a0-d337263a5d46',
+  'kar-2': '303b5220-d49e-4240-b074-3e1dca97c545',
+  'budi': '303b5220-d49e-4240-b074-3e1dca97c545',
+  'kar-3': 'bf55cca2-7491-4b59-a7c1-20ff40de8844',
+  'dewi': 'bf55cca2-7491-4b59-a7c1-20ff40de8844',
+  'kar-4': '19a1fcf0-d3a1-4ad1-a381-8a3423207698',
+  'agus': '19a1fcf0-d3a1-4ad1-a381-8a3423207698',
+  'kar-5': 'edf9966c-17df-4643-b5a3-91bb7e776f73',
+  'rian': 'edf9966c-17df-4643-b5a3-91bb7e776f73',
+  'kar-6': '9399d8ce-ac8c-4349-88c8-3531d6a5c0ab',
+  'tri': '9399d8ce-ac8c-4349-88c8-3531d6a5c0ab',
+  'kar-7': 'bc23bd72-aa92-4e60-997c-d4ce0deae62f',
+  'wahyu': 'bc23bd72-aa92-4e60-997c-d4ce0deae62f',
+  'kar-8': 'c240488a-16c3-47be-87b5-1e800d46d3cd',
+  'dewis': 'c240488a-16c3-47be-87b5-1e800d46d3cd',
+  'kar-9': '031105ad-0af4-43b1-8c50-2d8351874998',
+  'rianf': '031105ad-0af4-43b1-8c50-2d8351874998',
+  'kar-10': 'a56239fd-78f5-47f3-aaca-f969a4881b13',
+  'lilis': 'a56239fd-78f5-47f3-aaca-f969a4881b13',
+  'kar-11': '61058e79-6467-4f8a-acd9-e23aa02b9973',
+  'eko': '61058e79-6467-4f8a-acd9-e23aa02b9973',
+};
+
+export function isValidUuid(str?: string | null): boolean {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str.trim());
+}
+
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+export function getBranchUuid(idOrCode?: string | null): string | null {
+  if (!idOrCode) return null;
+  const clean = idOrCode.trim().toLowerCase();
+  const match = CABANG_MAP_INFO.find(
+    c => c.uuid.toLowerCase() === clean || 
+         c.id.toLowerCase() === clean || 
+         c.kode.toLowerCase() === clean || 
+         String(c.nomor) === clean ||
+         `cbg${c.nomor}` === clean ||
+         `cbg-${c.nomor}` === clean ||
+         `cabang${c.nomor}` === clean
+  );
+  return match ? match.uuid : (isValidUuid(idOrCode) ? idOrCode : null);
+}
+
+export function getBranchName(idOrCodeOrUuid?: string | null): string {
+  if (!idOrCodeOrUuid) return 'Cabang';
+  const clean = idOrCodeOrUuid.trim().toLowerCase();
+  const match = CABANG_MAP_INFO.find(
+    c => c.uuid.toLowerCase() === clean || 
+         c.id.toLowerCase() === clean || 
+         c.kode.toLowerCase() === clean || 
+         String(c.nomor) === clean ||
+         c.nama.toLowerCase().includes(clean)
+  );
+  return match ? match.nama : 'Cabang ' + idOrCodeOrUuid;
+}
+
+export function isBranchMatch(idA?: string | null, idB?: string | null): boolean {
+  if (!idA || !idB) return false;
+  if (idA === idB) return true;
+  if (idB === 'all' || idA === 'all') return true;
+  const uuidA = getBranchUuid(idA);
+  const uuidB = getBranchUuid(idB);
+  if (uuidA && uuidB && uuidA.toLowerCase() === uuidB.toLowerCase()) return true;
+  return false;
+}
+
 export class PosDatabase {
   // --------------------------------------------------------------------------
   // CABANG (10 CABANG RESMI)
@@ -993,74 +1123,155 @@ export class PosDatabase {
   // TRANSAKSI PENJUALAN
   // --------------------------------------------------------------------------
   async getTransaksiList(cabangId?: string): Promise<Transaksi[]> {
+    let cloudList: Transaksi[] = [];
     if (isSupabaseConfigured && supabase) {
       try {
         let query = supabase.from('transaksi').select('*, items:transaksi_item(*)').order('waktu', { ascending: false });
-        if (cabangId) query = query.eq('cabang_id', cabangId);
+        if (cabangId && cabangId !== 'all') {
+          const targetUuid = getBranchUuid(cabangId);
+          if (targetUuid) {
+            query = query.eq('cabang_id', targetUuid);
+          }
+        }
         const { data, error } = await query;
-        if (!error && data && data.length > 0) return data;
+        if (!error && data) {
+          cloudList = data.map((d: any) => ({
+            id: d.id,
+            invoice_no: d.invoice_no,
+            cabang_id: d.cabang_id,
+            cabang_nama: d.cabang_nama || getBranchName(d.cabang_id),
+            shift_id: d.shift_id,
+            karyawan_id: d.karyawan_id,
+            nama_pelanggan: d.nama_pelanggan,
+            waktu: d.waktu,
+            subtotal: Number(d.subtotal),
+            diskon: Number(d.diskon || 0),
+            total: Number(d.total),
+            metode_bayar: d.metode_bayar,
+            bayar: Number(d.bayar),
+            kembali: Number(d.kembali || 0),
+            status: d.status,
+            is_offline_synced: d.is_offline_synced,
+            items: (d.items || []).map((it: any) => ({
+              id: it.id,
+              transaksi_id: it.transaksi_id,
+              menu_id: it.menu_id,
+              nama_menu: it.nama_menu,
+              harga: Number(it.harga),
+              qty: Number(it.qty),
+              subtotal: Number(it.subtotal),
+              catatan: it.catatan,
+            })),
+          }));
+        }
       } catch (e) {
         console.warn('Fallback to local transaksi:', e);
       }
     }
-    const all = loadLocal<Transaksi[]>(STORAGE_KEYS.TRANSAKSI, INITIAL_TRANSAKSI);
-    // Ensure all INITIAL_TRANSAKSI are included if missing (e.g. newly added demo channel orders)
-    const existingIds = new Set(all.map(t => t.id));
-    let hasNew = false;
-    for (const initTrx of INITIAL_TRANSAKSI) {
-      if (!existingIds.has(initTrx.id)) {
-        all.push(initTrx);
-        hasNew = true;
+
+    const local = loadLocal<Transaksi[]>(STORAGE_KEYS.TRANSAKSI, INITIAL_TRANSAKSI);
+
+    // Gabungkan cloud dan local dengan deduplikasi berdasar invoice_no atau id
+    const combinedMap = new Map<string, Transaksi>();
+    for (const trx of cloudList) {
+      combinedMap.set(trx.invoice_no || trx.id, trx);
+    }
+    for (const trx of local) {
+      const key = trx.invoice_no || trx.id;
+      if (!combinedMap.has(key)) {
+        combinedMap.set(key, {
+          ...trx,
+          cabang_nama: trx.cabang_nama || getBranchName(trx.cabang_id),
+        });
       }
     }
-    if (hasNew) {
-      all.sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime());
-      saveLocal(STORAGE_KEYS.TRANSAKSI, all);
+
+    const combined = Array.from(combinedMap.values()).sort(
+      (a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime()
+    );
+
+    if (cabangId && cabangId !== 'all') {
+      return combined.filter(t => isBranchMatch(t.cabang_id, cabangId));
     }
-    if (cabangId) return all.filter(t => t.cabang_id === cabangId);
-    return all;
+    return combined;
   }
 
   async createTransaksi(trx: Transaksi): Promise<Transaksi> {
+    // 1. Pastikan ID transaksi berformat UUID valid
+    if (!isValidUuid(trx.id)) {
+      trx.id = generateUUID();
+    }
+    
+    // Pastikan cabang_nama terisi
+    if (!trx.cabang_nama) {
+      trx.cabang_nama = getBranchName(trx.cabang_id);
+    }
+
+    // Simpan ke storage lokal perangkat untuk offline-first resilience
     const all = loadLocal<Transaksi[]>(STORAGE_KEYS.TRANSAKSI, INITIAL_TRANSAKSI);
     all.unshift(trx);
     saveLocal(STORAGE_KEYS.TRANSAKSI, all);
 
+    // 2. Unggah langsung ke cloud Supabase (Real-Time Live POS)
     if (isSupabaseConfigured && supabase) {
       try {
+        const branchUuid = getBranchUuid(trx.cabang_id) || CABANG_MAP_INFO[0].uuid;
+        const shiftUuid = isValidUuid(trx.shift_id) ? trx.shift_id : null;
+        const karyawanUuid = isValidUuid(trx.karyawan_id) 
+          ? trx.karyawan_id 
+          : (trx.karyawan_id && KARYAWAN_UUID_MAP[trx.karyawan_id]) || null;
+
         const { error } = await supabase.from('transaksi').insert([{
           id: trx.id,
           invoice_no: trx.invoice_no,
-          cabang_id: trx.cabang_id,
-          shift_id: trx.shift_id,
-          karyawan_id: trx.karyawan_id,
-          nama_pelanggan: trx.nama_pelanggan,
-          waktu: trx.waktu,
+          cabang_id: branchUuid,
+          shift_id: shiftUuid,
+          karyawan_id: karyawanUuid,
+          nama_pelanggan: trx.nama_pelanggan || 'Pelanggan Walk-in',
+          waktu: trx.waktu || new Date().toISOString(),
           subtotal: trx.subtotal,
-          diskon: trx.diskon,
+          diskon: trx.diskon || 0,
           total: trx.total,
           metode_bayar: trx.metode_bayar,
           bayar: trx.bayar,
           kembali: trx.kembali,
-          status: trx.status,
-          is_offline_synced: trx.is_offline_synced,
+          status: trx.status || 'completed',
+          is_offline_synced: true,
         }]);
 
-        if (!error && trx.items && trx.items.length > 0) {
-          const itemsPayload = trx.items.map(it => ({
-            transaksi_id: trx.id,
-            menu_id: it.menu_id,
-            nama_menu: it.nama_menu,
-            harga: it.harga,
-            qty: it.qty,
-            subtotal: it.subtotal,
-            catatan: it.catatan,
-          }));
-          await supabase.from('transaksi_item').insert(itemsPayload);
+        if (error) {
+          console.error('Supabase transaksi insert error:', error);
+        } else {
+          trx.is_offline_synced = true;
+          if (trx.items && trx.items.length > 0) {
+            const itemsPayload = trx.items.map(it => {
+              const menuUuid = isValidUuid(it.menu_id) 
+                ? it.menu_id 
+                : (it.menu_id && MENU_UUID_MAP[it.menu_id]) || null;
+              return {
+                id: generateUUID(),
+                transaksi_id: trx.id,
+                menu_id: menuUuid,
+                nama_menu: it.nama_menu,
+                harga: it.harga,
+                qty: it.qty,
+                subtotal: it.subtotal,
+                catatan: it.catatan || null,
+              };
+            });
+            const { error: itemsErr } = await supabase.from('transaksi_item').insert(itemsPayload);
+            if (itemsErr) {
+              console.error('Supabase transaksi_item insert error:', itemsErr);
+            }
+          }
         }
       } catch (e) {
         console.warn('Error inserting into Supabase:', e);
       }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
 
     return trx;
@@ -1070,25 +1281,66 @@ export class PosDatabase {
   // APPROVAL CENTER: BELANJA & KASBON
   // --------------------------------------------------------------------------
   async getPengeluaranList(cabangId?: string): Promise<PengeluaranKasbon[]> {
+    let cloudExpenses: PengeluaranKasbon[] = [];
     if (isSupabaseConfigured && supabase) {
       try {
         let query = supabase.from('pengeluaran_kasbon').select('*').order('tanggal', { ascending: false });
-        if (cabangId) query = query.eq('cabang_id', cabangId);
+        if (cabangId && cabangId !== 'all') {
+          const targetUuid = getBranchUuid(cabangId);
+          if (targetUuid) query = query.eq('cabang_id', targetUuid);
+        }
         const { data, error } = await query;
-        if (!error && data && data.length > 0) return data;
+        if (!error && data) {
+          cloudExpenses = data.map((d: any) => ({
+            ...d,
+            cabang_nama: d.cabang_nama || getBranchName(d.cabang_id),
+          }));
+        }
       } catch (e) {
         console.warn('Fallback to local expenses:', e);
       }
     }
+
     const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
-    if (cabangId) return all.filter(e => e.cabang_id === cabangId);
-    return all;
+    const combinedMap = new Map<string, PengeluaranKasbon>();
+    for (const exp of cloudExpenses) {
+      combinedMap.set(exp.id, exp);
+    }
+    for (const exp of all) {
+      if (!combinedMap.has(exp.id)) {
+        combinedMap.set(exp.id, {
+          ...exp,
+          cabang_nama: exp.cabang_nama || getBranchName(exp.cabang_id),
+        });
+      }
+    }
+
+    const combined = Array.from(combinedMap.values()).sort(
+      (a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
+    );
+
+    if (cabangId && cabangId !== 'all') {
+      return combined.filter(e => isBranchMatch(e.cabang_id, cabangId));
+    }
+    return combined;
   }
 
   async createPengeluaran(item: Omit<PengeluaranKasbon, 'id' | 'status' | 'is_settled' | 'tanggal'> & { tanggal?: string }): Promise<PengeluaranKasbon> {
+    const newId = generateUUID();
+    const branchUuid = getBranchUuid(item.cabang_id) || CABANG_MAP_INFO[0].uuid;
+    const shiftUuid = isValidUuid(item.shift_id) ? item.shift_id : null;
+    const karyawanUuid = isValidUuid(item.karyawan_id) 
+      ? item.karyawan_id 
+      : (item.karyawan_id && KARYAWAN_UUID_MAP[item.karyawan_id]) || null;
+    const menuUuid = isValidUuid(item.menu_id) 
+      ? item.menu_id 
+      : (item.menu_id && MENU_UUID_MAP[item.menu_id]) || null;
+
     const newItem: PengeluaranKasbon = {
       ...item,
-      id: 'exp-' + Date.now(),
+      id: newId,
+      cabang_id: branchUuid,
+      cabang_nama: item.cabang_nama || getBranchName(branchUuid),
       status: 'pending',
       is_settled: false,
       tanggal: item.tanggal || new Date().toISOString(),
@@ -1100,10 +1352,32 @@ export class PosDatabase {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('pengeluaran_kasbon').insert([newItem]);
+        await supabase.from('pengeluaran_kasbon').insert([{
+          id: newId,
+          cabang_id: branchUuid,
+          shift_id: shiftUuid,
+          karyawan_id: karyawanUuid,
+          pemohon_nama: item.pemohon_nama,
+          pemohon_telepon: item.pemohon_telepon || null,
+          jenis: item.jenis,
+          kategori_belanja: item.kategori_belanja || null,
+          menu_id: menuUuid,
+          qty_porsi: item.qty_porsi || null,
+          keperluan: item.keperluan,
+          nominal: item.nominal,
+          status: 'pending',
+          metode_pencairan: item.metode_pencairan || null,
+          bukti_transfer_url: item.bukti_transfer_url || null,
+          is_settled: false,
+          tanggal: newItem.tanggal,
+        }]);
       } catch (e) {
         console.warn('Failed insert to supabase pengeluaran:', e);
       }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
 
     return newItem;

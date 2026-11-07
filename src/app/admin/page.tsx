@@ -37,7 +37,8 @@ import {
   FixedCostHarianCabang,
   PembayaranFixedCostBulanan
 } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, isBranchMatch } from '@/lib/db';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole, getTodayDateString } from '@/lib/utils';
 
 import { 
@@ -281,22 +282,48 @@ export default function AdminDashboardPage() {
     window.addEventListener('pak_agan_db_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
+    // 1. Supabase Realtime live sync channel (antar perangkat tablet kasir & laptop boss)
+    let channel: any = null;
+    if (isSupabaseConfigured && supabase) {
+      channel = supabase
+        .channel('admin_live_feed')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'transaksi' }, () => {
+          refreshAllData();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pengeluaran_kasbon' }, () => {
+          refreshAllData();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, () => {
+          refreshAllData();
+        })
+        .subscribe();
+    }
+
+    // 2. Polling cadangan setiap 10 detik agar data transaksi live selalu segar
+    const pollInterval = setInterval(() => {
+      refreshAllData();
+    }, 10000);
+
     return () => {
       window.removeEventListener('pak_agan_db_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
+      clearInterval(pollInterval);
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
 
   // Filtered Transaksi
   const filteredTransaksi = useMemo(() => {
     if (selectedCabangId === 'all') return transaksiList;
-    return transaksiList.filter(t => t.cabang_id === selectedCabangId);
+    return transaksiList.filter(t => isBranchMatch(t.cabang_id, selectedCabangId));
   }, [transaksiList, selectedCabangId]);
 
   // Filtered Expenses
   const filteredExpenses = useMemo(() => {
     if (selectedCabangId === 'all') return expenseList;
-    return expenseList.filter(e => e.cabang_id === selectedCabangId);
+    return expenseList.filter(e => isBranchMatch(e.cabang_id, selectedCabangId));
   }, [expenseList, selectedCabangId]);
 
   // Aggregate Metrics

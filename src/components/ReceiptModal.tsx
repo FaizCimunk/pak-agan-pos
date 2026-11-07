@@ -17,36 +17,11 @@ export default function ReceiptModal({
   cabang,
   onClose,
 }: ReceiptModalProps) {
-  const [printed, setPrinted] = useState(false);
-  const [isBluetoothReady, setIsBluetoothReady] = useState(false);
+  const [printed, setPrinted] = useState(true);
+  const [isBluetoothReady, setIsBluetoothReady] = useState(true);
   const [showReceiptDetail, setShowReceiptDetail] = useState(false);
   const [showWaInput, setShowWaInput] = useState(false);
   const [waPhone, setWaPhone] = useState('');
-  const hasAutoPrintedRef = useRef(false);
-
-  // Auto-Print: Tepat 1x cetak saat transaksi selesai (mencegah cetak berulang/bergulir terus)
-  useEffect(() => {
-    if (hasAutoPrintedRef.current) return;
-    hasAutoPrintedRef.current = true;
-
-    const directThermalPrint = async () => {
-      try {
-        const bytes = printerService.buildReceiptCommands(transaksi, cabang);
-        const success = await printerService.printRaw(bytes);
-        if (success) {
-          setPrinted(true);
-          setIsBluetoothReady(true);
-        } else {
-          setIsBluetoothReady(false);
-        }
-      } catch (err) {
-        console.warn('Direct thermal print check:', err);
-        setIsBluetoothReady(false);
-      }
-    };
-
-    directThermalPrint();
-  }, []);
 
   // Keyboard shortcut: Tekan Enter untuk lanjut ke pesanan berikutnya
   useEffect(() => {

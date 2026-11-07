@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { Cabang, Transaksi, Karyawan, Absensi, MenuItem, BahanBaku, KirimanBahanPusat, PengeluaranKasbon } from '@/lib/types';
 import { formatRupiah, formatNominal, parseNominal, formatWaktu, getTodayDateString } from '@/lib/utils';
-import { db } from '@/lib/db';
+import { db, isBranchMatch } from '@/lib/db';
 
 interface SeniorBossDashboardProps {
   cabangList: Cabang[];
@@ -118,8 +118,9 @@ export default function SeniorBossDashboard({
   // Target transactions on selectedDate
   const targetTrx = useMemo(() => {
     return transaksiList.filter(t => {
-      const matchBranch = isAllCabang || t.cabang_id === selectedCabangId;
-      const matchDate = t.waktu && t.waktu.startsWith(selectedDate);
+      const matchBranch = isAllCabang || isBranchMatch(t.cabang_id, selectedCabangId);
+      const trxDate = t.waktu ? (t.waktu.length === 10 ? t.waktu : getTodayDateString(new Date(t.waktu))) : '';
+      const matchDate = trxDate === selectedDate || (t.waktu && t.waktu.startsWith(selectedDate));
       return matchBranch && matchDate && t.status === 'completed';
     });
   }, [transaksiList, isAllCabang, selectedCabangId, selectedDate]);
@@ -174,7 +175,7 @@ export default function SeniorBossDashboard({
 
   const targetAbsensiToday = useMemo(() => {
     return absensiList.filter(a => {
-      const matchBranch = isAllCabang || a.cabang_id === selectedCabangId;
+      const matchBranch = isAllCabang || isBranchMatch(a.cabang_id, selectedCabangId);
       const matchDate = a.tanggal === selectedDate;
       const isPresent = a.status === 'hadir' || a.status === 'setengah_hari';
       return matchBranch && matchDate && isPresent;

@@ -26,7 +26,7 @@ import {
   PengeluaranKasbon,
   PaymentMethod 
 } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, generateUUID } from '@/lib/db';
 import { printerService } from '@/lib/printer';
 import { queueOfflineTransaction } from '@/lib/offline-sync';
 import { generateInvoiceNumber, formatRupiah, getTodayDateString } from '@/lib/utils';
@@ -261,7 +261,7 @@ export default function PosPage() {
     const total = subtotal;
 
     const newTrx: Transaksi = {
-      id: 'trx-' + Date.now(),
+      id: generateUUID(),
       invoice_no: generateInvoiceNumber(currentCabang.kode),
       cabang_id: currentCabang.id,
       cabang_nama: currentCabang.nama,
