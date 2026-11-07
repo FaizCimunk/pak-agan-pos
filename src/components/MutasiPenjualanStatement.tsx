@@ -18,7 +18,6 @@ import {
   Store, 
   RotateCcw, 
   TrendingUp,
-  FileSpreadsheet,
   CheckCircle2,
   SlidersHorizontal,
   ChevronDown
@@ -228,36 +227,6 @@ export default function MutasiPenjualanStatement({
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
   ];
 
-  // Export to CSV
-  const handleExportCSV = () => {
-    if (filteredData.length === 0) {
-      alert('Tidak ada transaksi yang dapat diexport.');
-      return;
-    }
-
-    const headers = ['No Invoice', 'Waktu', 'Cabang', 'Kasir', 'Pelanggan', 'Item Pesanan', 'Metode Bayar', 'Total Tagihan (Rp)', 'Status'];
-    const rows = filteredData.map(t => [
-      `"${t.invoice_no}"`,
-      `"${formatWaktu(t.waktu)}"`,
-      `"${t.cabang_nama || 'Cabang'}"`,
-      `"${t.karyawan_nama || 'Kasir'}"`,
-      `"${t.nama_pelanggan || '-'}"`,
-      `"${t.items?.map(it => `${it.qty}x ${it.nama_menu}`).join('; ') || '-'}"`,
-      `"${t.metode_bayar.toUpperCase()}"`,
-      t.total,
-      `"${t.status.toUpperCase()}"`
-    ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Mutasi_Penjualan_${periodMode}_${selectedDate || selectedYear}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   // Get Branch Object for Receipt Modal
   const activeBranchForReceipt = useMemo(() => {
     if (!receiptTrx) return null;
@@ -341,17 +310,6 @@ export default function MutasiPenjualanStatement({
               }`}
             >
               <span>Semua Riwayat</span>
-            </button>
-
-            {/* Export CSV Button */}
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              title="Unduh Data CSV (Excel)"
-              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all ml-1 cursor-pointer"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">CSV</span>
             </button>
           </div>
         </div>
