@@ -263,12 +263,12 @@ export class PosDatabase {
 
   async getCabangById(id: string): Promise<Cabang | undefined> {
     const list = await this.getCabangList();
-    return list.find(c => c.id === id || String(c.nomor) === id || c.kode === id);
+    return list.find(c => isBranchMatch(c.id, id));
   }
 
   async updateCabang(id: string, updates: Partial<Cabang>): Promise<Cabang> {
     const list = await this.getCabangList();
-    const index = list.findIndex(c => c.id === id || c.kode === id);
+    const index = list.findIndex(c => isBranchMatch(c.id, id));
     if (index === -1) throw new Error(`Cabang dengan ID ${id} tidak ditemukan.`);
 
     const updatedCabang: Cabang = {
@@ -626,7 +626,11 @@ export class PosDatabase {
   async resetKaryawanPin(karyawanId: string, newPin: string): Promise<boolean> {
     const list = await this.getAllKaryawan();
     const hashed = await hashPin(newPin);
-    const updated = list.map(k => k.id === karyawanId ? { ...k, pin_hash: hashed, password_plain: newPin } : k);
+    const targetKarUuid = getKaryawanUuid(karyawanId);
+    const updated = list.map(k => {
+      const isMatch = k.id === karyawanId || k.username === karyawanId || (targetKarUuid && getKaryawanUuid(k.id) === targetKarUuid);
+      return isMatch ? { ...k, pin_hash: hashed, password_plain: newPin } : k;
+    });
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
 
     if (isSupabaseConfigured && supabase) {
@@ -651,8 +655,10 @@ export class PosDatabase {
     if (data.pin) {
       newHash = await hashPin(data.pin);
     }
+    const targetKarUuid = getKaryawanUuid(karyawanId);
     const updated = list.map(k => {
-      if (k.id === karyawanId) {
+      const isMatch = k.id === karyawanId || k.username === karyawanId || (targetKarUuid && getKaryawanUuid(k.id) === targetKarUuid);
+      if (isMatch) {
         return {
           ...k,
           ...(data.username ? { username: data.username.toLowerCase().trim() } : {}),
