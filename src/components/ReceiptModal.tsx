@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Printer, ArrowRight, MessageCircle, ChevronDown, ChevronUp, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Transaksi, Cabang } from '@/lib/types';
 import { printerService } from '@/lib/printer';
@@ -22,10 +22,13 @@ export default function ReceiptModal({
   const [showReceiptDetail, setShowReceiptDetail] = useState(false);
   const [showWaInput, setShowWaInput] = useState(false);
   const [waPhone, setWaPhone] = useState('');
+  const hasAutoPrintedRef = useRef(false);
 
-  // Auto-Print: If Bluetooth thermal printer is already paired, print silently!
-  // If not paired, DO NOT auto-trigger window.print() so mobile doesn't pop up A4 PDF dialog.
+  // Auto-Print: Tepat 1x cetak saat transaksi selesai (mencegah cetak berulang/bergulir terus)
   useEffect(() => {
+    if (hasAutoPrintedRef.current) return;
+    hasAutoPrintedRef.current = true;
+
     const directThermalPrint = async () => {
       try {
         const bytes = printerService.buildReceiptCommands(transaksi, cabang);
@@ -43,8 +46,10 @@ export default function ReceiptModal({
     };
 
     directThermalPrint();
+  }, []);
 
-    // Keyboard shortcut: Pressing 'Enter' automatically finishes and goes to Next Order
+  // Keyboard shortcut: Tekan Enter untuk lanjut ke pesanan berikutnya
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !showWaInput) {
         e.preventDefault();
@@ -53,7 +58,7 @@ export default function ReceiptModal({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [transaksi, cabang, onClose, showWaInput]);
+  }, [onClose, showWaInput]);
 
   const handlePrintManual = async () => {
     try {

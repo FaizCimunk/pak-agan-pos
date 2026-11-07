@@ -51,8 +51,11 @@ class EscPosBuilder {
   }
 
   text(str: string) {
+    // Sanitasi karakter khusus: ganti non-breaking space (\u00a0 / \u202F) menjadi spasi biasa (ASCII 0x20)
+    // agar tidak muncul karakter "á" pada printer thermal Bluetooth
+    const cleanStr = str.replace(/[\u00a0\u202F]/g, ' ');
     const encoder = new TextEncoder();
-    const bytes = encoder.encode(str);
+    const bytes = encoder.encode(cleanStr);
     for (let i = 0; i < bytes.length; i++) {
       this.buffer.push(bytes[i]);
     }
@@ -85,8 +88,10 @@ class EscPosBuilder {
   }
 
   cut() {
+    // PENTING: Printer Bluetooth portable 58mm tidak memiliki motor pisau otomatis (hanya gerigi sobekan manual).
+    // Perintah GS V (0x1D 0x56) menyebabkan firmware printer berputar tanpa henti (infinite paper feed).
+    // Beri 3 baris kosong agar tulisan melewati gerigi pemotong manual, lalu berhenti dengan rapi.
     this.newLine(3);
-    this.buffer.push(0x1D, 0x56, 0x41, 0x10); // GS V A 16 (Cut paper)
     return this;
   }
 
@@ -206,15 +211,21 @@ class BluetoothPrinterService {
     const builder = new EscPosBuilder();
     builder.init();
 
-    // Header
+    // Header Struk (Normal Bold agar pas 32 karakter dan tidak terpotong 3 baris)
     builder.alignCenter();
-    builder.bold(true).size(true, true);
-    builder.text(cabang.struk_header || 'SERABI BAWEL & WEDANG GEPREK');
-    builder.newLine();
-    builder.size(false, false);
-    builder.text('Serabi Tungku & Rempah Alami');
+    builder.bold(true).size(false, false);
+    const headerTitle = (cabang.struk_header || 'SERABI BAWEL & WEDANG GEPREK').trim();
+    if (headerTitle === 'SERABI BAWEL & WEDANG GEPREK' || headerTitle === 'SERABI BAWEL DAN WEDANG GEPREK') {
+      builder.text('SERABI BAWEL');
+      builder.newLine();
+      builder.text('& WEDANG GEPREK');
+    } else {
+      builder.text(headerTitle);
+    }
     builder.newLine();
     builder.bold(false);
+    builder.text('Serabi Tungku & Rempah Alami');
+    builder.newLine();
     builder.text(cabang.nama);
     builder.newLine();
     builder.text(cabang.alamat);
@@ -311,11 +322,10 @@ class BluetoothPrinterService {
     builder.init();
 
     builder.alignCenter();
-    builder.bold(true).size(true, true);
+    builder.bold(true).size(false, false);
     builder.text('REKAP TUTUP SHIFT');
     builder.newLine();
-    builder.size(false, false);
-    builder.text('MINUMAN HERBAL PAK AGAN');
+    builder.text('SERABI BAWEL & WEDANG GEPREK');
     builder.newLine();
     builder.bold(false);
     builder.text(cabang.nama);
