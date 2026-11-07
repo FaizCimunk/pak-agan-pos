@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Cabang, Karyawan, Absensi, Shift } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, getTodayDateString } from '@/lib/utils';
 
 interface BranchAttendanceModalProps {
   cabang: Cabang;
@@ -43,7 +43,7 @@ export default function BranchAttendanceModal({
   onClose,
   onSuccess,
 }: BranchAttendanceModalProps) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayDateString();
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [workersList, setWorkersList] = useState<WorkerAttendanceState[]>([]);
   const [loading, setLoading] = useState<boolean>(true);

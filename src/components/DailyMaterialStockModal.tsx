@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Cabang, AbsensiBahanHarian, Shift } from '@/lib/types';
 import { db } from '@/lib/db';
+import { getTodayDateString } from '@/lib/utils';
 
 interface DailyMaterialStockModalProps {
   cabang: Cabang;
@@ -30,7 +31,7 @@ export default function DailyMaterialStockModal({
   onClose,
   onSuccess,
 }: DailyMaterialStockModalProps) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayDateString();
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [records, setRecords] = useState<AbsensiBahanHarian[]>([]);
   const [loading, setLoading] = useState<boolean>(true);

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { Cabang, PembayaranFixedCostBulanan } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, getTodayDateString } from '@/lib/utils';
 
 interface FixedCostPaymentManagerProps {
   cabangList: Cabang[];
@@ -66,7 +66,7 @@ export default function FixedCostPaymentManager({
   const [paymentModalOpen, setPaymentModalOpen] = useState<boolean>(false);
   const [targetCabang, setTargetCabang] = useState<Cabang | null>(null);
   const [targetJenisBiaya, setTargetJenisBiaya] = useState<'sewa' | 'listrik_wifi' | 'sampah_kebersihan' | 'semua_paket'>('sewa');
-  const [payDate, setPayDate] = useState<string>('2026-10-01');
+  const [payDate, setPayDate] = useState<string>(getTodayDateString());
   const [payMethod, setPayMethod] = useState<string>('Transfer BCA (Pak Agan)');
   const [payRefNo, setPayRefNo] = useState<string>('');
   const [payNotes, setPayNotes] = useState<string>('');

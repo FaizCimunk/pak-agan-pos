@@ -17,7 +17,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { Cabang, Transaksi, PengeluaranKasbon, Shift, Karyawan } from '@/lib/types';
-import { formatRupiah, formatWaktu } from '@/lib/utils';
+import { formatRupiah, formatWaktu, getTodayDateString } from '@/lib/utils';
 
 interface DailyBranchReportModalProps {
   cabangList: Cabang[];
@@ -37,13 +37,13 @@ export default function DailyBranchReportModal({
   expenseList,
   shifts = [],
   defaultCabangId,
-  defaultDate = '2026-10-25',
+  defaultDate,
   onClose,
 }: DailyBranchReportModalProps) {
   const [selectedCabangId, setSelectedCabangId] = useState<string>(
     defaultCabangId && defaultCabangId !== 'all' ? defaultCabangId : cabangList[0]?.id || 'cbg-1'
   );
-  const [selectedDate, setSelectedDate] = useState<string>(defaultDate);
+  const [selectedDate, setSelectedDate] = useState<string>(defaultDate || getTodayDateString());
 
   // Selected Cabang & PIC
   const targetCabang = cabangList.find(c => c.id === selectedCabangId) || cabangList[0];

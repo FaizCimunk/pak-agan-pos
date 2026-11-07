@@ -34,7 +34,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { Cabang, Transaksi, Karyawan, Absensi, MenuItem, BahanBaku, KirimanBahanPusat, PengeluaranKasbon } from '@/lib/types';
-import { formatRupiah, formatNominal, parseNominal, formatWaktu } from '@/lib/utils';
+import { formatRupiah, formatNominal, parseNominal, formatWaktu, getTodayDateString } from '@/lib/utils';
 import { db } from '@/lib/db';
 
 interface SeniorBossDashboardProps {
@@ -216,11 +216,11 @@ export default function SeniorBossDashboard({
   const handleSetYesterday = () => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() - 1);
-    onDateChange(d.toISOString().slice(0, 10));
+    onDateChange(getTodayDateString(d));
   };
 
   const handleSetToday = () => {
-    onDateChange('2026-10-25');
+    onDateChange(getTodayDateString());
   };
 
   // Direct Utang Save by Boss

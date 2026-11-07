@@ -24,7 +24,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { Transaksi, Cabang } from '@/lib/types';
-import { formatRupiah, formatWaktu } from '@/lib/utils';
+import { formatRupiah, formatWaktu, getTodayDateString } from '@/lib/utils';
 import ReceiptModal from './ReceiptModal';
 
 interface MutasiPenjualanStatementProps {
@@ -45,25 +45,22 @@ export default function MutasiPenjualanStatement({
 
   // Determine latest transaction date for initial state
   const latestDateStr = useMemo(() => {
-    if (transaksiList.length === 0) return '2026-10-25';
+    if (transaksiList.length === 0) return getTodayDateString();
     const sorted = [...transaksiList].sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime());
     try {
       const d = new Date(sorted[0].waktu);
       if (!isNaN(d.getTime())) {
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
+        return getTodayDateString(d);
       }
     } catch {
       // fallback
     }
-    return '2026-10-25';
+    return getTodayDateString();
   }, [transaksiList]);
 
   const [selectedDate, setSelectedDate] = useState<string>(latestDateStr);
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedMonth, setSelectedMonth] = useState<number>(10); // 1-12 (10 = Oktober)
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
 
   // Sub-filters
   const [branchFilter, setBranchFilter] = useState<string>(propSelectedCabangId);

@@ -38,7 +38,7 @@ import {
   PembayaranFixedCostBulanan
 } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole } from '@/lib/utils';
+import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole, getTodayDateString } from '@/lib/utils';
 
 import { 
   TrendingUp, 
@@ -95,7 +95,7 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<'ringkasan' | 'mutasi' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko'>('ringkasan');
   const [cabangList, setCabangList] = useState<Cabang[]>([]);
   const [selectedCabangId, setSelectedCabangId] = useState<string>('all');
-  const [selectedAbsensiDate, setSelectedAbsensiDate] = useState<string>('2026-10-25');
+  const [selectedAbsensiDate, setSelectedAbsensiDate] = useState<string>(getTodayDateString());
   const [absensiDateFilterMode, setAbsensiDateFilterMode] = useState<'selected' | 'all'>('selected');
   const [menuList, setMenuList] = useState<MenuItem[]>([]);
   const [karyawanList, setKaryawanList] = useState<Karyawan[]>([]);
@@ -108,11 +108,11 @@ export default function AdminDashboardPage() {
   const [bahanList, setBahanList] = useState<BahanBaku[]>([]);
   const [kirimanBahanList, setKirimanBahanList] = useState<KirimanBahanPusat[]>([]);
   const [selectedBahanCabangId, setSelectedBahanCabangId] = useState<string>('all');
-  const [selectedBahanDate, setSelectedBahanDate] = useState<string>('2026-10-25');
+  const [selectedBahanDate, setSelectedBahanDate] = useState<string>(getTodayDateString());
   const [showKirimanModal, setShowKirimanModal] = useState<boolean>(false);
 
   // State Rekap Uang Masuk Bersih Rekening Boss
-  const [selectedBossSummaryDate, setSelectedBossSummaryDate] = useState<string>('2026-10-25');
+  const [selectedBossSummaryDate, setSelectedBossSummaryDate] = useState<string>(getTodayDateString());
   const [showAdvancedTables, setShowAdvancedTables] = useState<boolean>(false);
 
   // Modals
@@ -134,7 +134,7 @@ export default function AdminDashboardPage() {
   const [selectedMenuCabangFilter, setSelectedMenuCabangFilter] = useState<string>('all');
 
   // Approval Center Filters & State
-  const [approvalDateFilter, setApprovalDateFilter] = useState<string>('2026-10-25');
+  const [approvalDateFilter, setApprovalDateFilter] = useState<string>(getTodayDateString());
   const [approvalDateMode, setApprovalDateMode] = useState<'selected' | 'all'>('all');
   const [approvalStatusFilter, setApprovalStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [approvalJenisFilter, setApprovalJenisFilter] = useState<'all' | 'belanja' | 'kasbon'>('all');
@@ -209,11 +209,15 @@ export default function AdminDashboardPage() {
   // Payroll Period & Branch Filters (Cetak Rekap Per-Cabang)
   const [payrollMode, setPayrollMode] = useState<'harian' | 'rentang' | 'bulanan'>('rentang');
   const [payrollBranchFilter, setPayrollBranchFilter] = useState<string>('all');
-  const [payrollSingleDate, setPayrollSingleDate] = useState<string>('2026-10-25');
-  const [payrollStartDate, setPayrollStartDate] = useState<string>('2026-10-19');
-  const [payrollEndDate, setPayrollEndDate] = useState<string>('2026-10-25');
-  const [payrollMonth, setPayrollMonth] = useState<number>(10);
-  const [payrollYear, setPayrollYear] = useState<number>(2026);
+  const [payrollSingleDate, setPayrollSingleDate] = useState<string>(getTodayDateString());
+  const [payrollStartDate, setPayrollStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return getTodayDateString(d);
+  });
+  const [payrollEndDate, setPayrollEndDate] = useState<string>(getTodayDateString());
+  const [payrollMonth, setPayrollMonth] = useState<number>(new Date().getMonth() + 1);
+  const [payrollYear, setPayrollYear] = useState<number>(new Date().getFullYear());
 
   // Fixed Cost Monthly Payments & Deduction Mode (Kas Riil vs Cadangan Amortisasi /30 Hr)
   const [fixedCostPayments, setFixedCostPayments] = useState<PembayaranFixedCostBulanan[]>([]);
@@ -3640,7 +3644,7 @@ export default function AdminDashboardPage() {
           transaksiList={transaksiList}
           expenseList={expenseList}
           defaultCabangId={selectedCabangId !== 'all' ? selectedCabangId : undefined}
-          defaultDate="2026-10-25"
+          defaultDate={getTodayDateString()}
           onClose={() => setShowDailyReportModal(false)}
         />
       )}

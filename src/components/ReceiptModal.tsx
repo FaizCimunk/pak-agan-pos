@@ -266,7 +266,7 @@ export default function ReceiptModal({
                     <div className="border-t border-dashed border-slate-300 my-1" />
                     <div className="flex justify-between">
                       <span>No: {transaksi.invoice_no}</span>
-                      <span>{formatWaktu(transaksi.waktu).split(' ')[1]}</span>
+                      <span>{formatWaktu(transaksi.waktu)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Kasir: {transaksi.karyawan_nama || 'Kasir'}</span>

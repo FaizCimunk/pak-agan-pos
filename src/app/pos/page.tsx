@@ -29,7 +29,7 @@ import {
 import { db } from '@/lib/db';
 import { printerService } from '@/lib/printer';
 import { queueOfflineTransaction } from '@/lib/offline-sync';
-import { generateInvoiceNumber, formatRupiah } from '@/lib/utils';
+import { generateInvoiceNumber, formatRupiah, getTodayDateString } from '@/lib/utils';
 import { Lock, ShoppingBag, ArrowRight, X } from 'lucide-react';
 
 const DEVICE_LOCK_KEY = 'pakagan_device_cabang_id';
@@ -554,7 +554,7 @@ export default function PosPage() {
           transaksiList={transaksiList}
           expenseList={expenseList}
           defaultCabangId={currentCabang.id}
-          defaultDate="2026-10-25"
+          defaultDate={getTodayDateString()}
           onClose={() => setIsDailyReportOpen(false)}
         />
       )}

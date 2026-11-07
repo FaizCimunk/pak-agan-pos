@@ -38,16 +38,52 @@ export function formatNominalInput(value: string | number | null | undefined): s
   return new Intl.NumberFormat('id-ID').format(num);
 }
 
-// Format Date & Time to Indonesian representation
-export function formatWaktu(dateString?: string | null): string {
+// Mendapatkan tanggal lokal hari ini dalam format YYYY-MM-DD (menghindari pergeseran tanggal zona UTC)
+export function getTodayDateString(d: Date = new Date()): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Format Date & Time to Indonesian representation (e.g. "7 Nov 2026, 20:30")
+export function formatWaktu(dateString?: string | null, includeSeconds: boolean = false): string {
   if (!dateString) return '-';
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat('id-ID', {
+  if (isNaN(date.getTime())) return '-';
+  const options: Intl.DateTimeFormatOptions = {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
+  };
+  if (includeSeconds) {
+    options.second = '2-digit';
+  }
+  return new Intl.DateTimeFormat('id-ID', options).format(date).replace(/\./g, ':');
+}
+
+// Format waktu jam:menit saja (contoh: "20:30")
+export function formatJam(dateString?: string | null): string {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '-';
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+// Format tanggal saja (contoh: "7 Nov 2026")
+export function formatTanggal(dateString?: string | null): string {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   }).format(date);
 }
 
