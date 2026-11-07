@@ -55,7 +55,7 @@ export default function ProfilTokoManager({
   
   // Struk & Promo
   const [strukHeader, setStrukHeader] = useState<string>('SERABI BAWEL & WEDANG GEPREK');
-  const [strukFooter, setStrukFooter] = useState<string>('Matur Nuwun Sampun Rawuh!\nIG: @serabibawel.jogja • www.pakagan.id');
+  const [strukFooter, setStrukFooter] = useState<string>('Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda');
   const [strukPromo, setStrukPromo] = useState<string>('');
   const [qrisMerchantName, setQrisMerchantName] = useState<string>('');
   
@@ -83,7 +83,7 @@ export default function ProfilTokoManager({
       setPjTelepon(activeCabang.pj_telepon || activeCabang.telepon || '');
       
       setStrukHeader(activeCabang.struk_header || 'SERABI BAWEL & WEDANG GEPREK');
-      setStrukFooter(activeCabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nMatur Nuwun Sampun Rawuh!\n--- www.pakagan.id ---');
+      setStrukFooter((activeCabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda').replace(/---?\s*www\.pakagan\.id\s*---?/gi, '').replace(/www\.pakagan\.id/gi, '').trim());
       setStrukPromo(activeCabang.struk_promo || '');
       setQrisMerchantName(activeCabang.qris_merchant_name || `Minuman Herbal Pak Agan - ${activeCabang.nama}`);
       
@@ -494,7 +494,7 @@ export default function ProfilTokoManager({
                   value={strukFooter}
                   onChange={(e) => setStrukFooter(e.target.value)}
                   rows={2}
-                  placeholder="Khasiat Alami, Tubuh Sehat&#10;Matur Nuwun Sampun Rawuh!&#10;--- www.pakagan.id ---"
+                  placeholder="Khasiat Alami, Tubuh Sehat&#10;Terima Kasih Atas Kunjungan Anda"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white text-xs"
                 />
               </div>
@@ -653,22 +653,19 @@ export default function ProfilTokoManager({
 
               {/* Footer Struk Toko */}
               <div className="text-center text-[10px] text-slate-600 pt-1 whitespace-pre-line leading-relaxed">
-                {strukFooter || 'Khasiat Alami, Tubuh Sehat\nMatur Nuwun Sampun Rawuh!\n--- www.pakagan.id ---'}
+                {(strukFooter || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda').replace(/---?\s*www\.pakagan\.id\s*---?/gi, '').replace(/www\.pakagan\.id/gi, '').trim()}
               </div>
 
-              {/* FOOTER PROMOSI PERMANEN IVOKGRUP (DIGITALISASI SISTEM KEUANGAN) */}
+              {/* FOOTER PROMOSI PATEN PERMANEN IVOKGRUP (SELURUH CABANG) */}
               <div className="mt-3 pt-2.5 border-t border-dashed border-slate-300 text-center space-y-1">
-                <div className="text-[9px] font-black uppercase tracking-wider text-slate-900">
-                  ⚡ DIGITALISASI BISNIS MULTI-CABANG ⚡
+                <div className="text-[9px] font-black uppercase tracking-wider text-slate-900 leading-snug">
+                  Digitalisasi Operasional Multi-Cabang, POS &amp; Keuangan Terintegrasi.
                 </div>
-                <div className="text-[8.5px] text-slate-700 font-extrabold leading-snug">
-                  Sistem POS Kasir, Finansial &amp; Presensi Karyawan Custom
-                </div>
-                <div className="text-[8px] text-slate-500 font-medium">
-                  Dipercaya 1.000+ Pengusaha Bersama ivokgrup
+                <div className="text-[8px] text-slate-600 font-medium">
+                  Dipercaya oleh 1.000+ Pengusaha Berkembang.
                 </div>
                 <div className="text-[8px] text-emerald-800 font-mono font-bold tracking-tight">
-                  Konsultasi Sistem Usaha: www.ivokgrup.com
+                  Solusi Bisnis Cerdas bersama ivokgrup.com
                 </div>
               </div>
 

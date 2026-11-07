@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   Calculator, 
@@ -66,8 +66,11 @@ export default function ShiftCloseModal({
   };
 
   const selisih = saldoFisik - calculatedShift.saldo_akhir_sistem;
+  const isSubmittingRef = useRef<boolean>(false);
 
   const handleCloseShift = async () => {
+    if (isSubmittingRef.current || loading) return;
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const closed = await db.closeShift(cabang.id, saldoFisik, catatan);
@@ -82,6 +85,7 @@ export default function ShiftCloseModal({
       alert('Gagal menutup shift: ' + e.message);
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 

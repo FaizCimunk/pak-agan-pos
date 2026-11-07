@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   X, 
   ShoppingBag, 
@@ -31,6 +31,7 @@ export default function ExpenseRequestModal({
   const [nominal, setNominal] = useState<number>(50000);
   const [loading, setLoading] = useState<boolean>(false);
   const [submittedItem, setSubmittedItem] = useState<PengeluaranKasbon | null>(null);
+  const isSubmittingRef = useRef<boolean>(false);
 
   const quickBelanjaTemplates = [
     'Beli Es Batu Kristal 5 Kantong',
@@ -42,6 +43,7 @@ export default function ExpenseRequestModal({
   ];
 
   const handleSubmit = async () => {
+    if (isSubmittingRef.current || loading) return;
     if (!keperluan.trim()) {
       alert('Tuliskan rincian kebutuhan belanja toko');
       return;
@@ -51,6 +53,7 @@ export default function ExpenseRequestModal({
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const created = await db.createPengeluaran({
@@ -71,6 +74,7 @@ export default function ExpenseRequestModal({
       alert('Gagal mengajukan belanja: ' + e.message);
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 

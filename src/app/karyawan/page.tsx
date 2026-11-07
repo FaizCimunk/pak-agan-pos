@@ -215,17 +215,17 @@ export default function KaryawanPortalPage() {
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-300 block">
-                  Estimasi Transfer Bersih Mingguan
+                  Estimasi Akumulasi Gaji Berjalan
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-800/80 text-[9px] font-bold text-emerald-200 border border-emerald-600/40">
-                  Siklus Per Minggu
+                <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-[9px] font-bold text-amber-300 border border-amber-400/30">
+                  ⏳ Menunggu Kunci Boss
                 </span>
               </div>
               <div className="text-2xl sm:text-3xl font-mono font-black text-amber-300 mt-1">
                 {formatRupiah(gajiBersihSiapTerima)}
               </div>
               <p className="text-[10px] text-slate-300 mt-0.5">
-                *Netto yang ditransfer setelah auto-nabung {formatRupiah(potonganTabunganPeriode)} &amp; potong kasbon.
+                *Akumulasi kehadiran berjalan. Pencairan resmi menunggu verifikasi &amp; tombol "Kunci Gaji" disetujui Pak Agan.
               </p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/40 text-amber-300 flex items-center justify-center text-2xl shadow-inner">

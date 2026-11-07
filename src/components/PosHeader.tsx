@@ -350,36 +350,11 @@ export default function PosHeader({
               </button>
             </div>
 
-            {/* Modal Body: Kasgo Touch Grid Tiles */}
+            {/* Modal Body: Kasgo Touch Grid Tiles (4 Menu Inti Kasir) */}
             <div className="p-4 sm:p-5 overflow-y-auto flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
 
-                {/* Tile 1: Laporan Kasir & Rekonsiliasi Kas */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    onDailyReportClick?.();
-                  }}
-                  className="flex items-start p-3.5 sm:p-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-left transition-all btn-tactile group shadow-md shadow-slate-950/20 border border-slate-800"
-                >
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-800 group-hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-amber-400 shrink-0 mr-3 transition-colors">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-black text-white text-xs sm:text-sm truncate">Laporan Kasir</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 shrink-0">
-                        Formal Hitam
-                      </span>
-                    </div>
-                    <p className="text-[11px] sm:text-xs text-slate-300 font-normal leading-relaxed">
-                      Rekonsiliasi kas laci fisik vs sistem &amp; cetak PDF formal tinta hitam.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Tile 2: Belanja Toko & Kasbon */}
+                {/* Tile 1: Belanja Toko & Kasbon */}
                 <button
                   type="button"
                   onClick={() => {
@@ -404,7 +379,7 @@ export default function PosHeader({
                   </div>
                 </button>
 
-                {/* Tile 3: Presensi Staf Cabang */}
+                {/* Tile 2: Presensi Staf Cabang */}
                 <button
                   type="button"
                   onClick={() => {
@@ -429,32 +404,7 @@ export default function PosHeader({
                   </div>
                 </button>
 
-                {/* Tile 3.5: Absensi Bahan Harian Kasir */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    onMaterialStockClick?.();
-                  }}
-                  className="flex items-start p-3.5 sm:p-4 rounded-2xl bg-teal-50 hover:bg-teal-100/80 border border-teal-200 text-left transition-all btn-tactile group shadow-soft-sm"
-                >
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-teal-700 text-white flex items-center justify-center shrink-0 mr-3 shadow-md shadow-teal-800/20">
-                    <PackageCheck className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-black text-teal-950 text-xs sm:text-sm truncate">Absensi Bahan</span>
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-teal-200/70 text-teal-900 border border-teal-300 shrink-0">
-                        ⚡ Dari Kasir
-                      </span>
-                    </div>
-                    <p className="text-[11px] sm:text-xs text-teal-900/80 font-normal leading-relaxed">
-                      Cek stok bahan, pemakaian otomatis dari kasir, &amp; selisih dapur.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Tile 4: Tutup Shift Kasir */}
+                {/* Tile 3: Tutup Shift Kasir */}
                 <button
                   type="button"
                   onClick={() => {
@@ -479,7 +429,7 @@ export default function PosHeader({
                   </div>
                 </button>
 
-                {/* Tile 5: Printer Bluetooth */}
+                {/* Tile 4: Printer Bluetooth */}
                 <button
                   type="button"
                   onClick={() => {
@@ -505,31 +455,6 @@ export default function PosHeader({
                       {printerConnected 
                         ? `Tersambung ke ${printerName || 'Printer 58mm'}. Struk langsung cetak otomatis.` 
                         : 'Klik untuk mencari & memasangkan printer thermal Bluetooth 58mm.'}
-                    </p>
-                  </div>
-                </button>
-
-                {/* Tile 6: Kunci Perangkat Tablet */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    onDeviceSettingsClick();
-                  }}
-                  className="flex items-start p-3.5 sm:p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition-all btn-tactile group shadow-soft-sm"
-                >
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-700 text-white flex items-center justify-center shrink-0 mr-3 shadow-md shadow-slate-800/20">
-                    <Settings className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-black text-slate-900 text-xs sm:text-sm truncate">Kunci Tablet Cabang</span>
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
-                        PIN Otorisasi
-                      </span>
-                    </div>
-                    <p className="text-[11px] sm:text-xs text-slate-600 font-normal leading-relaxed">
-                      Setup perpindahan tablet ke cabang lain atau ganti identitas mesin POS.
                     </p>
                   </div>
                 </button>

@@ -285,31 +285,39 @@ class BluetoothPrinterService {
       builder.line('-', 32);
     }
 
-    // Footer
+    // Footer Toko (Hapus referensi www.pakagan.id sesuai permintaan)
     builder.alignCenter();
-    if (cabang.struk_footer) {
-      builder.text(cabang.struk_footer);
-    } else {
-      builder.text('Khasiat Alami, Tubuh Sehat');
+    const rawFooter = cabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda';
+    const cleanFooter = rawFooter
+      .replace(/---?\s*www\.pakagan\.id\s*---?/gi, '')
+      .replace(/www\.pakagan\.id/gi, '')
+      .trim();
+    if (cleanFooter) {
+      builder.text(cleanFooter);
       builder.newLine();
-      builder.text('Terima Kasih Atas Kunjungan Anda');
-      builder.newLine();
-      builder.text('--- www.pakagan.id ---');
     }
-    builder.newLine();
 
-    // Footer Promosi Permanen ivokgrup untuk Printer Thermal 58mm
+    // Footer Promosi Paten Permanen ivokgrup untuk Seluruh Cabang (Tidak Bisa Dirubah)
     builder.line('-', 32);
+    builder.alignCenter();
     builder.bold(true);
-    builder.text('DIGITALISASI MULTI-CABANG');
+    builder.text('Digitalisasi Operasional');
+    builder.newLine();
+    builder.text('Multi-Cabang, POS & Keuangan');
+    builder.newLine();
+    builder.text('Terintegrasi.');
     builder.newLine();
     builder.bold(false);
-    builder.text('POS & Finansial Custom Bisnis');
+    builder.text('Dipercaya oleh 1.000+');
     builder.newLine();
-    builder.text('Dipercaya 1.000+ Pengusaha');
+    builder.text('Pengusaha Berkembang.');
     builder.newLine();
-    builder.text('Bersama ivokgrup - ivok.id');
+    builder.bold(true);
+    builder.text('Solusi Bisnis Cerdas bersama');
     builder.newLine();
+    builder.text('ivokgrup.com');
+    builder.newLine();
+    builder.bold(false);
 
     builder.cut();
 

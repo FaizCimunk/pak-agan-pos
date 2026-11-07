@@ -100,7 +100,11 @@ export default function ReceiptModal({
       `*KEMBALIAN:* *${formatRupiah(transaksi.kembali)}*`,
       `-----------------------------------------`,
       `_Terima kasih telah berkunjung ke Serabi Bawel & Wedang Geprek!_`,
-      `_Khasiat Alami, Tubuh Sehat • www.pakagan.id_`
+      `_Khasiat Alami, Tubuh Sehat_`,
+      `-----------------------------------------`,
+      `*Digitalisasi Operasional Multi-Cabang, POS & Keuangan Terintegrasi.*`,
+      `*Dipercaya oleh 1.000+ Pengusaha Berkembang.*`,
+      `*Solusi Bisnis Cerdas bersama ivokgrup.com*`
     ].join('\n');
 
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -305,19 +309,19 @@ export default function ReceiptModal({
 
                     <div className="border-t border-dashed border-slate-300 my-1" />
                     <div className="text-center text-[9px] text-slate-500 pt-1 whitespace-pre-line leading-relaxed">
-                      {cabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda\n--- www.pakagan.id ---'}
+                      {(cabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda').replace(/---?\s*www\.pakagan\.id\s*---?/gi, '').replace(/www\.pakagan\.id/gi, '').trim()}
                     </div>
 
-                    {/* Footer Promosi Permanen ivokgrup */}
+                    {/* Footer Promosi Paten Permanen ivokgrup (Seluruh Cabang) */}
                     <div className="mt-2 pt-1.5 border-t border-dashed border-slate-300 text-center space-y-0.5">
-                      <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-800">
-                        ⚡ DIGITALISASI BISNIS MULTI-CABANG ⚡
+                      <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-800 leading-snug">
+                        Digitalisasi Operasional Multi-Cabang, POS &amp; Keuangan Terintegrasi.
                       </div>
-                      <div className="text-[8px] text-slate-600 font-bold leading-tight">
-                        Sistem POS Kasir, Keuangan &amp; Presensi Karyawan Custom
+                      <div className="text-[8px] text-slate-600 font-medium">
+                        Dipercaya oleh 1.000+ Pengusaha Berkembang.
                       </div>
-                      <div className="text-[7.5px] text-slate-500 font-medium">
-                        Dipercaya 1.000+ Pengusaha Bersama ivokgrup • www.ivokgrup.com
+                      <div className="text-[8px] text-emerald-800 font-bold">
+                        Solusi Bisnis Cerdas bersama ivokgrup.com
                       </div>
                     </div>
                   </div>
@@ -402,19 +406,19 @@ export default function ReceiptModal({
 
         <div className="border-t border-dashed border-black my-1" />
         <div className="text-center text-[9px] pt-1 whitespace-pre-line leading-relaxed">
-          {cabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda!\n--- www.pakagan.id ---'}
+          {(cabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda!').replace(/---?\s*www\.pakagan\.id\s*---?/gi, '').replace(/www\.pakagan\.id/gi, '').trim()}
         </div>
 
-        {/* Footer Promosi Permanen ivokgrup Print */}
+        {/* Footer Promosi Paten Permanen ivokgrup Print */}
         <div className="mt-2 pt-1 border-t border-dashed border-black text-center space-y-0.5">
-          <div className="text-[8px] font-black uppercase tracking-wider">
-            ⚡ DIGITALISASI BISNIS MULTI-CABANG ⚡
+          <div className="text-[8px] font-black uppercase tracking-wider leading-snug">
+            Digitalisasi Operasional Multi-Cabang, POS &amp; Keuangan Terintegrasi.
           </div>
-          <div className="text-[7.5px] font-bold leading-tight">
-            Sistem POS Kasir, Keuangan &amp; Presensi Karyawan Custom
+          <div className="text-[7.5px] font-medium">
+            Dipercaya oleh 1.000+ Pengusaha Berkembang.
           </div>
-          <div className="text-[7px]">
-            Dipercaya 1.000+ Pengusaha Bersama ivokgrup • www.ivokgrup.com
+          <div className="text-[7.5px] font-bold">
+            Solusi Bisnis Cerdas bersama ivokgrup.com
           </div>
         </div>
       </div>

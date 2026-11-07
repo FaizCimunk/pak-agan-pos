@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Lock, KeyRound, DollarSign, UserCheck, AlertCircle } from 'lucide-react';
 import { Karyawan, Cabang } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -39,8 +39,10 @@ export default function ShiftOpenModal({
   }, [cabang.id]);
 
   const quickModalOptions = [100000, 150000, 200000, 300000, 500000];
+  const isSubmittingRef = useRef<boolean>(false);
 
   const handleOpenShift = async () => {
+    if (isSubmittingRef.current || loading) return;
     setErrorMsg('');
     if (!selectedKaryawanId) {
       setErrorMsg('Pilih staf penanggung jawab');
@@ -51,12 +53,14 @@ export default function ShiftOpenModal({
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const verify = await db.verifyKaryawanPin(selectedKaryawanId, pin);
       if (!verify.valid) {
         setErrorMsg('PIN salah! Silakan coba lagi atau hubungi Pak Agan untuk reset PIN.');
         setLoading(false);
+        isSubmittingRef.current = false;
         return;
       }
 
@@ -73,6 +77,7 @@ export default function ShiftOpenModal({
       setErrorMsg(err.message || 'Gagal membuka shift');
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { 
   X, 
@@ -44,13 +44,17 @@ export default function PaymentModal({
   const bayar = method === 'tunai' ? bayarInput : total;
   const kembali = Math.max(0, bayar - total);
   const isKurang = method === 'tunai' && bayar < total;
+  const isSubmittingRef = useRef<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   const handleSelectQuickCash = (val: number) => {
     setBayarInput(val);
   };
 
   const handleConfirm = () => {
-    if (isKurang) return;
+    if (isKurang || isSubmittingRef.current || submitting) return;
+    isSubmittingRef.current = true;
+    setSubmitting(true);
     onSuccess(method, bayar, kembali, autoPrint);
   };
 
@@ -386,15 +390,15 @@ export default function PaymentModal({
 
           <button
             onClick={handleConfirm}
-            disabled={isKurang}
+            disabled={isKurang || submitting}
             className={`px-5 py-2.5 rounded-xl font-extrabold text-xs flex items-center space-x-1.5 transition-all btn-tactile ${
-              isKurang
+              isKurang || submitting
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-700/20'
             }`}
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>Selesaikan &amp; Cetak</span>
+            <span>{submitting ? 'Memproses Transaksi...' : 'Selesaikan & Cetak'}</span>
           </button>
         </div>
 

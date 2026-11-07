@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   PackageCheck, 
@@ -12,7 +12,6 @@ import {
   Layers,
   ArrowRight,
   TrendingDown,
-  Sparkles,
   Info
 } from 'lucide-react';
 import { Cabang, AbsensiBahanHarian, Shift } from '@/lib/types';
@@ -36,6 +35,7 @@ export default function DailyMaterialStockModal({
   const [records, setRecords] = useState<AbsensiBahanHarian[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+  const isSubmittingRef = useRef<boolean>(false);
   const [filterKategori, setFilterKategori] = useState<'all' | 'serabi' | 'wedang' | 'kemasan'>('all');
 
   const loadData = async () => {
@@ -85,6 +85,8 @@ export default function DailyMaterialStockModal({
   };
 
   const handleSave = async () => {
+    if (isSubmittingRef.current || saving) return;
+    isSubmittingRef.current = true;
     setSaving(true);
     try {
       const stampedRecords = records.map(r => ({
@@ -99,6 +101,7 @@ export default function DailyMaterialStockModal({
       alert('Gagal menyimpan absensi bahan: ' + e.message);
     } finally {
       setSaving(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -149,22 +152,19 @@ export default function DailyMaterialStockModal({
           </button>
         </div>
 
-        {/* Info Banner: Otomatis dari Kasir */}
+        {/* Tanggal Rekonsiliasi */}
         <div className="px-6 py-2.5 bg-emerald-50/50 border-b border-emerald-100/60 flex items-center justify-between text-xs">
-          <div className="flex items-center space-x-2 text-emerald-900">
-            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              <strong>Dihitung Otomatis:</strong> Kolom <em>&quot;Terpakai Kasir&quot;</em> langsung membaca resep menu yang sudah terjual hari ini. Kasir cukup mengabsen <strong>Sisa Fisik di Dapur</strong>.
-            </span>
+          <div className="flex items-center space-x-2 text-emerald-900 font-bold">
+            <Calendar className="w-4 h-4 text-emerald-700" />
+            <span>Tanggal Rekonsiliasi:</span>
           </div>
 
           <div className="flex items-center space-x-2 shrink-0">
-            <Calendar className="w-4 h-4 text-emerald-700" />
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-2.5 py-1 bg-white border border-emerald-300 rounded-lg font-mono font-bold text-slate-800 outline-none focus:border-brand-primary text-xs"
+              className="px-2.5 py-1 bg-white border border-emerald-300 rounded-lg font-mono font-bold text-slate-800 outline-none focus:border-brand-primary text-xs shadow-sm"
             />
           </div>
         </div>

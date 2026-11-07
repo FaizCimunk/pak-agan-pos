@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   CalendarCheck, 
@@ -48,6 +48,7 @@ export default function BranchAttendanceModal({
   const [workersList, setWorkersList] = useState<WorkerAttendanceState[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+  const isSubmittingRef = useRef<boolean>(false);
 
   // Form Tulis Nama Staf Baru / Tambahan Hari Ini (Simpel & Cepat)
   const [isAddingNewName, setIsAddingNewName] = useState<boolean>(false);
@@ -182,6 +183,8 @@ export default function BranchAttendanceModal({
   };
 
   const handleSaveAttendance = async () => {
+    if (isSubmittingRef.current || saving) return;
+    isSubmittingRef.current = true;
     setSaving(true);
     try {
       const entries = workersList.map(w => ({
@@ -205,6 +208,7 @@ export default function BranchAttendanceModal({
       alert('Gagal menyimpan presensi: ' + err.message);
     } finally {
       setSaving(false);
+      isSubmittingRef.current = false;
     }
   };
 
