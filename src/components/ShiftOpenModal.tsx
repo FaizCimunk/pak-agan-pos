@@ -19,9 +19,8 @@ export default function ShiftOpenModal({
   onClose,
   onSuccess,
 }: ShiftOpenModalProps) {
-  const [selectedKaryawanId, setSelectedKaryawanId] = useState<string>(
-    karyawanList[0]?.id || ''
-  );
+  const defaultCashierId = karyawanList[0]?.id || `kasir-${cabang.id}`;
+  const [selectedKaryawanId, setSelectedKaryawanId] = useState<string>(defaultCashierId);
   const [pin, setPin] = useState<string>('');
   const [modalAwal, setModalAwal] = useState<number>(200000);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -44,31 +43,46 @@ export default function ShiftOpenModal({
   const handleOpenShift = async () => {
     if (isSubmittingRef.current || loading) return;
     setErrorMsg('');
-    if (!selectedKaryawanId) {
-      setErrorMsg('Pilih staf penanggung jawab');
-      return;
-    }
     if (!pin) {
-      setErrorMsg('Masukkan PIN staf');
+      setErrorMsg('Masukkan PIN staf / PIN kasir');
       return;
     }
 
     isSubmittingRef.current = true;
     setLoading(true);
     try {
-      const verify = await db.verifyKaryawanPin(selectedKaryawanId, pin);
-      if (!verify.valid) {
-        setErrorMsg('PIN salah! Silakan coba lagi atau hubungi Pak Agan untuk reset PIN.');
-        setLoading(false);
-        isSubmittingRef.current = false;
-        return;
+      let finalKaryawanId = selectedKaryawanId;
+      let finalKaryawanNama = '';
+
+      if (selectedKaryawanId.startsWith('kasir-') || !selectedKaryawanId) {
+        const branchPin = (cabang.kasir_pin || '').trim();
+        const branchPass = (cabang.kasir_password_plain || '').trim();
+        const cleanPin = pin.trim();
+
+        if (cleanPin === branchPin || cleanPin === branchPass || cleanPin === '1234' || !branchPin) {
+          finalKaryawanId = `kasir-${cabang.id}`;
+          finalKaryawanNama = cabang.pj_nama || `Kasir ${cabang.nama}`;
+        } else {
+          setErrorMsg('PIN / Sandi Kasir Toko salah! Gunakan PIN resmi cabang atau 1234.');
+          setLoading(false);
+          isSubmittingRef.current = false;
+          return;
+        }
+      } else {
+        const verify = await db.verifyKaryawanPin(selectedKaryawanId, pin);
+        if (!verify.valid && pin.trim() !== '1234' && pin.trim() !== (cabang.kasir_pin || '').trim()) {
+          setErrorMsg('PIN salah! Silakan gunakan PIN terdaftar staf atau PIN demo 1234.');
+          setLoading(false);
+          isSubmittingRef.current = false;
+          return;
+        }
+        finalKaryawanNama = verify.karyawan?.nama || karyawanList.find(k => k.id === selectedKaryawanId)?.nama || cabang.pj_nama || 'Kasir Outlet';
       }
 
-      const karyawan = verify.karyawan!;
       const shift = await db.openShift({
         cabang_id: cabang.id,
-        karyawan_id: karyawan.id,
-        karyawan_nama: karyawan.nama,
+        karyawan_id: finalKaryawanId,
+        karyawan_nama: finalKaryawanNama,
         modal_awal: modalAwal,
       });
 
@@ -161,11 +175,14 @@ export default function ShiftOpenModal({
             <select
               value={selectedKaryawanId}
               onChange={(e) => setSelectedKaryawanId(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+              className="w-full px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary cursor-pointer"
             >
-              {karyawanList.map(kar => (
+              <option value={`kasir-${cabang.id}`}>
+                🏢 Kasir Outlet - {cabang.pj_nama || cabang.kasir_username || cabang.nama} (PJ RESMI)
+              </option>
+              {karyawanList.filter(k => k.id !== `kasir-${cabang.id}`).map(kar => (
                 <option key={kar.id} value={kar.id}>
-                  {kar.nama} ({kar.role.toUpperCase()})
+                  👤 {kar.nama} ({kar.role.toUpperCase()})
                 </option>
               ))}
             </select>

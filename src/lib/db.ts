@@ -103,34 +103,49 @@ export const CABANG_MAP_INFO = [
 
 export const MENU_UUID_MAP: Record<string, string> = {
   'SB-01': '0f86c544-4c70-4aac-a1e7-b645b62df6f1',
+  'sb-1': '0f86c544-4c70-4aac-a1e7-b645b62df6f1',
   'sb-durian': '0f86c544-4c70-4aac-a1e7-b645b62df6f1',
   'SB-02': 'c88c523f-3cc2-473d-9a42-4920afc6ba92',
+  'sb-2': 'c88c523f-3cc2-473d-9a42-4920afc6ba92',
   'sb-keju': 'c88c523f-3cc2-473d-9a42-4920afc6ba92',
   'SB-03': '9206368e-c97d-4bb4-8ccb-075c986965fe',
+  'sb-3': '9206368e-c97d-4bb4-8ccb-075c986965fe',
   'sb-oncom': '9206368e-c97d-4bb4-8ccb-075c986965fe',
   'SB-04': '89b3c8a8-be68-4ea8-a085-54a51d84f2e5',
+  'sb-4': '89b3c8a8-be68-4ea8-a085-54a51d84f2e5',
   'sb-pandan': '89b3c8a8-be68-4ea8-a085-54a51d84f2e5',
   'SB-05': 'e994bca7-37b4-42f2-a4f5-5ea7d641cab7',
+  'sb-5': 'e994bca7-37b4-42f2-a4f5-5ea7d641cab7',
   'sb-telur': 'e994bca7-37b4-42f2-a4f5-5ea7d641cab7',
   'WD-01': 'b9ae10a9-726c-4e04-9146-f016a0fa2ad1',
+  'wd-1': 'b9ae10a9-726c-4e04-9146-f016a0fa2ad1',
   'wd-jahe': 'b9ae10a9-726c-4e04-9146-f016a0fa2ad1',
   'WD-02': '2f00cac6-f672-493a-9139-758845aa4767',
+  'wd-2': '2f00cac6-f672-493a-9139-758845aa4767',
   'wd-uwuh': '2f00cac6-f672-493a-9139-758845aa4767',
   'WD-03': '3b128a5e-f6c3-4d22-b716-d3c7da74711a',
+  'wd-3': '3b128a5e-f6c3-4d22-b716-d3c7da74711a',
   'wd-ronde': '3b128a5e-f6c3-4d22-b716-d3c7da74711a',
   'WD-04': 'bffba394-9b97-449a-8016-07c55255fea3',
+  'wd-4': 'bffba394-9b97-449a-8016-07c55255fea3',
   'wd-kopi': 'bffba394-9b97-449a-8016-07c55255fea3',
   'ES-01': 'cdaea903-ea85-4589-bcea-b452f930bae0',
+  'es-1': 'cdaea903-ea85-4589-bcea-b452f930bae0',
   'es-kunyit': 'cdaea903-ea85-4589-bcea-b452f930bae0',
   'ES-02': '144f051e-a93d-4de6-a1a5-d0dca503a965',
+  'es-2': '144f051e-a93d-4de6-a1a5-d0dca503a965',
   'es-beras': '144f051e-a93d-4de6-a1a5-d0dca503a965',
   'ST-01': 'f16c3c3e-4e87-4209-bdbe-d6b24fbe99b0',
+  'st-1': 'f16c3c3e-4e87-4209-bdbe-d6b24fbe99b0',
   'st-stmj': 'f16c3c3e-4e87-4209-bdbe-d6b24fbe99b0',
   'ST-02': '90b24ec2-cc5c-486f-af83-932701cf53ee',
+  'st-2': '90b24ec2-cc5c-486f-af83-932701cf53ee',
   'st-bajigur': '90b24ec2-cc5c-486f-af83-932701cf53ee',
   'CM-01': '03761f55-7207-4034-a0c9-0d1ccbab67fe',
+  'cm-1': '03761f55-7207-4034-a0c9-0d1ccbab67fe',
   'cm-pisang': '03761f55-7207-4034-a0c9-0d1ccbab67fe',
   'CM-02': '870a21f6-523a-4851-9385-aee4daf5074a',
+  'cm-2': '870a21f6-523a-4851-9385-aee4daf5074a',
   'cm-singkong': '870a21f6-523a-4851-9385-aee4daf5074a',
 };
 
@@ -227,6 +242,8 @@ export function getMenuUuid(idOrCode?: string | null): string | null {
   if (!idOrCode) return null;
   const clean = idOrCode.trim();
   if (MENU_UUID_MAP[clean]) return MENU_UUID_MAP[clean];
+  if (MENU_UUID_MAP[clean.toUpperCase()]) return MENU_UUID_MAP[clean.toUpperCase()];
+  if (MENU_UUID_MAP[clean.toLowerCase()]) return MENU_UUID_MAP[clean.toLowerCase()];
   if (isValidUuid(idOrCode)) return idOrCode;
   return null;
 }
@@ -1024,14 +1041,57 @@ export class PosDatabase {
   // SHIFT OPERASIONAL (BUKA & TUTUP SHIFT LACI)
   // --------------------------------------------------------------------------
   async getActiveShift(cabangId: string): Promise<Shift | null> {
-    const key = STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabangId;
-    let shift = loadLocal<Shift | null>(key, null);
+    const branchUuid = getBranchUuid(cabangId) || cabangId;
+    const key = STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + branchUuid;
+    let shift = loadLocal<Shift | null>(key, null) || loadLocal<Shift | null>(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabangId, null);
     if (shift && shift.status === 'open') {
       // Re-calculate real-time balance
       return await this.calculateShiftBalance(shift);
     }
 
-    // Periksa arsip shift apakah ada shift yang berstatus open hari ini
+    // 1. Periksa cloud Supabase apakah ada shift yang berstatus open untuk cabang ini
+    if (isSupabaseConfigured && supabase) {
+      try {
+        if (branchUuid) {
+          const { data, error } = await supabase
+            .from('shift')
+            .select('*')
+            .eq('cabang_id', branchUuid)
+            .eq('status', 'open')
+            .order('waktu_buka', { ascending: false })
+            .limit(1);
+
+          if (!error && data && data.length > 0) {
+            const row = data[0];
+            const supaShift: Shift = {
+              id: row.id,
+              cabang_id: cabangId,
+              karyawan_id: row.karyawan_id || `kar-${cabangId}`,
+              karyawan_nama: row.karyawan_nama || 'Kasir Outlet',
+              waktu_buka: row.waktu_buka,
+              waktu_tutup: null,
+              modal_awal: Number(row.modal_awal) || 200000,
+              total_tunai_masuk: Number(row.total_tunai_masuk || 0),
+              total_qris_masuk: Number(row.total_qris_masuk || 0),
+              total_transfer_masuk: Number(row.total_transfer_masuk || 0),
+              total_belanja_approved: Number(row.total_belanja_approved || 0),
+              total_kasbon_approved: Number(row.total_kasbon_approved || 0),
+              saldo_akhir_sistem: Number(row.saldo_akhir_sistem || row.modal_awal || 200000),
+              saldo_akhir_fisik: 0,
+              selisih: 0,
+              status: 'open',
+            };
+            saveLocal(key, supaShift);
+            saveLocal(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabangId, supaShift);
+            return await this.calculateShiftBalance(supaShift);
+          }
+        }
+      } catch (e) {
+        console.warn('Supabase getActiveShift error:', e);
+      }
+    }
+
+    // 2. Periksa arsip shift lokal apakah ada shift yang berstatus open
     const shifts = loadLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
     const existingOpen = shifts.find(s => isBranchMatch(s.cabang_id, cabangId) && s.status === 'open');
     if (existingOpen) {
@@ -1039,8 +1099,14 @@ export class PosDatabase {
       return await this.calculateShiftBalance(existingOpen);
     }
 
-    // Inisialisasi otomatis Shift Resmi Harian untuk cabang ini (1x per hari)
-    // Modal awal laci Rp 200.000 standar resmi toko per hari (TIDAK DIDUPLIKASI)
+    // 3. Jika belum pernah dibuka sama sekali hari ini (awal instalasi / perangkat baru),
+    // aktifkan otomatis Shift Hari Ini agar kasir langsung memiliki kas laci Rp 200.000
+    const hasClosedToday = shifts.some(s => isBranchMatch(s.cabang_id, cabangId) && s.status === 'closed');
+    if (hasClosedToday) {
+      // Kasir sudah pernah tutup shift, biarkan kasir memilih '+ Buka Shift' secara sadar
+      return null;
+    }
+
     const cabangs = await this.getCabangList();
     const targetCabang = cabangs.find(c => isBranchMatch(c.id, cabangId)) || cabangs[0];
     const defaultPj = targetCabang?.pj_nama || targetCabang?.kasir_username || 'Siti Rahmawati (PJ)';
@@ -1068,6 +1134,23 @@ export class PosDatabase {
     saveLocal(key, autoDailyShift);
     shifts.push(autoDailyShift);
     saveLocal(STORAGE_KEYS.SHIFTS, shifts);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const branchUuid = getBranchUuid(cabangId);
+        if (branchUuid) {
+          await supabase.from('shift').insert([{
+            id: autoDailyShift.id,
+            cabang_id: branchUuid,
+            waktu_buka: autoDailyShift.waktu_buka,
+            modal_awal: 200000,
+            status: 'open'
+          }]);
+        }
+      } catch (e) {
+        console.warn('Supabase auto shift insert fallback:', e);
+      }
+    }
 
     return await this.calculateShiftBalance(autoDailyShift);
   }
@@ -1185,34 +1268,52 @@ export class PosDatabase {
     const transactions = await this.getTransaksiList(shift.cabang_id);
     const expenses = await this.getPengeluaranList(shift.cabang_id);
 
-    // Sum transactions in this shift
-    const shiftTransactions = transactions.filter(t => 
-      t.status === 'completed' && new Date(t.waktu) >= new Date(shift.waktu_buka)
-    );
+    // Sum transactions in this shift (tahan ganti HP, reconnect, atau toleransi pembukaan shift)
+    const shiftOpenDate = (shift.waktu_buka || '').slice(0, 10);
+    const shiftOpenTime = new Date(shift.waktu_buka).getTime();
+
+    const shiftTransactions = transactions.filter(t => {
+      if (t.status !== 'completed') return false;
+      if (!isBranchMatch(t.cabang_id, shift.cabang_id)) return false;
+      // 1. Cocok dengan ID shift
+      if (t.shift_id && t.shift_id === shift.id) return true;
+      // 2. Waktu transaksi >= waktu buka shift (dengan toleransi 15 menit jika kasir sempat cetak duluan)
+      const trxTime = new Date(t.waktu).getTime();
+      if (!isNaN(trxTime) && trxTime >= shiftOpenTime - (15 * 60 * 1000)) return true;
+      // 3. Tanggal transaksi sama dengan hari ini dan shift belum pernah ditutup
+      const trxDate = (t.waktu || '').slice(0, 10);
+      if (trxDate && trxDate === shiftOpenDate && !shift.waktu_tutup) return true;
+      return false;
+    });
 
     let tunaiMasuk = 0;
     let qrisMasuk = 0;
     let transferMasuk = 0;
 
     for (const trx of shiftTransactions) {
-      if (trx.metode_bayar === 'tunai') tunaiMasuk += trx.total;
-      if (trx.metode_bayar === 'qris') qrisMasuk += trx.total;
-      if (trx.metode_bayar === 'transfer') transferMasuk += trx.total;
+      const pay = (trx.metode_bayar || '').toLowerCase().trim();
+      if (pay === 'tunai') tunaiMasuk += Number(trx.total || 0);
+      else if (pay === 'qris') qrisMasuk += Number(trx.total || 0);
+      else if (pay === 'transfer') transferMasuk += Number(trx.total || 0);
     }
 
     // Sum approved expenses taken from drawer ('laci')
-    const shiftExpenses = expenses.filter(e => 
-      e.status === 'approved' && 
-      e.metode_pencairan === 'laci' &&
-      new Date(e.tanggal) >= new Date(shift.waktu_buka)
-    );
+    const shiftExpenses = expenses.filter(e => {
+      if (e.status !== 'approved') return false;
+      if (e.metode_pencairan !== 'laci') return false;
+      if (!isBranchMatch(e.cabang_id, shift.cabang_id)) return false;
+      const expDate = (e.tanggal || '').slice(0, 10);
+      if (expDate && expDate === shiftOpenDate && !shift.waktu_tutup) return true;
+      const expTime = new Date(e.tanggal).getTime();
+      return !isNaN(expTime) && expTime >= shiftOpenTime - (15 * 60 * 1000);
+    });
 
     let belanjaApproved = 0;
     let kasbonApproved = 0;
 
     for (const exp of shiftExpenses) {
-      if (exp.jenis === 'belanja') belanjaApproved += exp.nominal;
-      if (exp.jenis === 'kasbon') kasbonApproved += exp.nominal;
+      if (exp.jenis === 'belanja') belanjaApproved += Number(exp.nominal || 0);
+      if (exp.jenis === 'kasbon') kasbonApproved += Number(exp.nominal || 0);
     }
 
     // Saldo Akhir Sistem = Modal Awal + Tunai Masuk - Belanja (Approved) - Kasbon (Approved)
@@ -1252,8 +1353,10 @@ export class PosDatabase {
     };
 
     // Remove active shift
+    const branchUuid = getBranchUuid(cabangId) || cabangId;
     if (typeof window !== 'undefined') {
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabangId);
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + branchUuid);
     }
 
     // Update archive
@@ -1434,9 +1537,7 @@ export class PosDatabase {
           trx.is_offline_synced = true;
           if (trx.items && trx.items.length > 0) {
             const itemsPayload = trx.items.map(it => {
-              const menuUuid = isValidUuid(it.menu_id) 
-                ? it.menu_id 
-                : (it.menu_id && MENU_UUID_MAP[it.menu_id]) || null;
+              const menuUuid = getMenuUuid(it.menu_id);
               return {
                 id: generateUUID(),
                 transaksi_id: trx.id,

@@ -44,22 +44,8 @@ export default function MutasiPenjualanStatement({
   // Period & Date Filter States
   const [periodMode, setPeriodMode] = useState<PeriodMode>('hari');
 
-  // Determine latest transaction date for initial state
-  const latestDateStr = useMemo(() => {
-    if (transaksiList.length === 0) return getTodayDateString();
-    const sorted = [...transaksiList].sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime());
-    try {
-      const d = new Date(sorted[0].waktu);
-      if (!isNaN(d.getTime())) {
-        return getTodayDateString(d);
-      }
-    } catch {
-      // fallback
-    }
-    return getTodayDateString();
-  }, [transaksiList]);
-
-  const [selectedDate, setSelectedDate] = useState<string>(latestDateStr);
+  // Selalu default ke tanggal kalender HARI INI secara dinamis (misal 7 Nov 2026)
+  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayDateString());
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
 
@@ -83,22 +69,6 @@ export default function MutasiPenjualanStatement({
     }
   }, [propSelectedCabangId]);
 
-  // Sync selectedDate with latest date on initial load
-  useEffect(() => {
-    if (latestDateStr) {
-      setSelectedDate(latestDateStr);
-      try {
-        const d = new Date(latestDateStr);
-        if (!isNaN(d.getTime())) {
-          setSelectedYear(d.getFullYear());
-          setSelectedMonth(d.getMonth() + 1);
-        }
-      } catch {
-        // ignore
-      }
-    }
-  }, [latestDateStr]);
-
   // Reset page when any filter changes
   useEffect(() => {
     setCurrentPage(1);
@@ -109,26 +79,26 @@ export default function MutasiPenjualanStatement({
     try {
       const d = new Date(waktuStr);
       if (isNaN(d.getTime())) {
-        const clean = waktuStr.slice(0, 10);
+        const clean = waktuStr ? waktuStr.slice(0, 10) : getTodayDateString();
         return {
           dateStr: clean,
-          year: parseInt(clean.slice(0, 4)) || 2026,
-          month: parseInt(clean.slice(5, 7)) || 10,
-          day: parseInt(clean.slice(8, 10)) || 25,
+          year: parseInt(clean.slice(0, 4)) || new Date().getFullYear(),
+          month: parseInt(clean.slice(5, 7)) || (new Date().getMonth() + 1),
+          day: parseInt(clean.slice(8, 10)) || new Date().getDate(),
         };
       }
       return {
-        dateStr: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        dateStr: getTodayDateString(d),
         year: d.getFullYear(),
         month: d.getMonth() + 1,
         day: d.getDate(),
       };
     } catch {
       return {
-        dateStr: waktuStr.slice(0, 10),
-        year: 2026,
-        month: 10,
-        day: 25,
+        dateStr: waktuStr ? waktuStr.slice(0, 10) : getTodayDateString(),
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1,
+        day: new Date().getDate(),
       };
     }
   };
@@ -425,7 +395,15 @@ export default function MutasiPenjualanStatement({
 
                 <button
                   type="button"
-                  onClick={() => setSelectedDate(latestDateStr)}
+                  onClick={() => {
+                    const todayStr = getTodayDateString();
+                    setSelectedDate(todayStr);
+                    try {
+                      const d = new Date();
+                      setSelectedYear(d.getFullYear());
+                      setSelectedMonth(d.getMonth() + 1);
+                    } catch {}
+                  }}
                   className="text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ml-1"
                 >
                   Hari Ini
@@ -483,8 +461,9 @@ export default function MutasiPenjualanStatement({
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedMonth(10);
-                    setSelectedYear(2026);
+                    const now = new Date();
+                    setSelectedMonth(now.getMonth() + 1);
+                    setSelectedYear(now.getFullYear());
                   }}
                   className="text-[10px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-lg transition-colors cursor-pointer ml-1"
                 >
@@ -603,7 +582,7 @@ export default function MutasiPenjualanStatement({
                   setPaymentFilter('all');
                   setSearchQuery('');
                   setPeriodMode('hari');
-                  setSelectedDate(latestDateStr);
+                  setSelectedDate(getTodayDateString());
                 }}
                 title="Reset Semua Filter"
                 className="flex items-center space-x-1 px-2 py-1.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-xs font-bold transition-all cursor-pointer"

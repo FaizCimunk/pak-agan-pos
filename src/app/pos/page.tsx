@@ -196,7 +196,15 @@ export default function PosPage() {
       handleOnline();
     }
 
+    // Interval berkala auto-sync setiap 30 detik (jaga-jaga jika event online tidak tertangkap OS)
+    const syncInterval = setInterval(() => {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        handleOnline();
+      }
+    }, 30000);
+
     return () => {
+      clearInterval(syncInterval);
       window.removeEventListener('pak_agan_db_updated', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('online', handleOnline);

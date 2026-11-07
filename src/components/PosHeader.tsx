@@ -19,7 +19,9 @@ import {
   ChevronRight,
   ShieldCheck,
   CheckCircle2,
-  PackageCheck
+  PackageCheck,
+  KeyRound,
+  Sparkles
 } from 'lucide-react';
 import { Cabang, Shift } from '@/lib/types';
 import { printerService } from '@/lib/printer';
@@ -115,6 +117,9 @@ export default function PosHeader({
     if (confirm('Keluar dari sesi tablet kasir?')) {
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('pakagan_kasir_session');
+        sessionStorage.removeItem('pakagan_user');
+        localStorage.removeItem('pakagan_kasir_session');
+        localStorage.removeItem('pakagan_user');
         window.location.href = '/';
       }
     }
@@ -404,30 +409,56 @@ export default function PosHeader({
                   </div>
                 </button>
 
-                {/* Tile 3: Tutup Shift Kasir */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    onCloseShiftClick();
-                  }}
-                  className="flex items-start p-3.5 sm:p-4 rounded-2xl bg-rose-50 hover:bg-rose-100/80 border border-rose-200 text-left transition-all btn-tactile group shadow-soft-sm"
-                >
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 mr-3 shadow-md shadow-rose-700/20">
-                    <LogOut className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-black text-rose-950 text-xs sm:text-sm truncate">Tutup Shift Kasir</span>
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-900 border border-rose-300 shrink-0">
-                        Akhiri Hari
-                      </span>
+                {/* Tile 3: Buka Kasir / Shift jika belum aktif, atau Tutup Shift jika sudah aktif */}
+                {activeShift ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onCloseShiftClick();
+                    }}
+                    className="flex items-start p-3.5 sm:p-4 rounded-2xl bg-rose-50 hover:bg-rose-100/80 border border-rose-200 text-left transition-all btn-tactile group shadow-soft-sm"
+                  >
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 mr-3 shadow-md shadow-rose-700/20">
+                      <LogOut className="w-5 h-5" />
                     </div>
-                    <p className="text-[11px] sm:text-xs text-rose-900/80 font-normal leading-relaxed">
-                      Hitung fisik uang kas laci, selisih kas, &amp; kunci pembukuan shift.
-                    </p>
-                  </div>
-                </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-black text-rose-950 text-xs sm:text-sm truncate">Tutup Shift Kasir</span>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-200/70 text-rose-900 border border-rose-300 shrink-0">
+                          Akhiri Hari
+                        </span>
+                      </div>
+                      <p className="text-[11px] sm:text-xs text-rose-900/80 font-normal leading-relaxed">
+                        Hitung fisik uang kas laci, selisih kas, &amp; kunci pembukuan shift.
+                      </p>
+                    </div>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onOpenShiftClick();
+                    }}
+                    className="flex items-start p-3.5 sm:p-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100/90 border-2 border-emerald-500 text-left transition-all btn-tactile group shadow-md shadow-emerald-700/10 animate-pulse"
+                  >
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 mr-3 shadow-md shadow-emerald-900/20">
+                      <KeyRound className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-black text-emerald-950 text-xs sm:text-sm truncate">Buka Kasir / Shift</span>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 border border-emerald-300 shrink-0">
+                          Wajib Awal Hari
+                        </span>
+                      </div>
+                      <p className="text-[11px] sm:text-xs text-emerald-900 font-semibold leading-relaxed">
+                        Buka laci kasir, masukkan modal awal Rp 200.000 &amp; sinkronkan kas laci.
+                      </p>
+                    </div>
+                  </button>
+                )}
 
                 {/* Tile 4: Printer Bluetooth */}
                 <button
@@ -463,29 +494,69 @@ export default function PosHeader({
             </div>
 
             {/* Modal Footer: Current Cash in Drawer & Logout */}
-            <div className="px-4 sm:px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0">
+            <div className="px-4 sm:px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
               <div className="flex items-center space-x-2 text-xs text-slate-600 w-full sm:w-auto justify-between sm:justify-start">
-                <span className="font-medium">Kas Laci Saat Ini:</span>
-                <span className="font-mono font-black text-emerald-800 text-sm">
-                  {activeShift ? formatRupiah(activeShift.saldo_akhir_sistem) : 'Rp 0'}
-                </span>
+                <span className="font-bold text-slate-700">Status Kas Laci:</span>
+                {activeShift ? (
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="font-mono font-black text-emerald-800 text-sm">
+                      {formatRupiah(activeShift.saldo_akhir_sistem)}
+                    </span>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-extrabold">
+                      Shift Aktif
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span className="font-bold text-amber-800 text-xs">
+                      Belum Dibuka (Rp 0)
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                {!activeShift ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onOpenShiftClick();
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-black bg-emerald-700 text-white hover:bg-emerald-800 shadow-md shadow-emerald-900/20 transition-all btn-tactile flex items-center space-x-1.5"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>+ Buka Kasir (Modal Rp 200.000)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onCloseShiftClick();
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors"
+                  >
+                    Tutup Shift
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsMenuOpen(false)}
                   className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
                 >
-                  Tutup
+                  Tutup Menu
                 </button>
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center space-x-1.5"
+                  className="px-3 py-1.5 rounded-xl text-xs font-black bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center space-x-1"
+                  title="Keluar dari tablet kasir"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  <span>Keluar Kasir</span>
+                  <span className="hidden sm:inline">Keluar</span>
                 </button>
               </div>
             </div>

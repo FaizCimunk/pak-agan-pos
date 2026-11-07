@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   User, 
@@ -23,6 +23,34 @@ export default function LoginPage() {
   const [showPin, setShowPin] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+
+  // Auto-Restore Sesi Kasir jika aplikasi dibuka kembali setelah buka YouTube / switch app
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const userStr = localStorage.getItem('pakagan_user') || sessionStorage.getItem('pakagan_user');
+      const kasirSession = localStorage.getItem('pakagan_kasir_session') || sessionStorage.getItem('pakagan_kasir_session');
+      const lockedCabangId = localStorage.getItem('pakagan_device_cabang_id');
+
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user.role === 'kasir' || kasirSession || lockedCabangId) {
+            router.replace('/pos');
+            return;
+          }
+          if (user.role === 'owner') {
+            router.replace('/admin');
+            return;
+          }
+          router.replace('/karyawan');
+          return;
+        } catch {}
+      } else if (kasirSession && lockedCabangId) {
+        router.replace('/pos');
+        return;
+      }
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +86,8 @@ export default function LoginPage() {
         const targetCabangId = user.cabang_id;
         if (typeof window !== 'undefined') {
           localStorage.setItem('pakagan_device_cabang_id', targetCabangId);
+          localStorage.setItem('pakagan_kasir_session', user.nama || 'Kasir Cabang');
+          localStorage.setItem('pakagan_user', JSON.stringify(user));
           sessionStorage.setItem('pakagan_kasir_session', user.nama || 'Kasir Cabang');
           sessionStorage.setItem('pakagan_user', JSON.stringify(user));
         }
