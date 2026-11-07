@@ -215,6 +215,22 @@ export function isBranchMatch(idA?: string | null, idB?: string | null): boolean
   return false;
 }
 
+export function getKaryawanUuid(idOrUsername?: string | null): string | null {
+  if (!idOrUsername) return null;
+  const clean = idOrUsername.trim().toLowerCase();
+  if (KARYAWAN_UUID_MAP[clean]) return KARYAWAN_UUID_MAP[clean];
+  if (isValidUuid(idOrUsername)) return idOrUsername;
+  return null;
+}
+
+export function getMenuUuid(idOrCode?: string | null): string | null {
+  if (!idOrCode) return null;
+  const clean = idOrCode.trim();
+  if (MENU_UUID_MAP[clean]) return MENU_UUID_MAP[clean];
+  if (isValidUuid(idOrCode)) return idOrCode;
+  return null;
+}
+
 export class PosDatabase {
   // --------------------------------------------------------------------------
   // CABANG (10 CABANG RESMI)
@@ -267,7 +283,8 @@ export class PosDatabase {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('cabang').update(updates).eq('id', id);
+        const targetUuid = getBranchUuid(id) || id;
+        await supabase.from('cabang').update(updates).eq('id', targetUuid);
       } catch (e) {
         console.warn('Supabase updateCabang fallback local:', e);
       }
@@ -462,7 +479,11 @@ export class PosDatabase {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('karyawan').update({ cabang_id: cabangId }).eq('id', karyawanId);
+        const branchUuid = getBranchUuid(cabangId);
+        const karUuid = getKaryawanUuid(karyawanId);
+        if (karUuid && branchUuid) {
+          await supabase.from('karyawan').update({ cabang_id: branchUuid }).eq('id', karUuid);
+        }
       } catch (e) {
         console.warn('Supabase assignKaryawanCabang fallback local:', e);
       }
@@ -607,6 +628,17 @@ export class PosDatabase {
     const hashed = await hashPin(newPin);
     const updated = list.map(k => k.id === karyawanId ? { ...k, pin_hash: hashed, password_plain: newPin } : k);
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const karUuid = getKaryawanUuid(karyawanId);
+        if (karUuid) {
+          await supabase.from('karyawan').update({ pin_hash: hashed, password_plain: newPin }).eq('id', karUuid);
+        }
+      } catch (e) {
+        console.warn('Supabase resetKaryawanPin error:', e);
+      }
+    }
     return true;
   }
 
@@ -632,6 +664,26 @@ export class PosDatabase {
       return k;
     });
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const karUuid = getKaryawanUuid(karyawanId);
+        if (karUuid) {
+          const payload: any = {};
+          if (data.username) payload.username = data.username.toLowerCase().trim();
+          if (newHash) payload.pin_hash = newHash;
+          if (data.password_plain) payload.password_plain = data.password_plain;
+          if (typeof data.is_locked === 'boolean') payload.is_locked = data.is_locked;
+          await supabase.from('karyawan').update(payload).eq('id', karUuid);
+        }
+      } catch (e) {
+        console.warn('Supabase updateKaryawanCredentials error:', e);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
     return true;
   }
 
@@ -708,6 +760,18 @@ export class PosDatabase {
     const list = await this.getAllKaryawan();
     const updated = list.map(k => k.id === karyawanId ? { ...k, ...data } : k);
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const karUuid = getKaryawanUuid(karyawanId);
+        if (karUuid) {
+          await supabase.from('karyawan').update(data).eq('id', karUuid);
+        }
+      } catch (e) {
+        console.warn('Supabase updateKaryawanSalary error:', e);
+      }
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
@@ -718,6 +782,17 @@ export class PosDatabase {
     const list = await this.getAllKaryawan();
     const updated = list.map(k => k.id === karyawanId ? { ...k, utang_nominal: utang } : k);
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const karUuid = getKaryawanUuid(karyawanId);
+        if (karUuid) {
+          await supabase.from('karyawan').update({ utang_nominal: utang }).eq('id', karUuid);
+        }
+      } catch (e) {
+        console.warn('Supabase updateKaryawanUtang error:', e);
+      }
+    }
     return true;
   }
 
@@ -725,6 +800,17 @@ export class PosDatabase {
     const list = await this.getMenuList();
     const updated = list.map(m => m.id === menuId ? { ...m, hpp } : m);
     saveLocal(STORAGE_KEYS.MENU, updated);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const menuUuid = getMenuUuid(menuId) || menuId;
+        if (isValidUuid(menuUuid)) {
+          await supabase.from('menu').update({ hpp }).eq('id', menuUuid);
+        }
+      } catch (e) {
+        console.warn('Supabase updateMenuHpp error:', e);
+      }
+    }
     return true;
   }
 
@@ -732,14 +818,26 @@ export class PosDatabase {
   // ABSENSI & PRESENSI HARIAN (DICATAT OLEH KEPALA CABANG / ADMIN OUTLET)
   // --------------------------------------------------------------------------
   async getAbsensiList(karyawanId?: string, cabangId?: string, tanggal?: string): Promise<Absensi[]> {
+    let cloudList: Absensi[] = [];
     if (isSupabaseConfigured && supabase) {
       try {
         let query = supabase.from('absensi').select('*').order('tanggal', { ascending: false });
-        if (karyawanId) query = query.eq('karyawan_id', karyawanId);
-        if (cabangId) query = query.eq('cabang_id', cabangId);
+        if (karyawanId && karyawanId !== 'all') {
+          const karUuid = getKaryawanUuid(karyawanId);
+          if (karUuid) query = query.eq('karyawan_id', karUuid);
+        }
+        if (cabangId && cabangId !== 'all') {
+          const cbgUuid = getBranchUuid(cabangId);
+          if (cbgUuid) query = query.eq('cabang_id', cbgUuid);
+        }
         if (tanggal) query = query.eq('tanggal', tanggal);
         const { data, error } = await query;
-        if (!error && data && data.length > 0) return data;
+        if (!error && data) {
+          cloudList = data.map((d: any) => ({
+            ...d,
+            cabang_nama: d.cabang_nama || getBranchName(d.cabang_id)
+          }));
+        }
       } catch (e) {
         console.warn('Fallback to local absensi:', e);
       }
@@ -782,12 +880,36 @@ export class PosDatabase {
     if (hasOutdated) {
       saveLocal(STORAGE_KEYS.ABSENSI, all);
     }
-    return all.filter(a => {
-      if (karyawanId && a.karyawan_id !== karyawanId) return false;
-      if (cabangId && a.cabang_id !== cabangId) return false;
-      if (tanggal && a.tanggal !== tanggal) return false;
-      return true;
-    });
+
+    const combinedMap = new Map<string, Absensi>();
+    for (const a of cloudList) {
+      combinedMap.set(`${a.karyawan_id}-${a.tanggal}`, a);
+    }
+    for (const a of all) {
+      const key = `${a.karyawan_id}-${a.tanggal}`;
+      if (!combinedMap.has(key)) {
+        combinedMap.set(key, {
+          ...a,
+          cabang_nama: a.cabang_nama || getBranchName(a.cabang_id)
+        });
+      }
+    }
+
+    const combined = Array.from(combinedMap.values()).sort(
+      (a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
+    );
+
+    let result = combined;
+    if (cabangId && cabangId !== 'all') {
+      result = result.filter(a => isBranchMatch(a.cabang_id, cabangId));
+    }
+    if (karyawanId && karyawanId !== 'all') {
+      result = result.filter(a => a.karyawan_id === karyawanId || getKaryawanUuid(a.karyawan_id) === getKaryawanUuid(karyawanId));
+    }
+    if (tanggal) {
+      result = result.filter(a => a.tanggal === tanggal);
+    }
+    return result;
   }
 
   async getKehadiranCount(karyawanId: string, bulan?: number, tahun?: number): Promise<number> {
@@ -862,10 +984,31 @@ export class PosDatabase {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('absensi').upsert(all);
+        const payload = entries.map(item => {
+          const branchUuid = getBranchUuid(item.cabang_id) || CABANG_MAP_INFO[0].uuid;
+          const karUuid = getKaryawanUuid(item.karyawan_id) || KARYAWAN_UUID_MAP['kar-1'];
+          const upahMultiplier = item.status === 'hadir' ? 1 : item.status === 'setengah_hari' ? 0.5 : 0;
+          return {
+            id: generateUUID(),
+            karyawan_id: karUuid,
+            karyawan_nama: item.karyawan_nama,
+            cabang_id: branchUuid,
+            cabang_nama: item.cabang_nama,
+            tanggal: item.tanggal,
+            status: item.status,
+            upah_harian_terhitung: item.upah_harian * upahMultiplier,
+            catatan: item.catatan || '',
+            recorded_by: item.recorded_by
+          };
+        });
+        await supabase.from('absensi').insert(payload);
       } catch (e) {
-        console.warn('Failed upserting absensi to supabase:', e);
+        console.warn('Failed inserting absensi to supabase:', e);
       }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
 
     return true;
@@ -940,8 +1083,12 @@ export class PosDatabase {
       return existing;
     }
 
+    const shiftUuid = generateUUID();
+    const branchUuid = getBranchUuid(cabang_id) || CABANG_MAP_INFO[0].uuid;
+    const karUuid = getKaryawanUuid(karyawan_id) || KARYAWAN_UUID_MAP['kar-1'];
+
     const newShift: Shift = {
-      id: 'shift-' + Date.now(),
+      id: shiftUuid,
       cabang_id,
       karyawan_id,
       karyawan_nama,
@@ -964,6 +1111,21 @@ export class PosDatabase {
     const shifts = loadLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
     shifts.push(newShift);
     saveLocal(STORAGE_KEYS.SHIFTS, shifts);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('shift').insert([{
+          id: shiftUuid,
+          cabang_id: branchUuid,
+          karyawan_id: karUuid,
+          waktu_buka: newShift.waktu_buka,
+          modal_awal: modal_awal,
+          status: 'open'
+        }]);
+      } catch (e) {
+        console.warn('Supabase openShift insert error:', e);
+      }
+    }
 
     // Otomatis catat presensi masuk kasir sesuai jam aktual buka shift
     try {
@@ -1097,6 +1259,27 @@ export class PosDatabase {
       shifts.push(closedShift);
     }
     saveLocal(STORAGE_KEYS.SHIFTS, shifts);
+
+    // Sync to Supabase
+    if (isSupabaseConfigured && supabase && isValidUuid(closedShift.id)) {
+      try {
+        await supabase.from('shift').update({
+          waktu_tutup: closedShift.waktu_tutup,
+          total_tunai_masuk: closedShift.total_tunai_masuk,
+          total_qris_masuk: closedShift.total_qris_masuk,
+          total_transfer_masuk: closedShift.total_transfer_masuk,
+          total_belanja_approved: closedShift.total_belanja_approved,
+          total_kasbon_approved: closedShift.total_kasbon_approved,
+          saldo_akhir_sistem: closedShift.saldo_akhir_sistem,
+          saldo_akhir_fisik: closedShift.saldo_akhir_fisik,
+          selisih: closedShift.selisih,
+          status: 'closed',
+          catatan: closedShift.catatan
+        }).eq('id', closedShift.id);
+      } catch (e) {
+        console.warn('Supabase closeShift update error:', e);
+      }
+    }
 
     // Otomatis sinkronkan jam pulang presensi kasir sesuai jam aktual tutup shift
     try {
@@ -1455,6 +1638,25 @@ export class PosDatabase {
   }
 
   async getPayrollList(): Promise<Payroll[]> {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase.from('payroll').select('*').order('tanggal_kunci', { ascending: false });
+        if (!error && data && data.length > 0) {
+          return data.map((d: any) => ({
+            ...d,
+            gaji_pokok: Number(d.gaji_pokok),
+            tunjangan: Number(d.tunjangan),
+            potongan_kasbon: Number(d.potongan_kasbon || 0),
+            potongan_tabungan: Number(d.potongan_tabungan || 0),
+            total_tabungan_snapshot: Number(d.total_tabungan_snapshot || 0),
+            gaji_bersih: Number(d.gaji_bersih),
+            upah_harian: Number(d.upah_harian || 0)
+          }));
+        }
+      } catch (e) {
+        console.warn('Fallback to local payroll:', e);
+      }
+    }
     return loadLocal<Payroll[]>(STORAGE_KEYS.PAYROLL, []);
   }
 
@@ -1462,6 +1664,25 @@ export class PosDatabase {
   // TABUNGAN RUTIN KARYAWAN (CELENGAN MINGGUAN KARYAWAN DISIMPAN OWNER)
   // --------------------------------------------------------------------------
   async getTabunganKaryawanList(karyawanId?: string): Promise<TabunganKaryawanItem[]> {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        let query = supabase.from('tabungan_karyawan_log').select('*').order('created_at', { ascending: false });
+        if (karyawanId) {
+          const karUuid = getKaryawanUuid(karyawanId);
+          if (karUuid) query = query.eq('karyawan_id', karUuid);
+        }
+        const { data, error } = await query;
+        if (!error && data && data.length > 0) {
+          return data.map((d: any) => ({
+            ...d,
+            nominal: Number(d.nominal),
+            saldo_setelah: Number(d.saldo_setelah)
+          }));
+        }
+      } catch (e) {
+        console.warn('Fallback to local tabungan:', e);
+      }
+    }
     const all = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
     if (!karyawanId) return all;
     return all.filter(t => t.karyawan_id === karyawanId);
@@ -1500,6 +1721,30 @@ export class PosDatabase {
     // Update saldo kumulatif di data Karyawan
     const updatedKars = kars.map(k => k.id === karyawanId ? { ...k, total_tabungan: saldoAkhir } : k);
     saveLocal(STORAGE_KEYS.KARYAWAN, updatedKars);
+
+    // Sync to Supabase
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const karUuid = getKaryawanUuid(karyawanId);
+        const branchUuid = getBranchUuid(kar?.cabang_id);
+        if (karUuid) {
+          await supabase.from('tabungan_karyawan_log').insert([{
+            id: generateUUID(),
+            karyawan_id: karUuid,
+            cabang_id: branchUuid,
+            tanggal: newItem.tanggal,
+            tipe: 'setor',
+            nominal: nominal,
+            saldo_setelah: saldoAkhir,
+            keterangan: keterangan,
+            dicatat_oleh: dicatatOleh
+          }]);
+          await supabase.from('karyawan').update({ total_tabungan: saldoAkhir }).eq('id', karUuid);
+        }
+      } catch (e) {
+        console.warn('Supabase setorTabungan error:', e);
+      }
+    }
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
@@ -1545,6 +1790,30 @@ export class PosDatabase {
     const updatedKars = kars.map(k => k.id === karyawanId ? { ...k, total_tabungan: saldoAkhir } : k);
     saveLocal(STORAGE_KEYS.KARYAWAN, updatedKars);
 
+    // Sync to Supabase
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const karUuid = getKaryawanUuid(karyawanId);
+        const branchUuid = getBranchUuid(kar?.cabang_id);
+        if (karUuid) {
+          await supabase.from('tabungan_karyawan_log').insert([{
+            id: generateUUID(),
+            karyawan_id: karUuid,
+            cabang_id: branchUuid,
+            tanggal: newItem.tanggal,
+            tipe: 'tarik',
+            nominal: nominal,
+            saldo_setelah: saldoAkhir,
+            keterangan: keterangan,
+            dicatat_oleh: dicatatOleh
+          }]);
+          await supabase.from('karyawan').update({ total_tabungan: saldoAkhir }).eq('id', karUuid);
+        }
+      } catch (e) {
+        console.warn('Supabase tarikTabungan error:', e);
+      }
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
@@ -1556,13 +1825,14 @@ export class PosDatabase {
     const existing = await this.getPayrollList();
     const stampedRecords = records.map(r => ({
       ...r,
+      id: isValidUuid(r.id) ? r.id : generateUUID(),
       status: 'paid' as const,
       tanggal_kunci: r.tanggal_kunci || new Date().toISOString()
     }));
     const updatedPayrolls = [...stampedRecords, ...existing];
     saveLocal(STORAGE_KEYS.PAYROLL, updatedPayrolls);
 
-    // Mark corresponding kasbon as settled
+    // Mark corresponding kasbon as settled locally
     const allExpenses = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
     const settledKaryawanIds = new Set(records.map(r => r.karyawan_id));
 
@@ -1574,6 +1844,48 @@ export class PosDatabase {
     });
 
     saveLocal(STORAGE_KEYS.EXPENSES, updatedExpenses);
+
+    // Sync to Supabase
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const payrollPayload = stampedRecords.map(r => ({
+          id: r.id,
+          karyawan_id: getKaryawanUuid(r.karyawan_id) || KARYAWAN_UUID_MAP['kar-1'],
+          cabang_id: getBranchUuid(r.cabang_id) || CABANG_MAP_INFO[0].uuid,
+          slip_no: r.slip_no,
+          periode_bulan: r.periode_bulan,
+          periode_tahun: r.periode_tahun,
+          tipe_gaji: r.tipe_gaji || 'harian',
+          total_kehadiran_hari: r.total_kehadiran_hari || 0,
+          upah_harian: r.upah_harian || 0,
+          gaji_pokok: r.gaji_pokok,
+          tunjangan: r.tunjangan,
+          potongan_kasbon: r.potongan_kasbon || 0,
+          potongan_tabungan: r.potongan_tabungan || 0,
+          total_tabungan_snapshot: r.total_tabungan_snapshot || 0,
+          gaji_bersih: r.gaji_bersih,
+          status: 'paid',
+          tanggal_kunci: r.tanggal_kunci,
+          karyawan_telepon: r.karyawan_telepon || null,
+          keterangan: r.keterangan || null
+        }));
+        await supabase.from('payroll').insert(payrollPayload);
+
+        // Update settled kasbon in Supabase
+        for (const karId of Array.from(settledKaryawanIds)) {
+          const karUuid = getKaryawanUuid(karId);
+          if (karUuid) {
+            await supabase.from('pengeluaran_kasbon')
+              .update({ is_settled: true })
+              .eq('karyawan_id', karUuid)
+              .eq('jenis', 'kasbon')
+              .eq('status', 'approved');
+          }
+        }
+      } catch (e) {
+        console.warn('Supabase lockPayroll insert error:', e);
+      }
+    }
 
     // Auto-Setor Tabungan Karyawan jika payroll menyertakan potongan tabungan rutin
     for (const r of records) {
@@ -1747,9 +2059,42 @@ export class PosDatabase {
   // KIRIMAN BAHAN DARI PUSAT KE CABANG (SATU PER SATU)
   // --------------------------------------------------------------------------
   async getKirimanBahanList(cabangId?: string, tanggal?: string): Promise<KirimanBahanPusat[]> {
+    let cloudList: KirimanBahanPusat[] = [];
+    if (isSupabaseConfigured && supabase) {
+      try {
+        let query = supabase.from('kiriman_bahan_pusat').select('*').order('tanggal', { ascending: false });
+        if (cabangId && cabangId !== 'all') {
+          const targetUuid = getBranchUuid(cabangId);
+          if (targetUuid) query = query.eq('cabang_id', targetUuid);
+        }
+        if (tanggal) query = query.eq('tanggal', tanggal);
+        const { data, error } = await query;
+        if (!error && data) {
+          cloudList = data.map((d: any) => ({
+            ...d,
+            jumlah: Number(d.jumlah),
+            harga_satuan: Number(d.harga_satuan || 0),
+            total_nilai: Number(d.total_nilai || 0)
+          }));
+        }
+      } catch (e) {
+        console.warn('Fallback to local kiriman bahan:', e);
+      }
+    }
+
     const all = loadLocal<KirimanBahanPusat[]>(STORAGE_KEYS.KIRIMAN_BAHAN, INITIAL_KIRIMAN_BAHAN);
-    return all.filter(k => {
-      if (cabangId && cabangId !== 'all' && k.cabang_id !== cabangId) return false;
+    const combinedMap = new Map<string, KirimanBahanPusat>();
+    for (const k of cloudList) {
+      combinedMap.set(k.id, k);
+    }
+    for (const k of all) {
+      if (!combinedMap.has(k.id)) {
+        combinedMap.set(k.id, k);
+      }
+    }
+    const combined = Array.from(combinedMap.values());
+    return combined.filter(k => {
+      if (cabangId && cabangId !== 'all' && !isBranchMatch(k.cabang_id, cabangId)) return false;
       if (tanggal && k.tanggal !== tanggal) return false;
       return true;
     });
@@ -1757,13 +2102,46 @@ export class PosDatabase {
 
   async createKirimanBahan(data: Omit<KirimanBahanPusat, 'id' | 'created_at'>): Promise<KirimanBahanPusat> {
     const all = loadLocal<KirimanBahanPusat[]>(STORAGE_KEYS.KIRIMAN_BAHAN, INITIAL_KIRIMAN_BAHAN);
+    const newId = generateUUID();
+    const branchUuid = getBranchUuid(data.cabang_id) || CABANG_MAP_INFO[0].uuid;
+
     const newKiriman: KirimanBahanPusat = {
       ...data,
-      id: 'krm-' + Date.now(),
+      id: newId,
+      cabang_id: branchUuid,
       created_at: new Date().toISOString(),
     };
     all.unshift(newKiriman);
     saveLocal(STORAGE_KEYS.KIRIMAN_BAHAN, all);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: bData } = await supabase.from('bahan_baku').select('id').eq('nama', data.bahan_nama).limit(1);
+        const bahanUuid = bData && bData[0] ? bData[0].id : (isValidUuid(data.bahan_id) ? data.bahan_id : null);
+
+        if (bahanUuid) {
+          await supabase.from('kiriman_bahan_pusat').insert([{
+            id: newId,
+            cabang_id: branchUuid,
+            bahan_id: bahanUuid,
+            bahan_nama: data.bahan_nama,
+            jumlah: data.jumlah,
+            satuan: data.satuan,
+            harga_satuan: data.harga_satuan || 0,
+            total_nilai: data.total_nilai || 0,
+            tanggal: data.tanggal,
+            dikirim_oleh: data.dikirim_oleh || 'Gudang Pusat Pak Agan',
+            catatan: data.catatan || null
+          }]);
+        }
+      } catch (e) {
+        console.warn('Supabase createKirimanBahan error:', e);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
     return newKiriman;
   }
 
@@ -1875,6 +2253,42 @@ export class PosDatabase {
     }
 
     saveLocal(STORAGE_KEYS.ABSENSI_BAHAN, all);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const payload = records.map(r => {
+          const branchUuid = getBranchUuid(r.cabang_id) || CABANG_MAP_INFO[0].uuid;
+          return {
+            cabang_id: branchUuid,
+            tanggal: r.tanggal,
+            bahan_id: isValidUuid(r.bahan_id) ? r.bahan_id : null,
+            bahan_nama: r.bahan_nama,
+            satuan: r.satuan,
+            stok_awal: r.stok_awal,
+            kiriman_pusat: r.kiriman_pusat,
+            terpakai_kasir: r.terpakai_kasir,
+            sisa_sistem: r.sisa_sistem,
+            sisa_fisik: r.sisa_fisik,
+            selisih: r.selisih,
+            status: r.status,
+            kasir_nama: r.kasir_nama || null,
+            catatan: r.catatan || null,
+            updated_at: new Date().toISOString()
+          };
+        }).filter(r => r.bahan_id !== null);
+
+        if (payload.length > 0) {
+          await supabase.from('absensi_bahan_harian').upsert(payload);
+        }
+      } catch (e) {
+        console.warn('Supabase saveAbsensiBahanHarian error:', e);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+
     return true;
   }
 
@@ -2005,10 +2419,57 @@ export class PosDatabase {
   // PEMBAYARAN FIXED COST BULANAN (Sewa, Wi-Fi & Listrik, Sampah/Kebersihan)
   // --------------------------------------------------------------------------
   async getFixedCostPayments(periodeBulan?: string, cabangId?: string): Promise<PembayaranFixedCostBulanan[]> {
+    let cloudPayments: PembayaranFixedCostBulanan[] = [];
+    if (isSupabaseConfigured && supabase) {
+      try {
+        let query = supabase.from('pembayaran_fixed_cost_bulanan').select('*').order('created_at', { ascending: false });
+        if (periodeBulan) query = query.eq('periode_bulan', periodeBulan);
+        if (cabangId && cabangId !== 'all') {
+          const targetUuid = getBranchUuid(cabangId);
+          if (targetUuid) query = query.eq('cabang_id', targetUuid);
+        }
+        const { data, error } = await query;
+        if (!error && data) {
+          cloudPayments = data.map((d: any) => ({
+            id: d.id,
+            cabang_id: d.cabang_id,
+            cabang_nama: getBranchName(d.cabang_id),
+            periode_bulan: d.periode_bulan,
+            jenis_biaya: d.jenis_biaya,
+            nama_biaya: d.nama_biaya,
+            nominal: Number(d.nominal),
+            status: d.status,
+            tanggal_bayar: d.tanggal_bayar,
+            metode_bayar: d.metode_bayar,
+            no_referensi: d.no_referensi,
+            catatan: d.catatan,
+            dibayar_oleh: d.dibayar_oleh,
+            updated_at: d.updated_at
+          }));
+        }
+      } catch (e) {
+        console.warn('Fallback to local fixed cost:', e);
+      }
+    }
+
     const all = loadLocal<PembayaranFixedCostBulanan[]>(STORAGE_KEYS.FIXED_COST_PAYMENTS, INITIAL_FIXED_COST_PAYMENTS);
-    return all.filter(p => {
+    const combinedMap = new Map<string, PembayaranFixedCostBulanan>();
+    for (const p of cloudPayments) {
+      combinedMap.set(p.id, p);
+    }
+    for (const p of all) {
+      if (!combinedMap.has(p.id)) {
+        combinedMap.set(p.id, {
+          ...p,
+          cabang_nama: p.cabang_nama || getBranchName(p.cabang_id)
+        });
+      }
+    }
+
+    const combined = Array.from(combinedMap.values());
+    return combined.filter(p => {
       if (periodeBulan && p.periode_bulan !== periodeBulan) return false;
-      if (cabangId && cabangId !== 'all' && p.cabang_id !== cabangId) return false;
+      if (cabangId && cabangId !== 'all' && !isBranchMatch(p.cabang_id, cabangId)) return false;
       return true;
     });
   }
@@ -2016,22 +2477,26 @@ export class PosDatabase {
   async saveFixedCostPayment(data: Partial<PembayaranFixedCostBulanan>): Promise<PembayaranFixedCostBulanan> {
     const all = loadLocal<PembayaranFixedCostBulanan[]>(STORAGE_KEYS.FIXED_COST_PAYMENTS, INITIAL_FIXED_COST_PAYMENTS);
     const existingIndex = all.findIndex(p => p.id === data.id);
-
     const now = new Date().toISOString();
+    const branchUuid = getBranchUuid(data.cabang_id) || CABANG_MAP_INFO[0].uuid;
+    const paymentId = (data.id && isValidUuid(data.id)) ? data.id : generateUUID();
+
     let updatedItem: PembayaranFixedCostBulanan;
 
     if (existingIndex >= 0) {
       updatedItem = {
         ...all[existingIndex],
         ...data,
+        cabang_id: branchUuid,
+        cabang_nama: data.cabang_nama || getBranchName(branchUuid),
         updated_at: now
       };
       all[existingIndex] = updatedItem;
     } else {
       updatedItem = {
-        id: data.id || `fcp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        cabang_id: data.cabang_id || 'cbg-1',
-        cabang_nama: data.cabang_nama || 'Cabang',
+        id: paymentId,
+        cabang_id: branchUuid,
+        cabang_nama: data.cabang_nama || getBranchName(branchUuid),
         periode_bulan: data.periode_bulan || '2026-10',
         jenis_biaya: data.jenis_biaya || 'sewa',
         nama_biaya: data.nama_biaya || 'Biaya Tetap',
@@ -2048,6 +2513,29 @@ export class PosDatabase {
     }
 
     saveLocal(STORAGE_KEYS.FIXED_COST_PAYMENTS, all);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('pembayaran_fixed_cost_bulanan').upsert([{
+          id: updatedItem.id,
+          cabang_id: branchUuid,
+          periode_bulan: updatedItem.periode_bulan,
+          jenis_biaya: updatedItem.jenis_biaya,
+          nama_biaya: updatedItem.nama_biaya,
+          nominal: updatedItem.nominal,
+          status: updatedItem.status,
+          tanggal_bayar: updatedItem.tanggal_bayar,
+          metode_bayar: updatedItem.metode_bayar,
+          no_referensi: updatedItem.no_referensi || null,
+          catatan: updatedItem.catatan || null,
+          dibayar_oleh: updatedItem.dibayar_oleh,
+          updated_at: now
+        }]);
+      } catch (e) {
+        console.warn('Supabase saveFixedCostPayment error:', e);
+      }
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
@@ -2066,6 +2554,19 @@ export class PosDatabase {
     all[idx].updated_at = new Date().toISOString();
 
     saveLocal(STORAGE_KEYS.FIXED_COST_PAYMENTS, all);
+
+    if (isSupabaseConfigured && supabase && isValidUuid(id)) {
+      try {
+        await supabase.from('pembayaran_fixed_cost_bulanan').update({
+          status: newStatus,
+          tanggal_bayar: all[idx].tanggal_bayar,
+          updated_at: all[idx].updated_at
+        }).eq('id', id);
+      } catch (e) {
+        console.warn('Supabase toggleFixedCostPaymentStatus error:', e);
+      }
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
@@ -2076,6 +2577,15 @@ export class PosDatabase {
     const all = loadLocal<PembayaranFixedCostBulanan[]>(STORAGE_KEYS.FIXED_COST_PAYMENTS, INITIAL_FIXED_COST_PAYMENTS);
     const filtered = all.filter(p => p.id !== id);
     saveLocal(STORAGE_KEYS.FIXED_COST_PAYMENTS, filtered);
+
+    if (isSupabaseConfigured && supabase && isValidUuid(id)) {
+      try {
+        await supabase.from('pembayaran_fixed_cost_bulanan').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Supabase deleteFixedCostPayment error:', e);
+      }
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }

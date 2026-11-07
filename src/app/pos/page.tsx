@@ -174,9 +174,32 @@ export default function PosPage() {
     window.addEventListener('pak_agan_db_updated', handleStorageUpdate);
     window.addEventListener('storage', handleStorageUpdate);
 
+    // Auto-flush antrean offline saat tablet terhubung kembali ke internet
+    const handleOnline = async () => {
+      try {
+        const { getPendingTransactions, removePendingTransaction } = await import('@/lib/offline-sync');
+        const pending = await getPendingTransactions();
+        if (pending && pending.length > 0) {
+          console.log(`[POS] Tablet kembali online! Sinkronisasi ${pending.length} transaksi offline ke Cloud Supabase...`);
+          for (const trx of pending) {
+            await db.createTransaksi(trx);
+            await removePendingTransaction(trx.id);
+          }
+        }
+      } catch (err) {
+        console.warn('Gagal sinkronisasi transaksi offline:', err);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      handleOnline();
+    }
+
     return () => {
       window.removeEventListener('pak_agan_db_updated', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
+      window.removeEventListener('online', handleOnline);
     };
   }, [loadData]);
 
