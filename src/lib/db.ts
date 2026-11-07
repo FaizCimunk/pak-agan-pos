@@ -1138,10 +1138,12 @@ export class PosDatabase {
     if (isSupabaseConfigured && supabase) {
       try {
         const branchUuid = getBranchUuid(cabangId);
+        const karUuid = getKaryawanUuid(autoDailyShift.karyawan_id) || KARYAWAN_UUID_MAP['kar-1'];
         if (branchUuid) {
           await supabase.from('shift').insert([{
             id: autoDailyShift.id,
             cabang_id: branchUuid,
+            karyawan_id: karUuid,
             waktu_buka: autoDailyShift.waktu_buka,
             modal_awal: 200000,
             status: 'open'
@@ -1508,12 +1510,35 @@ export class PosDatabase {
     if (isSupabaseConfigured && supabase) {
       try {
         const branchUuid = getBranchUuid(trx.cabang_id) || CABANG_MAP_INFO[0].uuid;
-        const shiftUuid = isValidUuid(trx.shift_id) ? trx.shift_id : null;
+        let shiftUuid = isValidUuid(trx.shift_id) ? trx.shift_id : null;
         const karyawanUuid = isValidUuid(trx.karyawan_id) 
           ? trx.karyawan_id 
           : (trx.karyawan_id && KARYAWAN_UUID_MAP[trx.karyawan_id]) || null;
 
-        const { error } = await supabase.from('transaksi').insert([{
+        // Pastikan shift_id valid di Supabase atau buat shift jika belum ada
+        if (shiftUuid) {
+          try {
+            const { data: shiftCheck } = await supabase.from('shift').select('id').eq('id', shiftUuid).limit(1);
+            if (!shiftCheck || shiftCheck.length === 0) {
+              const defaultKarUuid = karyawanUuid || KARYAWAN_UUID_MAP['kar-1'];
+              const { error: sErr } = await supabase.from('shift').insert([{
+                id: shiftUuid,
+                cabang_id: branchUuid,
+                karyawan_id: defaultKarUuid,
+                waktu_buka: trx.waktu || new Date().toISOString(),
+                modal_awal: 200000,
+                status: 'open'
+              }]);
+              if (sErr) {
+                shiftUuid = null; // fallback jika gagal insert shift
+              }
+            }
+          } catch {
+            shiftUuid = null;
+          }
+        }
+
+        let { error } = await supabase.from('transaksi').insert([{
           id: trx.id,
           invoice_no: trx.invoice_no,
           cabang_id: branchUuid,
@@ -1531,8 +1556,31 @@ export class PosDatabase {
           is_offline_synced: true,
         }]);
 
+        // Retry fallback jika ada kendala foreign key constraint
         if (error) {
-          console.error('Supabase transaksi insert error:', error);
+          console.warn('Retry inserting transaksi without FK constraints:', error);
+          const retryRes = await supabase.from('transaksi').insert([{
+            id: trx.id,
+            invoice_no: trx.invoice_no,
+            cabang_id: branchUuid,
+            shift_id: null,
+            karyawan_id: null,
+            nama_pelanggan: trx.nama_pelanggan || 'Pelanggan Walk-in',
+            waktu: trx.waktu || new Date().toISOString(),
+            subtotal: trx.subtotal,
+            diskon: trx.diskon || 0,
+            total: trx.total,
+            metode_bayar: trx.metode_bayar,
+            bayar: trx.bayar,
+            kembali: trx.kembali,
+            status: trx.status || 'completed',
+            is_offline_synced: true,
+          }]);
+          error = retryRes.error;
+        }
+
+        if (error) {
+          console.error('Supabase transaksi insert final error:', error);
         } else {
           trx.is_offline_synced = true;
           if (trx.items && trx.items.length > 0) {
