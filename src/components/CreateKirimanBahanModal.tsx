@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { X, PackageCheck, Send, Building2, Layers, Calendar, CheckCircle2, DollarSign, Calculator, Sparkles, AlertCircle } from 'lucide-react';
 import { Cabang, BahanBaku } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, isBranchMatch } from '@/lib/db';
 import { formatRupiah } from '@/lib/utils';
 
 interface CreateKirimanBahanModalProps {
@@ -95,7 +95,7 @@ export default function CreateKirimanBahanModal({
 
     setSaving(true);
     try {
-      const targetCabang = cabangList.find(c => c.id === targetCabangId);
+      const targetCabang = cabangList.find(c => isBranchMatch(c.id, targetCabangId));
       let bahanIdToSave = selectedBahanId;
       let bahanNamaToSave = '';
       let satuanToSave = 'kg';

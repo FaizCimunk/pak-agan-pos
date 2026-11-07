@@ -347,7 +347,7 @@ export default function AdminDashboardPage() {
 
   const filteredKaryawan = useMemo(() => {
     return karyawanList.filter(k => {
-      const matchBranch = karyawanBranchFilter === 'all' || k.cabang_id === karyawanBranchFilter;
+      const matchBranch = karyawanBranchFilter === 'all' || isBranchMatch(k.cabang_id, karyawanBranchFilter);
       if (!userSearch.trim()) return matchBranch;
       const q = userSearch.toLowerCase();
       const matchSearch = 
@@ -363,7 +363,7 @@ export default function AdminDashboardPage() {
   const filteredAbsensiList = useMemo(() => {
     return absensiList
       .filter(a => {
-        const matchBranch = selectedCabangId === 'all' || a.cabang_id === selectedCabangId;
+        const matchBranch = selectedCabangId === 'all' || isBranchMatch(a.cabang_id, selectedCabangId);
         const matchDate = absensiDateFilterMode === 'all' || a.tanggal === selectedAbsensiDate;
         return matchBranch && matchDate;
       })
@@ -373,7 +373,7 @@ export default function AdminDashboardPage() {
   // Filtered Approval Expenses dengan Jejak Audit Tanggal & Filter Status
   const filteredApprovalExpenses = useMemo(() => {
     return expenseList.filter(exp => {
-      if (approvalCabangFilter !== 'all' && exp.cabang_id !== approvalCabangFilter) return false;
+      if (approvalCabangFilter !== 'all' && !isBranchMatch(exp.cabang_id, approvalCabangFilter)) return false;
       if (approvalJenisFilter !== 'all' && exp.jenis !== approvalJenisFilter) return false;
       if (approvalStatusFilter !== 'all' && exp.status !== approvalStatusFilter) return false;
       if (approvalDateMode === 'selected') {
@@ -382,7 +382,7 @@ export default function AdminDashboardPage() {
       }
       if (approvalSearch.trim()) {
         const q = approvalSearch.toLowerCase();
-        const branchName = cabangList.find(c => c.id === exp.cabang_id)?.nama.toLowerCase() || '';
+        const branchName = cabangList.find(c => isBranchMatch(c.id, exp.cabang_id))?.nama.toLowerCase() || '';
         return (
           exp.keperluan.toLowerCase().includes(q) ||
           exp.pemohon_nama.toLowerCase().includes(q) ||
@@ -397,12 +397,12 @@ export default function AdminDashboardPage() {
   // Belanja & Kas Kecil Filtered List
   const filteredBelanjaList = useMemo(() => {
     return expenseList.filter(exp => {
-      if (belanjaCabangFilter !== 'all' && exp.cabang_id !== belanjaCabangFilter) return false;
+      if (belanjaCabangFilter !== 'all' && !isBranchMatch(exp.cabang_id, belanjaCabangFilter)) return false;
       if (belanjaJenisFilter !== 'all' && exp.jenis !== belanjaJenisFilter) return false;
       if (belanjaStatusFilter !== 'all' && exp.status !== belanjaStatusFilter) return false;
       if (belanjaSearch.trim()) {
         const q = belanjaSearch.toLowerCase();
-        const branchName = cabangList.find(c => c.id === exp.cabang_id)?.nama.toLowerCase() || '';
+        const branchName = cabangList.find(c => isBranchMatch(c.id, exp.cabang_id))?.nama.toLowerCase() || '';
         return (
           exp.keperluan.toLowerCase().includes(q) ||
           exp.pemohon_nama.toLowerCase().includes(q) ||
@@ -480,9 +480,9 @@ export default function AdminDashboardPage() {
   const calculatedPayrollDrafts = useMemo(() => {
     return karyawanList
       .filter(k => k.role !== 'owner')
-      .filter(k => payrollBranchFilter === 'all' || k.cabang_id === payrollBranchFilter)
+      .filter(k => payrollBranchFilter === 'all' || isBranchMatch(k.cabang_id, payrollBranchFilter))
       .map(kar => {
-        const branch = cabangList.find(c => c.id === kar.cabang_id);
+        const branch = cabangList.find(c => isBranchMatch(c.id, kar.cabang_id));
         const unsettled = expenseList.filter(e => {
           if (e.karyawan_id !== kar.id || e.jenis !== 'kasbon' || e.status !== 'approved' || e.is_settled) return false;
           const eDate = (e.tanggal || '').slice(0, 10);
@@ -582,11 +582,11 @@ export default function AdminDashboardPage() {
       const biayaLainHarian = Math.round((cabang.biaya_lain_bulanan || 0) / 30);
 
       // 2. Upah Karyawan Hadir Hari Ini (Absensi Tulis Nama)
-      const branchAbsensi = absensiList.filter(a => a.cabang_id === cabang.id && a.tanggal === targetDate);
+      const branchAbsensi = absensiList.filter(a => isBranchMatch(a.cabang_id, cabang.id) && a.tanggal === targetDate);
       const totalGajiKaryawan = branchAbsensi.reduce((sum, a) => sum + (a.upah_harian_terhitung || 0), 0);
 
       // 3. Omzet & Total HPP Bahan Baku Terpakai
-      const branchTrx = transaksiList.filter(t => t.cabang_id === cabang.id && t.status === 'completed' && t.waktu.startsWith(targetDate));
+      const branchTrx = transaksiList.filter(t => isBranchMatch(t.cabang_id, cabang.id) && t.status === 'completed' && t.waktu.startsWith(targetDate));
       let omzetKotor = 0;
       let totalHppBahan = 0;
 
@@ -670,9 +670,9 @@ export default function AdminDashboardPage() {
       totalIuranWajib += b.iuranHarian;
       totalLainWajib += (b.biayaLainHarian || 0);
 
-      const sewaPay = fixedCostPayments.find(p => p.cabang_id === b.cabang.id && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sewa' || p.jenis_biaya === 'semua_paket'));
-      const wifiPay = fixedCostPayments.find(p => p.cabang_id === b.cabang.id && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'listrik_wifi' || p.jenis_biaya === 'semua_paket'));
-      const iuranPay = fixedCostPayments.find(p => p.cabang_id === b.cabang.id && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sampah_kebersihan' || p.jenis_biaya === 'semua_paket'));
+      const sewaPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, b.cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sewa' || p.jenis_biaya === 'semua_paket'));
+      const wifiPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, b.cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'listrik_wifi' || p.jenis_biaya === 'semua_paket'));
+      const iuranPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, b.cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sampah_kebersihan' || p.jenis_biaya === 'semua_paket'));
 
       const isSewaPaid = sewaPay?.status === 'lunas';
       const isWifiPaid = wifiPay?.status === 'lunas';
@@ -735,7 +735,7 @@ export default function AdminDashboardPage() {
     const dayTrx = transaksiList.filter(t => 
       t.status === 'completed' && 
       t.waktu.startsWith(targetDate) &&
-      (selectedCabangId === 'all' || t.cabang_id === selectedCabangId)
+      (selectedCabangId === 'all' || isBranchMatch(t.cabang_id, selectedCabangId))
     );
 
     let tunaiTotal = 0;
@@ -797,7 +797,7 @@ export default function AdminDashboardPage() {
 
     targetBranches.forEach(cbg => {
       // Transaksi cabang ini pada selectedBahanDate
-      const cbgTrx = transaksiList.filter(t => t.cabang_id === cbg.id && t.status === 'completed' && t.waktu.startsWith(selectedBahanDate));
+      const cbgTrx = transaksiList.filter(t => isBranchMatch(t.cabang_id, cbg.id) && t.status === 'completed' && t.waktu.startsWith(selectedBahanDate));
       const terpakaiMap: Record<string, number> = {};
       cbgTrx.forEach(trx => {
         trx.items.forEach(it => {
@@ -818,7 +818,7 @@ export default function AdminDashboardPage() {
       });
 
       // Kiriman bahan ke cabang ini pada tanggal ini
-      const cbgKiriman = kirimanBahanList.filter(k => k.cabang_id === cbg.id && k.tanggal === selectedBahanDate);
+      const cbgKiriman = kirimanBahanList.filter(k => isBranchMatch(k.cabang_id, cbg.id) && k.tanggal === selectedBahanDate);
 
       bahanList.forEach(bhn => {
         const kirimanTotal = cbgKiriman.filter(k => k.bahan_id === bhn.id).reduce((sum, k) => sum + k.jumlah, 0);
@@ -1930,7 +1930,7 @@ export default function AdminDashboardPage() {
                 <div className="text-xl font-mono font-extrabold text-emerald-800 mt-1 tabular-nums">
                   {formatRupiah(
                     expenseList
-                      .filter(e => e.jenis === 'belanja' && e.status === 'approved' && (belanjaCabangFilter === 'all' || e.cabang_id === belanjaCabangFilter))
+                      .filter(e => e.jenis === 'belanja' && e.status === 'approved' && (belanjaCabangFilter === 'all' || isBranchMatch(e.cabang_id, belanjaCabangFilter)))
                       .reduce((sum, e) => sum + e.nominal, 0)
                   )}
                 </div>
@@ -1946,7 +1946,7 @@ export default function AdminDashboardPage() {
                 <div className="text-xl font-mono font-extrabold text-amber-700 mt-1 tabular-nums">
                   {formatRupiah(
                     expenseList
-                      .filter(e => e.jenis === 'kasbon' && e.status === 'approved' && (belanjaCabangFilter === 'all' || e.cabang_id === belanjaCabangFilter))
+                      .filter(e => e.jenis === 'kasbon' && e.status === 'approved' && (belanjaCabangFilter === 'all' || isBranchMatch(e.cabang_id, belanjaCabangFilter)))
                       .reduce((sum, e) => sum + e.nominal, 0)
                   )}
                 </div>
@@ -1962,7 +1962,7 @@ export default function AdminDashboardPage() {
                 <div className="text-xl font-mono font-extrabold text-rose-600 mt-1 tabular-nums">
                   {
                     expenseList
-                      .filter(e => e.status === 'pending' && (belanjaCabangFilter === 'all' || e.cabang_id === belanjaCabangFilter))
+                      .filter(e => e.status === 'pending' && (belanjaCabangFilter === 'all' || isBranchMatch(e.cabang_id, belanjaCabangFilter)))
                       .length
                   } Pengajuan
                 </div>
@@ -1978,7 +1978,7 @@ export default function AdminDashboardPage() {
                 <div className="text-xl font-mono font-extrabold text-brand-dark mt-1 tabular-nums">
                   {formatRupiah(
                     expenseList
-                      .filter(e => e.status === 'approved' && e.metode_pencairan === 'laci' && (belanjaCabangFilter === 'all' || e.cabang_id === belanjaCabangFilter))
+                      .filter(e => e.status === 'approved' && e.metode_pencairan === 'laci' && (belanjaCabangFilter === 'all' || isBranchMatch(e.cabang_id, belanjaCabangFilter)))
                       .reduce((sum, e) => sum + e.nominal, 0)
                   )}
                 </div>
@@ -2075,7 +2075,7 @@ export default function AdminDashboardPage() {
                       </tr>
                     ) : (
                       filteredBelanjaList.map(exp => {
-                        const branch = cabangList.find(c => c.id === exp.cabang_id);
+                        const branch = cabangList.find(c => isBranchMatch(c.id, exp.cabang_id));
                         const isLaci = exp.metode_pencairan === 'laci';
 
                         return (
@@ -2290,7 +2290,7 @@ export default function AdminDashboardPage() {
                   Hadir Tanggal Terpilih ({selectedAbsensiDate})
                 </span>
                 <div className="text-2xl font-mono font-extrabold text-emerald-800 mt-1 tabular-nums">
-                  {absensiList.filter(a => a.tanggal === selectedAbsensiDate && a.status === 'hadir' && (selectedCabangId === 'all' || a.cabang_id === selectedCabangId)).length} Staf
+                  {absensiList.filter(a => a.tanggal === selectedAbsensiDate && a.status === 'hadir' && (selectedCabangId === 'all' || isBranchMatch(a.cabang_id, selectedCabangId))).length} Staf
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 block">
                   Presensi diverifikasi oleh Kepala Cabang
@@ -2302,7 +2302,7 @@ export default function AdminDashboardPage() {
                   Total Staf Terdaftar Outlet
                 </span>
                 <div className="text-2xl font-mono font-extrabold text-slate-800 mt-1 tabular-nums">
-                  {karyawanList.filter(k => k.role !== 'owner' && (selectedCabangId === 'all' || k.cabang_id === selectedCabangId)).length} Staf
+                  {karyawanList.filter(k => k.role !== 'owner' && (selectedCabangId === 'all' || isBranchMatch(k.cabang_id, selectedCabangId))).length} Staf
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 block">
                   Terbagi di {selectedCabangId === 'all' ? '10 Cabang Resmi' : 'Cabang Terpilih'}
@@ -2314,7 +2314,7 @@ export default function AdminDashboardPage() {
                   Total Kehadiran Bulan Berjalan
                 </span>
                 <div className="text-2xl font-mono font-extrabold text-brand-dark mt-1 tabular-nums">
-                  {absensiList.filter(a => a.status === 'hadir' && (selectedCabangId === 'all' || a.cabang_id === selectedCabangId)).length} Hari Kerja
+                  {absensiList.filter(a => a.status === 'hadir' && (selectedCabangId === 'all' || isBranchMatch(a.cabang_id, selectedCabangId))).length} Hari Kerja
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 block">
                   Akumulasi upah harian otomatis dihitung
@@ -2390,7 +2390,7 @@ export default function AdminDashboardPage() {
                       </tr>
                     ) : (
                       filteredAbsensiList.map(abs => {
-                        const branch = cabangList.find(c => c.id === abs.cabang_id);
+                        const branch = cabangList.find(c => isBranchMatch(c.id, abs.cabang_id));
                         return (
                           <tr key={abs.id} className="hover:bg-slate-50/70 transition-colors">
                             <td className="py-3 px-4 font-bold text-slate-900">
@@ -2777,7 +2777,7 @@ export default function AdminDashboardPage() {
                     >
                       <option value="all">🏢 Semua Cabang ({karyawanList.length} Staf)</option>
                       {cabangList.map(c => {
-                        const count = karyawanList.filter(k => k.cabang_id === c.id).length;
+                        const count = karyawanList.filter(k => isBranchMatch(k.cabang_id, c.id)).length;
                         return (
                           <option key={c.id} value={c.id}>
                             #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama} ({count} staf)
@@ -2915,7 +2915,7 @@ export default function AdminDashboardPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredKaryawan.map(kar => {
-                      const branch = cabangList.find(c => c.id === kar.cabang_id);
+                      const branch = cabangList.find(c => isBranchMatch(c.id, kar.cabang_id));
                       const isRevealed = revealedPasswords[kar.id];
                       const isHarian = kar.tipe_gaji === 'harian';
                       const uHarian = kar.gaji_harian || 100000;
@@ -3475,7 +3475,7 @@ export default function AdminDashboardPage() {
       {selectedKaryawanForTabungan && (
         <BukuTabunganModal
           karyawan={selectedKaryawanForTabungan}
-          cabangNama={cabangList.find(c => c.id === selectedKaryawanForTabungan.cabang_id)?.nama}
+          cabangNama={cabangList.find(c => isBranchMatch(c.id, selectedKaryawanForTabungan.cabang_id))?.nama}
           onClose={() => setSelectedKaryawanForTabungan(null)}
           onSuccess={async () => {
             await refreshAllData();
@@ -3513,7 +3513,7 @@ export default function AdminDashboardPage() {
                 <div>
                   <h5 className="font-extrabold text-slate-900 text-sm">{selectedKaryawanForPlot.nama}</h5>
                   <p className="text-[11px] text-slate-500 capitalize">
-                    {selectedKaryawanForPlot.role} • Cabang Saat Ini: <strong>{cabangList.find(c => c.id === selectedKaryawanForPlot.cabang_id)?.nama || 'Pusat'}</strong>
+                    {selectedKaryawanForPlot.role} • Cabang Saat Ini: <strong>{cabangList.find(c => isBranchMatch(c.id, selectedKaryawanForPlot.cabang_id))?.nama || 'Pusat'}</strong>
                   </p>
                 </div>
               </div>

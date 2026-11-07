@@ -27,6 +27,7 @@ import {
   FileText
 } from 'lucide-react';
 import { Cabang, Transaksi, PengeluaranKasbon, Karyawan, Absensi, MenuItem } from '@/lib/types';
+import { isBranchMatch } from '@/lib/db';
 import { formatRupiah, formatNominal } from '@/lib/utils';
 
 interface BranchPnlStatementProps {
@@ -62,14 +63,14 @@ export default function BranchPnlStatement({
   const [activeSubTab, setActiveSubTab] = useState<'pnl' | 'bahan_vs_jual' | 'beban_tetap'>('pnl');
 
   // Filter Target Cabang
-  const activeCabang = cabangList.find(c => c.id === selectedCabangId);
+  const activeCabang = cabangList.find(c => isBranchMatch(c.id, selectedCabangId));
   const isAllBranches = selectedCabangId === 'all';
 
   // Matriks P&L per Cabang
   const branchPnlMatrix = useMemo(() => {
     return cabangList.map(cbg => {
       // 1. Omzet
-      const cbgTrx = transaksiList.filter(t => t.cabang_id === cbg.id && t.status === 'completed');
+      const cbgTrx = transaksiList.filter(t => isBranchMatch(t.cabang_id, cbg.id) && t.status === 'completed');
       const liveOmzet = cbgTrx.reduce((sum, t) => sum + t.total, 0);
       const targetBulanan = cbg.target_omzet_bulanan || 35000000;
       
@@ -92,7 +93,7 @@ export default function BranchPnlStatement({
       const labaKotor = omzet - hppBahan;
 
       // 3. Biaya Upah & Gaji Karyawan Cabang (Labor Cost)
-      const cbgStaff = karyawanList.filter(k => k.cabang_id === cbg.id && k.role !== 'owner');
+      const cbgStaff = karyawanList.filter(k => isBranchMatch(k.cabang_id, cbg.id) && k.role !== 'owner');
       const staffPayroll = cbgStaff.reduce((sum, kar) => {
         const hadir = 22; // hari kerja
         const upah = kar.tipe_gaji === 'harian' 
@@ -117,7 +118,7 @@ export default function BranchPnlStatement({
 
       // 5. Belanja Kas Laci Kasir (Petty Cash Toko: Gas, Es, Kresek, Tisue)
       const approvedBelanja = expenseList.filter(
-        e => e.cabang_id === cbg.id && 
+        e => isBranchMatch(e.cabang_id, cbg.id) && 
              e.jenis === 'belanja' && 
              e.kategori_belanja !== 'beban_tetap' && 
              e.status === 'approved'
@@ -245,7 +246,7 @@ export default function BranchPnlStatement({
     return menuList.map(m => {
       // 1. Belanja Bahan Masuk (Qty Porsi & Biaya Modal)
       const menuExpenses = expenseList.filter(e => {
-        const matchCabang = isAllBranches || e.cabang_id === selectedCabangId;
+        const matchCabang = isAllBranches || isBranchMatch(e.cabang_id, selectedCabangId);
         const isBelanja = e.jenis === 'belanja' && e.status === 'approved';
         const matchMenu = e.menu_id === m.id || e.keperluan.toLowerCase().includes(m.nama.toLowerCase());
         return matchCabang && isBelanja && matchMenu;
@@ -256,7 +257,7 @@ export default function BranchPnlStatement({
 
       // 2. Terjual di Kasir POS (Qty & Omzet)
       const targetTrx = transaksiList.filter(t => {
-        const matchCabang = isAllBranches || t.cabang_id === selectedCabangId;
+        const matchCabang = isAllBranches || isBranchMatch(t.cabang_id, selectedCabangId);
         return matchCabang && t.status === 'completed';
       });
 

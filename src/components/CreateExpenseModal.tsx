@@ -11,7 +11,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { Cabang, Karyawan, PengeluaranJenis, MetodePencairan } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, isBranchMatch } from '@/lib/db';
 import { formatNominal, parseNominal, formatRupiah } from '@/lib/utils';
 
 interface CreateExpenseModalProps {
@@ -43,8 +43,8 @@ export default function CreateExpenseModal({
   const [saving, setSaving] = useState<boolean>(false);
 
   // Filter staf berdasarkan cabang yang dipilih
-  const branchWorkers = karyawanList.filter(k => k.role !== 'owner' && k.cabang_id === selectedCabangId);
-  const targetCabang = cabangList.find(c => c.id === selectedCabangId);
+  const branchWorkers = karyawanList.filter(k => k.role !== 'owner' && isBranchMatch(k.cabang_id, selectedCabangId));
+  const targetCabang = cabangList.find(c => isBranchMatch(c.id, selectedCabangId));
 
   // Quick Chips Belanja Toko Cepat (Tanpa Ribet)
   const quickChips = [

@@ -15,7 +15,7 @@ import {
   Users
 } from 'lucide-react';
 import { Cabang, Karyawan, Absensi, Shift } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, isBranchMatch } from '@/lib/db';
 import { formatRupiah, getTodayDateString } from '@/lib/utils';
 
 interface BranchAttendanceModalProps {
@@ -67,7 +67,7 @@ export default function BranchAttendanceModal({
         db.getAbsensiList(undefined, cabang.id, selectedDate),
       ]);
 
-      const branchStaff = allStaff.filter(k => k.cabang_id === cabang.id && k.role !== 'owner');
+      const branchStaff = allStaff.filter(k => isBranchMatch(k.cabang_id, cabang.id) && k.role !== 'owner');
 
       // Ambil seluruh nama dari existing records (termasuk staf yang ditulis manual sebelumnya)
       const list: WorkerAttendanceState[] = [];

@@ -13,7 +13,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { PengeluaranKasbon, MetodePencairan, Cabang } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, isBranchMatch } from '@/lib/db';
 import { formatRupiah, formatWaktu } from '@/lib/utils';
 
 interface ApprovalActionModalProps {
@@ -41,7 +41,7 @@ export default function ApprovalActionModal({
   useEffect(() => {
     async function loadBranch() {
       const branches = await db.getCabangList();
-      const b = branches.find(c => c.id === item.cabang_id);
+      const b = branches.find(c => isBranchMatch(c.id, item.cabang_id));
       if (b) {
         setBranchInfo(b);
         // Default target phone: No. WA PJ Cabang (untuk belanja dan laporan operasional resmi)

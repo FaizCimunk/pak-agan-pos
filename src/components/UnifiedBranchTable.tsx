@@ -30,6 +30,7 @@ import {
   Check
 } from 'lucide-react';
 import { Cabang, Karyawan, Transaksi } from '@/lib/types';
+import { isBranchMatch } from '@/lib/db';
 import { formatRupiah, formatNominal } from '@/lib/utils';
 
 interface UnifiedBranchTableProps {
@@ -274,10 +275,10 @@ export default function UnifiedBranchTable({
                 };
 
                 // Workers assigned to this branch
-                const branchWorkers = karyawanList.filter(k => k.cabang_id === cbg.id);
+                const branchWorkers = karyawanList.filter(k => isBranchMatch(k.cabang_id, cbg.id));
 
                 // Material status
-                const branchMaterials = materialAuditRows.filter(m => m.cabang.id === cbg.id);
+                const branchMaterials = materialAuditRows.filter(m => isBranchMatch(m.cabang.id, cbg.id));
                 const hasSelisih = branchMaterials.some(m => m.status === 'selisih');
 
                 const sewaBulanan = cbg.sewa_bulanan || 3500000;
@@ -612,14 +613,14 @@ export default function UnifiedBranchTable({
               stafHadirCount: 0,
             };
 
-            const cbgTrx = transaksiList.filter(t => t.cabang_id === cbg.id && t.status === 'completed');
+            const cbgTrx = transaksiList.filter(t => isBranchMatch(t.cabang_id, cbg.id) && t.status === 'completed');
             const cbgOmzet = cbgTrx.reduce((sum, t) => sum + t.total, 0);
             const target = cbg.target_omzet_bulanan || 35000000;
             const progress = Math.min(100, Math.round((cbgOmzet / target) * 100));
 
             const sewa = cbg.sewa_bulanan || 3500000;
             const wifi = cbg.listrik_air_bulanan || 650000;
-            const isSelected = selectedCabangId === cbg.id;
+            const isSelected = isBranchMatch(selectedCabangId, cbg.id);
 
             return (
               <div 

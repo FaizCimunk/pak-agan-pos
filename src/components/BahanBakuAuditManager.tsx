@@ -28,7 +28,7 @@ import {
   Building2
 } from 'lucide-react';
 import { Cabang, BahanBaku, KirimanBahanPusat, Transaksi, PembelianBahanGudang } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, isBranchMatch } from '@/lib/db';
 import { formatRupiah } from '@/lib/utils';
 import CreateKirimanBahanModal from './CreateKirimanBahanModal';
 import CreatePembelianGudangModal from './CreatePembelianGudangModal';
@@ -190,7 +190,7 @@ export default function BahanBakuAuditManager({
 
     targetBranches.forEach(cbg => {
       // Transaksi cabang ini pada selectedDate
-      const cbgTrx = transaksiList.filter(t => t.cabang_id === cbg.id && t.status === 'completed' && t.waktu.startsWith(selectedDate));
+      const cbgTrx = transaksiList.filter(t => isBranchMatch(t.cabang_id, cbg.id) && t.status === 'completed' && t.waktu.startsWith(selectedDate));
       
       // Calculate consumed ingredients
       const terpakaiMap: Record<string, number> = {};
@@ -218,7 +218,7 @@ export default function BahanBakuAuditManager({
       });
 
       // Kiriman bahan ke cabang ini pada tanggal ini
-      const cbgKiriman = kirimanBahanList.filter(k => k.cabang_id === cbg.id && k.tanggal === selectedDate);
+      const cbgKiriman = kirimanBahanList.filter(k => isBranchMatch(k.cabang_id, cbg.id) && k.tanggal === selectedDate);
 
       bahanList.forEach(bhn => {
         // Filter by category

@@ -24,6 +24,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { Transaksi, Cabang } from '@/lib/types';
+import { isBranchMatch } from '@/lib/db';
 import { formatRupiah, formatWaktu, getTodayDateString } from '@/lib/utils';
 import ReceiptModal from './ReceiptModal';
 
@@ -136,7 +137,7 @@ export default function MutasiPenjualanStatement({
   const filteredData = useMemo(() => {
     return transaksiList.filter((trx) => {
       // 1. Branch Filter
-      if (branchFilter !== 'all' && trx.cabang_id !== branchFilter) {
+      if (branchFilter !== 'all' && !isBranchMatch(trx.cabang_id, branchFilter)) {
         return false;
       }
 
@@ -290,7 +291,7 @@ export default function MutasiPenjualanStatement({
   // Get Branch Object for Receipt Modal
   const activeBranchForReceipt = useMemo(() => {
     if (!receiptTrx) return null;
-    return cabangList.find(c => c.id === receiptTrx.cabang_id) || cabangList[0];
+    return cabangList.find(c => isBranchMatch(c.id, receiptTrx.cabang_id)) || cabangList[0];
   }, [receiptTrx, cabangList]);
 
   return (
@@ -827,7 +828,7 @@ export default function MutasiPenjualanStatement({
                       {trx.cabang_nama?.split('-')[1]?.trim() || trx.cabang_nama || 'Cabang'}
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono">
-                      {cabangList.find(c => c.id === trx.cabang_id)?.kode || 'CBG'}
+                      {cabangList.find(c => isBranchMatch(c.id, trx.cabang_id))?.kode || 'CBG'}
                     </span>
                   </td>
 

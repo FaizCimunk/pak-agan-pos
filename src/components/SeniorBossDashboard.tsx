@@ -770,7 +770,7 @@ export default function SeniorBossDashboard({
                 ) : (
                   targetAbsensiToday.map(abs => {
                     const kar = karyawanList.find(k => k.id === abs.karyawan_id);
-                    const cbg = cabangList.find(c => c.id === abs.cabang_id);
+                    const cbg = cabangList.find(c => isBranchMatch(c.id, abs.cabang_id));
                     return (
                       <div key={abs.id} className="p-3 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between">
                         <div>
@@ -801,7 +801,7 @@ export default function SeniorBossDashboard({
             {gajiModalTab === 'utang' && (
               <div className="p-3.5 overflow-y-auto space-y-2.5 flex-1 text-xs">
                 {karyawanList.filter(k => k.role !== 'owner').map(kar => {
-                  const branch = cabangList.find(c => c.id === kar.cabang_id);
+                  const branch = cabangList.find(c => isBranchMatch(c.id, kar.cabang_id));
                   const absensiCount = absensiList.filter(a => a.karyawan_id === kar.id && (a.status === 'hadir' || a.status === 'setengah_hari')).length;
                   const upahTotal = absensiCount * (kar.gaji_harian || 100000);
                   const currentUtang = kar.utang_nominal || 0;

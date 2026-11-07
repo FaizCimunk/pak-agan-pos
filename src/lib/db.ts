@@ -460,7 +460,7 @@ export class PosDatabase {
 
   async getKaryawanByCabang(cabangId: string): Promise<Karyawan[]> {
     const all = await this.getAllKaryawan();
-    return all.filter(k => k.cabang_id === cabangId && k.is_active);
+    return all.filter(k => isBranchMatch(k.cabang_id, cabangId) && k.is_active);
   }
 
   // Ploting Penempatan Cabang Karyawan / Kasir
@@ -1027,7 +1027,7 @@ export class PosDatabase {
 
     // Periksa arsip shift apakah ada shift yang berstatus open hari ini
     const shifts = loadLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
-    const existingOpen = shifts.find(s => s.cabang_id === cabangId && s.status === 'open');
+    const existingOpen = shifts.find(s => isBranchMatch(s.cabang_id, cabangId) && s.status === 'open');
     if (existingOpen) {
       saveLocal(key, existingOpen);
       return await this.calculateShiftBalance(existingOpen);
@@ -1036,12 +1036,12 @@ export class PosDatabase {
     // Inisialisasi otomatis Shift Resmi Harian untuk cabang ini (1x per hari)
     // Modal awal laci Rp 200.000 standar resmi toko per hari (TIDAK DIDUPLIKASI)
     const cabangs = await this.getCabangList();
-    const targetCabang = cabangs.find(c => c.id === cabangId) || cabangs[0];
+    const targetCabang = cabangs.find(c => isBranchMatch(c.id, cabangId)) || cabangs[0];
     const defaultPj = targetCabang?.pj_nama || targetCabang?.kasir_username || 'Siti Rahmawati (PJ)';
     const todayDate = new Date().toISOString().slice(0, 10);
 
     const autoDailyShift: Shift = {
-      id: `shift-${cabangId}-${todayDate}`,
+      id: generateUUID(),
       cabang_id: cabangId,
       karyawan_id: `kar-${cabangId}`,
       karyawan_nama: defaultPj,
@@ -2191,7 +2191,7 @@ export class PosDatabase {
     return bahanList.map(bahan => {
       // Cari jika sudah pernah diabsen kasir
       const exist = savedAbsensi.find(a => 
-        a.cabang_id === cabangId && 
+        isBranchMatch(a.cabang_id, cabangId) && 
         a.tanggal === tanggal && 
         a.bahan_id === bahan.id
       );
@@ -2237,7 +2237,7 @@ export class PosDatabase {
 
     for (const r of records) {
       const idx = all.findIndex(a => 
-        a.cabang_id === r.cabang_id && 
+        isBranchMatch(a.cabang_id, r.cabang_id) && 
         a.tanggal === r.tanggal && 
         a.bahan_id === r.bahan_id
       );

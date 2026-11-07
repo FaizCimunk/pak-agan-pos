@@ -26,7 +26,7 @@ import {
   PengeluaranKasbon,
   PaymentMethod 
 } from '@/lib/types';
-import { db, generateUUID } from '@/lib/db';
+import { db, generateUUID, isBranchMatch } from '@/lib/db';
 import { printerService } from '@/lib/printer';
 import { queueOfflineTransaction } from '@/lib/offline-sync';
 import { generateInvoiceNumber, formatRupiah, getTodayDateString } from '@/lib/utils';
@@ -73,7 +73,7 @@ export default function PosPage() {
 
       // Check persistent locked branch
       let lockedCabangId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null;
-      let targetCabang = cabangs.find(c => c.id === lockedCabangId);
+      let targetCabang = cabangs.find(c => isBranchMatch(c.id, lockedCabangId));
 
       if (!targetCabang) {
         // Default to Cabang 1 on first launch, or prompt setup
@@ -138,7 +138,7 @@ export default function PosPage() {
         setCabangList(cabangs);
 
         const lockedId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null;
-        const target = cabangs.find(c => c.id === (currentCabangRef.current?.id || lockedId)) || cabangs[0] || null;
+        const target = cabangs.find(c => isBranchMatch(c.id, currentCabangRef.current?.id || lockedId)) || cabangs[0] || null;
 
         if (target) {
           // Cek gembok keamanan realtime saat POS sedang berjalan
@@ -205,7 +205,7 @@ export default function PosPage() {
 
   // Lock Device to a specific Cabang
   const handleLockDevice = async (cabangId: string) => {
-    const target = cabangList.find(c => c.id === cabangId) || null;
+    const target = cabangList.find(c => isBranchMatch(c.id, cabangId)) || null;
     if (target?.is_kasir_locked) {
       alert(`Cabang "${target.nama}" saat ini sedang DIGEMBOK oleh Admin Pusat dan tidak dapat diaktifkan.`);
       return;
@@ -343,7 +343,7 @@ export default function PosPage() {
       if (!item.cabang_ids || item.cabang_ids.length === 0 || item.cabang_ids.includes('all')) {
         return true;
       }
-      return item.cabang_ids.includes(currentCabang.id);
+      return item.cabang_ids.some(id => isBranchMatch(id, currentCabang.id));
     });
   }, [menuList, currentCabang]);
 

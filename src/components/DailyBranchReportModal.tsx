@@ -17,6 +17,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { Cabang, Transaksi, PengeluaranKasbon, Shift, Karyawan } from '@/lib/types';
+import { isBranchMatch } from '@/lib/db';
 import { formatRupiah, formatWaktu, getTodayDateString } from '@/lib/utils';
 
 interface DailyBranchReportModalProps {
@@ -46,8 +47,8 @@ export default function DailyBranchReportModal({
   const [selectedDate, setSelectedDate] = useState<string>(defaultDate || getTodayDateString());
 
   // Selected Cabang & PIC
-  const targetCabang = cabangList.find(c => c.id === selectedCabangId) || cabangList[0];
-  const branchCashier = karyawanList.find(k => k.cabang_id === selectedCabangId && k.role === 'kasir');
+  const targetCabang = cabangList.find(c => isBranchMatch(c.id, selectedCabangId)) || cabangList[0];
+  const branchCashier = karyawanList.find(k => isBranchMatch(k.cabang_id, selectedCabangId) && k.role === 'kasir');
 
   // Dynamic Penanggung Jawab (PJ) Cabang based on selected cabang
   const pjNama = targetCabang?.pj_nama || branchCashier?.nama || targetCabang?.kasir_username || 'Penanggung Jawab Cabang';
@@ -63,7 +64,7 @@ export default function DailyBranchReportModal({
   // Filtered Transactions for this branch & date
   const dayTransactions = useMemo(() => {
     return transaksiList.filter(t => 
-      t.cabang_id === selectedCabangId && 
+      isBranchMatch(t.cabang_id, selectedCabangId) && 
       t.waktu.slice(0, 10) === selectedDate &&
       t.status === 'completed'
     );
@@ -102,7 +103,7 @@ export default function DailyBranchReportModal({
   // Filtered Expenses for this branch & date
   const dayExpenses = useMemo(() => {
     return expenseList.filter(e => 
-      e.cabang_id === selectedCabangId && 
+      isBranchMatch(e.cabang_id, selectedCabangId) && 
       (e.tanggal || '').slice(0, 10) === selectedDate &&
       e.status === 'approved'
     );

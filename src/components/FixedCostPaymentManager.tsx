@@ -26,7 +26,7 @@ import {
   Info
 } from 'lucide-react';
 import { Cabang, PembayaranFixedCostBulanan } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, isBranchMatch } from '@/lib/db';
 import { formatRupiah, getTodayDateString } from '@/lib/utils';
 
 interface FixedCostPaymentManagerProps {
@@ -119,10 +119,10 @@ export default function FixedCostPaymentManager({
       const totalBeban = sewaNominal + wifiNominal + iuranNominal + lainNominal;
 
       // Find payments for this branch & period
-      const sewaPay = payments.find(p => p.cabang_id === c.id && p.periode_bulan === periodeBulanKey && p.jenis_biaya === 'sewa');
-      const wifiPay = payments.find(p => p.cabang_id === c.id && p.periode_bulan === periodeBulanKey && p.jenis_biaya === 'listrik_wifi');
-      const iuranPay = payments.find(p => p.cabang_id === c.id && p.periode_bulan === periodeBulanKey && p.jenis_biaya === 'sampah_kebersihan');
-      const paketPay = payments.find(p => p.cabang_id === c.id && p.periode_bulan === periodeBulanKey && p.jenis_biaya === 'semua_paket');
+      const sewaPay = payments.find(p => isBranchMatch(p.cabang_id, c.id) && p.periode_bulan === periodeBulanKey && p.jenis_biaya === 'sewa');
+      const wifiPay = payments.find(p => isBranchMatch(p.cabang_id, c.id) && p.periode_bulan === periodeBulanKey && p.jenis_biaya === 'listrik_wifi');
+      const iuranPay = payments.find(p => isBranchMatch(p.cabang_id, c.id) && p.periode_bulan === periodeBulanKey && p.jenis_biaya === 'sampah_kebersihan');
+      const paketPay = payments.find(p => isBranchMatch(p.cabang_id, c.id) && p.periode_bulan === periodeBulanKey && p.jenis_biaya === 'semua_paket');
 
       const isSewaLunas = Boolean(paketPay?.status === 'lunas' || sewaPay?.status === 'lunas');
       const isWifiLunas = Boolean(paketPay?.status === 'lunas' || wifiPay?.status === 'lunas');
