@@ -261,6 +261,28 @@ export default function ReceiptModal({
                       <span>Kasir: {transaksi.karyawan_nama || 'Kasir'}</span>
                       <span className="uppercase">{transaksi.metode_bayar}</span>
                     </div>
+                    {(() => {
+                      const penandaStr = (transaksi as any).penanda || (transaksi as any).meja;
+                      const isBungkus = (penandaStr || transaksi.nama_pelanggan || '').toLowerCase().includes('bungkus') ||
+                                        (penandaStr || transaksi.nama_pelanggan || '').toLowerCase().includes('take away') ||
+                                        (penandaStr || transaksi.nama_pelanggan || '').toLowerCase().includes('bawa');
+                      return (
+                        <>
+                          <div className="flex justify-between font-bold">
+                            <span>Layanan:</span>
+                            <span className={isBungkus ? 'text-amber-800' : 'text-emerald-800'}>
+                              {isBungkus ? 'BUNGKUS (TAKE AWAY)' : 'MAKAN DI SINI'}
+                            </span>
+                          </div>
+                          {penandaStr && (
+                            <div className="flex justify-between">
+                              <span>Penanda:</span>
+                              <span className="font-bold">{penandaStr}</span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                     <div className="border-t border-dashed border-slate-300 my-1" />
                     {transaksi.items.map((it, idx) => (
                       <div key={idx} className="space-y-0.5">

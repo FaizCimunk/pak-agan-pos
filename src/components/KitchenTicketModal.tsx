@@ -74,7 +74,12 @@ export default function KitchenTicketModal({
     }
   };
 
-  const penandaDisplay = (transaksi.penanda || transaksi.meja || transaksi.nama_pelanggan || 'Pesanan').toUpperCase();
+  const penandaRaw = (transaksi as any).penanda || (transaksi as any).meja || transaksi.nama_pelanggan || 'Pesanan';
+  const penandaDisplay = penandaRaw.toUpperCase();
+  const isBungkus = penandaRaw.toLowerCase().includes('bungkus') || 
+                    penandaRaw.toLowerCase().includes('take away') || 
+                    penandaRaw.toLowerCase().includes('takeaway') || 
+                    penandaRaw.toLowerCase().includes('bawa');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-sm animate-fadeIn">
@@ -96,7 +101,7 @@ export default function KitchenTicketModal({
                 </span>
               </div>
               <p className="text-[11px] text-emerald-200 font-medium">
-                Kirim pesanan terpisah ke Bar Wedang, Dapur Serabi & Dapur Makanan
+                Kirim pesanan terpisah ke Bar Wedang, Dapur Serabi &amp; Dapur Makanan
               </p>
             </div>
           </div>
@@ -109,18 +114,31 @@ export default function KitchenTicketModal({
           </button>
         </div>
 
-        {/* Info Penanda Pesanan */}
-        <div className="p-4 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between">
+        {/* Info Penanda Pesanan & Layanan (Makan Di Sini vs Bungkus) */}
+        <div className={`p-4 border-b flex items-center justify-between ${
+          isBungkus ? 'bg-amber-50/90 border-amber-200' : 'bg-emerald-50/80 border-emerald-200'
+        }`}>
           <div className="flex items-center space-x-3">
-            <div className="px-3 py-1.5 rounded-xl bg-emerald-700 text-white font-mono font-black text-sm shadow-xs flex items-center space-x-1.5">
-              <span>🏷️</span>
+            <div className={`px-3 py-1.5 rounded-xl text-white font-mono font-black text-sm shadow-xs flex items-center space-x-1.5 ${
+              isBungkus ? 'bg-amber-600' : 'bg-emerald-700'
+            }`}>
+              <span>{isBungkus ? '🛍️' : '🏷️'}</span>
               <span>{penandaDisplay}</span>
             </div>
             <div>
-              <div className="text-xs font-bold text-slate-800">
-                {transaksi.nama_pelanggan}
+              <div className="flex items-center space-x-2">
+                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                  isBungkus ? 'bg-amber-200 text-amber-950 font-mono' : 'bg-emerald-200 text-emerald-950 font-mono'
+                }`}>
+                  {isBungkus ? '🛍️ BUNGKUS (KEMAS DUS/CUP)' : '🍽️ MAKAN DI SINI (DINE IN)'}
+                </span>
+                {transaksi.nama_pelanggan && transaksi.nama_pelanggan !== penandaRaw && (
+                  <span className="text-xs font-bold text-slate-800">
+                    {transaksi.nama_pelanggan}
+                  </span>
+                )}
               </div>
-              <div className="text-[10px] text-slate-500 font-mono">
+              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
                 No: {transaksi.invoice_no} • {formatWaktu(transaksi.waktu)}
               </div>
             </div>

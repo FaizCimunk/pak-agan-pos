@@ -152,7 +152,22 @@ export default function OpenBillsModal({
                           <h4 className="font-extrabold text-sm text-slate-900">
                             🏷️ {penandaText}
                           </h4>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-800">
+                          {(() => {
+                            const isBungkus = penandaText.toLowerCase().includes('bungkus') || 
+                                              penandaText.toLowerCase().includes('take away') || 
+                                              penandaText.toLowerCase().includes('takeaway') || 
+                                              penandaText.toLowerCase().includes('bawa');
+                            return (
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
+                                isBungkus 
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                                  : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                              }`}>
+                                {isBungkus ? '🛍️ BUNGKUS' : '🍽️ DI TEMPAT'}
+                              </span>
+                            );
+                          })()}
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700">
                             {totalItems} Menu
                           </span>
                         </div>

@@ -287,6 +287,10 @@ class BluetoothPrinterService {
     builder.row('Tgl:', formatWaktu(transaksi.waktu));
     builder.row('Kasir:', transaksi.karyawan_nama || 'Kasir Cabang');
     const penandaReceipt = (transaksi as any).penanda || (transaksi as any).meja;
+    const isBungkusReceipt = (penandaReceipt || transaksi.nama_pelanggan || '').toLowerCase().includes('bungkus') ||
+                            (penandaReceipt || transaksi.nama_pelanggan || '').toLowerCase().includes('take away') ||
+                            (penandaReceipt || transaksi.nama_pelanggan || '').toLowerCase().includes('bawa');
+    builder.row('Layanan:', isBungkusReceipt ? 'BUNGKUS (TAKE AWAY)' : 'MAKAN DI SINI');
     if (penandaReceipt) {
       builder.row('Penanda:', penandaReceipt);
     }
@@ -475,13 +479,31 @@ class BluetoothPrinterService {
     builder.newLine();
     builder.line('=', 32);
 
-    // Identitas Penanda / Meja / Pelanggan (BESAR agar koki/barista mudah membaca dari kejauhan)
+    // Identitas Penanda & Tipe Layanan (Bungkus vs Makan Di Sini)
     builder.alignLeft();
     builder.bold(true).size(true, true);
     const penandaDisplay = (transaksi as any).penanda || (transaksi as any).meja || (transaksi.nama_pelanggan.toLowerCase().includes('meja') ? transaksi.nama_pelanggan : `Pesanan: ${transaksi.nama_pelanggan}`);
+    const isBungkus = penandaDisplay.toLowerCase().includes('bungkus') ||
+                      penandaDisplay.toLowerCase().includes('take away') ||
+                      penandaDisplay.toLowerCase().includes('takeaway') ||
+                      penandaDisplay.toLowerCase().includes('bawa');
+
     builder.text(penandaDisplay.toUpperCase());
     builder.newLine();
     builder.size(false, false);
+    builder.bold(true);
+    if (isBungkus) {
+      builder.text('>> BUNGKUS / TAKE AWAY <<');
+      builder.newLine();
+      builder.bold(false);
+      builder.text('*(Kemas Pakai Dus / Cup / Plastik)*');
+    } else {
+      builder.text('>> MAKAN DI SINI (DINE IN) <<');
+      builder.newLine();
+      builder.bold(false);
+      builder.text('*(Sajikan di Piring / Cangkir Saji)*');
+    }
+    builder.newLine();
     builder.bold(false);
 
     builder.row('No. Nota:', transaksi.invoice_no);
