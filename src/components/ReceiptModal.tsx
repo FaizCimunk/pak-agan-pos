@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Printer, ArrowRight, MessageCircle, ChevronDown, ChevronUp, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Printer, ArrowRight, MessageCircle, ChevronDown, ChevronUp, X, CheckCircle2, AlertCircle, UtensilsCrossed } from 'lucide-react';
 import { Transaksi, Cabang } from '@/lib/types';
 import { printerService } from '@/lib/printer';
 import { formatRupiah, formatWaktu } from '@/lib/utils';
+import KitchenTicketModal from './KitchenTicketModal';
 
 interface ReceiptModalProps {
   transaksi: Transaksi;
@@ -22,6 +23,7 @@ export default function ReceiptModal({
   const [showReceiptDetail, setShowReceiptDetail] = useState(false);
   const [showWaInput, setShowWaInput] = useState(false);
   const [waPhone, setWaPhone] = useState('');
+  const [showKitchenModal, setShowKitchenModal] = useState(false);
 
   // Keyboard shortcut: Tekan Enter untuk lanjut ke pesanan berikutnya
   useEffect(() => {
@@ -172,14 +174,26 @@ export default function ReceiptModal({
                     : 'Format Struk: Kertas Thermal 58mm'}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={handlePrintManual}
-                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-[11px] transition-colors btn-tactile flex items-center space-x-1 shrink-0"
-              >
-                <Printer className="w-3 h-3 text-amber-400" />
-                <span>Cetak 58mm</span>
-              </button>
+              <div className="flex items-center space-x-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowKitchenModal(true)}
+                  className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[11px] transition-colors btn-tactile flex items-center space-x-1"
+                  title="Cetak Tiket Pesanan ke Ruang Wedang, Serabi & Makanan"
+                >
+                  <UtensilsCrossed className="w-3 h-3 text-white" />
+                  <span>Tiket Dapur</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrintManual}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-[11px] transition-colors btn-tactile flex items-center space-x-1"
+                >
+                  <Printer className="w-3 h-3 text-amber-400" />
+                  <span>Cetak 58mm</span>
+                </button>
+              </div>
             </div>
 
             {/* Optional WhatsApp Receipt */}
@@ -397,6 +411,14 @@ export default function ReceiptModal({
           </div>
         </div>
       </div>
+
+      {showKitchenModal && (
+        <KitchenTicketModal
+          transaksi={transaksi}
+          cabang={cabang}
+          onClose={() => setShowKitchenModal(false)}
+        />
+      )}
     </>
   );
 }

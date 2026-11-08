@@ -155,7 +155,8 @@ export default function MutasiPenjualanStatement({
     let countSuccess = 0;
     let totalTunai = 0;
     let totalQris = 0;
-    let totalOjolTransfer = 0;
+    let totalTransfer = 0;
+    let totalOjol = 0;
 
     for (const trx of filteredData) {
       if (trx.status === 'completed') {
@@ -164,7 +165,8 @@ export default function MutasiPenjualanStatement({
         const pay = (trx.metode_bayar || '').toLowerCase();
         if (pay === 'tunai') totalTunai += trx.total;
         else if (pay === 'qris') totalQris += trx.total;
-        else totalOjolTransfer += trx.total;
+        else if (pay === 'transfer') totalTransfer += trx.total;
+        else totalOjol += trx.total;
       }
     }
 
@@ -176,7 +178,8 @@ export default function MutasiPenjualanStatement({
       aov,
       totalTunai,
       totalQris,
-      totalOjolTransfer,
+      totalTransfer,
+      totalOjol,
     };
   }, [filteredData]);
 
@@ -557,7 +560,7 @@ export default function MutasiPenjualanStatement({
       </div>
 
       {/* 3. FINTECH SUMMARY CARDS PERIODE TERPILIH */}
-      <div className="p-4 sm:p-5 bg-slate-50/70 border-b border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="p-4 sm:p-5 bg-slate-50/70 border-b border-slate-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-sm">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
             Total Omzet Periode Ini
@@ -567,18 +570,6 @@ export default function MutasiPenjualanStatement({
           </div>
           <span className="text-[10px] text-slate-400 font-medium">
             {metrics.countSuccess} Struk Berhasil
-          </span>
-        </div>
-
-        <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-sm">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-            Rata-rata Tiket (AOV)
-          </span>
-          <div className="text-base sm:text-xl font-mono font-black text-slate-800 tabular-nums mt-0.5">
-            {formatRupiah(metrics.aov)}
-          </div>
-          <span className="text-[10px] text-slate-400 font-medium">
-            Rata-rata per struk pesanan
           </span>
         </div>
 
@@ -596,13 +587,37 @@ export default function MutasiPenjualanStatement({
 
         <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-sm">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-            QRIS &amp; Transfer/Ojol
+            QRIS Dinamis
           </span>
-          <div className="text-base sm:text-xl font-mono font-black text-amber-600 tabular-nums mt-0.5">
-            {formatRupiah(metrics.totalQris + metrics.totalOjolTransfer)}
+          <div className="text-base sm:text-xl font-mono font-black text-blue-700 tabular-nums mt-0.5">
+            {formatRupiah(metrics.totalQris)}
           </div>
           <span className="text-[10px] text-slate-400 font-medium">
-            QRIS: {formatRupiah(metrics.totalQris)}
+            Scan QR rekening pusat
+          </span>
+        </div>
+
+        <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-sm">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+            Transfer Bank
+          </span>
+          <div className="text-base sm:text-xl font-mono font-black text-indigo-700 tabular-nums mt-0.5">
+            {formatRupiah(metrics.totalTransfer)}
+          </div>
+          <span className="text-[10px] text-slate-400 font-medium">
+            BCA/Mandiri rekening pusat
+          </span>
+        </div>
+
+        <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-sm col-span-2 sm:col-span-1">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+            Pesanan Ojol
+          </span>
+          <div className="text-base sm:text-xl font-mono font-black text-amber-700 tabular-nums mt-0.5">
+            {formatRupiah(metrics.totalOjol)}
+          </div>
+          <span className="text-[10px] text-slate-400 font-medium">
+            GoFood / Grab / Shopee
           </span>
         </div>
       </div>

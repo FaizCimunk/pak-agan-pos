@@ -740,6 +740,7 @@ export default function AdminDashboardPage() {
 
     let tunaiTotal = 0;
     let qrisTotal = 0;
+    let transferTotal = 0;
     let shopeeTotal = 0;
     let gofoodTotal = 0;
     let grabfoodTotal = 0;
@@ -750,6 +751,8 @@ export default function AdminDashboardPage() {
         tunaiTotal += t.total;
       } else if (mb === 'qris') {
         qrisTotal += t.total;
+      } else if (mb === 'transfer') {
+        transferTotal += t.total;
       } else if (mb === 'shopeefood') {
         shopeeTotal += t.total;
       } else if (mb === 'gofood') {
@@ -761,13 +764,14 @@ export default function AdminDashboardPage() {
       }
     });
 
-    const totalChannel = tunaiTotal + qrisTotal + shopeeTotal + gofoodTotal + grabfoodTotal;
+    const totalChannel = tunaiTotal + qrisTotal + transferTotal + shopeeTotal + gofoodTotal + grabfoodTotal;
 
     return {
       targetDate,
       count: dayTrx.length,
       tunaiTotal,
       qrisTotal,
+      transferTotal,
       shopeeTotal,
       gofoodTotal,
       grabfoodTotal,
@@ -1311,7 +1315,7 @@ export default function AdminDashboardPage() {
                       Posisi Saldo Realtime: Uang Hari Ini Ada di Mana Saja?
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Rincian fisik di laci kasir vs transfer QRIS vs saldo tertampung di akun merchant ShopeeFood, GoFood, &amp; GrabFood.
+                      Rincian fisik di laci kasir vs QRIS vs transfer bank vs saldo tertampung di akun merchant ShopeeFood, GoFood, &amp; GrabFood.
                     </p>
                   </div>
                 </div>
@@ -1321,8 +1325,8 @@ export default function AdminDashboardPage() {
                 </span>
               </div>
 
-              {/* 5 Kartu Saldo Terpisah */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {/* 6 Kartu Saldo Terpisah: Fisik Laci, QRIS, Transfer Bank, ShopeePay, GoBiz, GrabMerchant */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 
                 {/* 1. Laci Kasir */}
                 <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200">
@@ -1358,7 +1362,22 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
 
-                {/* 3. ShopeeFood */}
+                {/* 3. Transfer Bank Rekening Pusat */}
+                <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">🏦</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-200 text-indigo-900 uppercase">Transfer</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">Transfer Rekening Pusat</span>
+                  <div className="text-lg font-mono font-black text-indigo-800 mt-1">
+                    {formatRupiah(channelBreakdown.transferTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Transfer bank (BCA/Mandiri) masuk rekening pusat
+                  </span>
+                </div>
+
+                {/* 4. ShopeeFood */}
                 <div className="p-4 rounded-2xl bg-orange-50/70 border border-orange-200">
                   <div className="flex items-center justify-between">
                     <span className="text-lg">🟠</span>
@@ -1373,7 +1392,7 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
 
-                {/* 4. GoFood */}
+                {/* 5. GoFood */}
                 <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-300">
                   <div className="flex items-center justify-between">
                     <span className="text-lg">🛵</span>
@@ -1388,7 +1407,7 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
 
-                {/* 5. GrabFood */}
+                {/* 6. GrabFood */}
                 <div className="p-4 rounded-2xl bg-teal-50/70 border border-teal-200">
                   <div className="flex items-center justify-between">
                     <span className="text-lg">🟢</span>

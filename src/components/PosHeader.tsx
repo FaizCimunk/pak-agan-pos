@@ -21,7 +21,8 @@ import {
   CheckCircle2,
   PackageCheck,
   KeyRound,
-  Sparkles
+  Sparkles,
+  Clock
 } from 'lucide-react';
 import { Cabang, Shift } from '@/lib/types';
 import { printerService } from '@/lib/printer';
@@ -39,6 +40,8 @@ interface PosHeaderProps {
   onMaterialStockClick?: () => void;
   onDailyReportClick?: () => void;
   onDeviceSettingsClick: () => void;
+  onOpenBillsClick?: () => void;
+  openBillsCount?: number;
 }
 
 export default function PosHeader({
@@ -51,6 +54,8 @@ export default function PosHeader({
   onMaterialStockClick,
   onDailyReportClick,
   onDeviceSettingsClick,
+  onOpenBillsClick,
+  openBillsCount = 0,
 }: PosHeaderProps) {
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
@@ -185,6 +190,21 @@ export default function PosHeader({
                 + Buka Shift
               </button>
             )}
+
+            {/* Quick Open Bills Button */}
+            <button
+              type="button"
+              onClick={onOpenBillsClick}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shrink-0 btn-tactile ${
+                openBillsCount > 0
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-500/30 animate-pulse'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+              }`}
+              title="Daftar Tagihan Belum Dibayar (Bayar Nanti / Pesanan Meja)"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span className="font-extrabold">{openBillsCount} Meja</span>
+            </button>
 
             {pendingSyncCount > 0 && (
               <button 
@@ -358,6 +378,33 @@ export default function PosHeader({
             {/* Modal Body: Kasgo Touch Grid Tiles (4 Menu Inti Kasir) */}
             <div className="p-4 sm:p-5 overflow-y-auto flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+
+                {/* Tile 0: Tagihan Meja Belum Dibayar (Bayar Nanti) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onOpenBillsClick?.();
+                  }}
+                  className="flex items-start p-3.5 sm:p-4 rounded-2xl bg-amber-50 hover:bg-amber-100/80 border border-amber-300 text-left transition-all btn-tactile group shadow-soft-sm sm:col-span-2"
+                >
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 mr-3 shadow-md shadow-amber-600/20">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-black text-amber-950 text-xs sm:text-sm truncate">
+                        Tagihan Meja (Bayar Nanti)
+                      </span>
+                      <span className="text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-950 border border-amber-400 shrink-0">
+                        {openBillsCount} Meja Aktif
+                      </span>
+                    </div>
+                    <p className="text-[11px] sm:text-xs text-amber-900/80 font-normal leading-relaxed">
+                      Kelola pesanan meja yang sedang makan di tempat, cetak tiket dapur 3 ruangan, atau lakukan pelunasan saat selesai.
+                    </p>
+                  </div>
+                </button>
 
                 {/* Tile 1: Belanja Toko & Kasbon */}
                 <button

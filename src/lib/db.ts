@@ -19,7 +19,8 @@ import {
   FixedCostHarianCabang,
   PembayaranFixedCostBulanan,
   PembelianBahanGudang,
-  TabunganKaryawanItem
+  TabunganKaryawanItem,
+  PaymentMethod
 } from './types';
 import { 
   INITIAL_CABANG, 
@@ -60,6 +61,7 @@ const STORAGE_KEYS = {
   ABSENSI_BAHAN: 'pak_agan_absensi_bahan_v5_demo_week',
   FIXED_COST_PAYMENTS: 'pak_agan_fixed_cost_payments_v5_demo_week',
   TABUNGAN_KARYAWAN: 'pak_agan_tabungan_karyawan_v1',
+  OPEN_BILLS: 'pak_agan_open_bills_v1',
   ACTIVE_SHIFT_PREFIX: 'pak_agan_active_shift_v5_demo_week_',
 };
 
@@ -1613,6 +1615,93 @@ export class PosDatabase {
     }
 
     return trx;
+  }
+
+  // --------------------------------------------------------------------------
+  // TAGIHAN BELUM DIBAYAR / PESANAN MEJA (BAYAR NANTI / OPEN BILLS)
+  // --------------------------------------------------------------------------
+  async getOpenBills(cabangId?: string): Promise<Transaksi[]> {
+    const list = loadLocal<Transaksi[]>(STORAGE_KEYS.OPEN_BILLS, []);
+    const filtered = cabangId && cabangId !== 'all'
+      ? list.filter(t => isBranchMatch(t.cabang_id, cabangId) && t.status === 'pending_payment')
+      : list.filter(t => t.status === 'pending_payment');
+    
+    return filtered.sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime());
+  }
+
+  async saveOpenBill(trx: Transaksi): Promise<Transaksi> {
+    if (!isValidUuid(trx.id)) {
+      trx.id = generateUUID();
+    }
+    trx.status = 'pending_payment';
+    if (!trx.cabang_nama) {
+      trx.cabang_nama = getBranchName(trx.cabang_id);
+    }
+
+    const list = loadLocal<Transaksi[]>(STORAGE_KEYS.OPEN_BILLS, []);
+    const existingIndex = list.findIndex(t => t.id === trx.id || t.invoice_no === trx.invoice_no);
+    if (existingIndex >= 0) {
+      list[existingIndex] = trx;
+    } else {
+      list.unshift(trx);
+    }
+    saveLocal(STORAGE_KEYS.OPEN_BILLS, list);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+      window.dispatchEvent(new Event('pak_agan_open_bills_updated'));
+    }
+    return trx;
+  }
+
+  async payOpenBill(
+    transaksiId: string,
+    paymentDetails: {
+      metode_bayar: PaymentMethod;
+      bayar: number;
+      kembali: number;
+    }
+  ): Promise<Transaksi> {
+    const list = loadLocal<Transaksi[]>(STORAGE_KEYS.OPEN_BILLS, []);
+    const target = list.find(t => t.id === transaksiId || t.invoice_no === transaksiId);
+    if (!target) {
+      throw new Error('Pesanan meja belum dibayar tidak ditemukan.');
+    }
+
+    // 1. Update status menjadi completed
+    const completedTrx: Transaksi = {
+      ...target,
+      metode_bayar: paymentDetails.metode_bayar,
+      bayar: paymentDetails.bayar,
+      kembali: paymentDetails.kembali,
+      status: 'completed',
+      waktu: new Date().toISOString(), // Catat waktu pelunasan kasir
+    };
+
+    // 2. Hapus dari antrean open bills lokal
+    const remaining = list.filter(t => t.id !== transaksiId && t.invoice_no !== transaksiId);
+    saveLocal(STORAGE_KEYS.OPEN_BILLS, remaining);
+
+    // 3. Masukkan ke createTransaksi (langsung sinkron realtime ke Supabase Cloud & Dashboard Pusat)
+    const saved = await this.createTransaksi(completedTrx);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_open_bills_updated'));
+    }
+
+    return saved;
+  }
+
+  async cancelOpenBill(transaksiId: string): Promise<boolean> {
+    const list = loadLocal<Transaksi[]>(STORAGE_KEYS.OPEN_BILLS, []);
+    const remaining = list.filter(t => t.id !== transaksiId && t.invoice_no !== transaksiId);
+    saveLocal(STORAGE_KEYS.OPEN_BILLS, remaining);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+      window.dispatchEvent(new Event('pak_agan_open_bills_updated'));
+    }
+    return true;
   }
 
   // --------------------------------------------------------------------------

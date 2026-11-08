@@ -1,8 +1,55 @@
 // ESC/POS Bluetooth Thermal Printer Driver for Minuman Herbal Pak Agan
 // Supports Web Bluetooth API for Android/Chrome tablet offline printing & browser print simulation.
 
-import { Transaksi, Shift, Cabang } from './types';
+import { Transaksi, Shift, Cabang, KitchenStation } from './types';
 import { formatRupiah, formatWaktu } from './utils';
+
+// Helper untuk mengklasifikasi item ke salah satu dari 3 Ruangan Masak:
+// 1. serabi (Tungku tanah liat Serabi Bawel)
+// 2. wedang (Bar Racikan Wedang Geprek & Minuman Herbal)
+// 3. makanan (Dapur Camilan / Gorengan)
+export function getItemKitchenStation(item: {
+  nama_menu?: string;
+  menu_id?: string;
+  kategori_id?: string;
+  nama?: string;
+}): 'serabi' | 'wedang' | 'makanan' {
+  const name = (item.nama_menu || item.nama || '').toLowerCase();
+  const kat = (item.kategori_id || '').toLowerCase();
+
+  // 1. Serabi Bawel: Kategori serabi atau nama mengandung serabi, kinca, oncom, pandan
+  if (
+    kat === 'kat-sb' ||
+    kat.includes('serabi') ||
+    name.includes('serabi') ||
+    name.includes('kinca') ||
+    name.includes('oncom') ||
+    name.includes('pandan')
+  ) {
+    return 'serabi';
+  }
+
+  // 2. Makanan & Camilan: Kategori camilan / makanan atau pisang, singkong, mendoan, goreng, tahu, camilan
+  if (
+    kat === 'kat-6' ||
+    kat.includes('makanan') ||
+    kat.includes('camilan') ||
+    kat.includes('snack') ||
+    name.includes('pisang') ||
+    name.includes('singkong') ||
+    name.includes('mendoan') ||
+    name.includes('goreng') ||
+    name.includes('tahu') ||
+    name.includes('camilan') ||
+    name.includes('kentang') ||
+    name.includes('bakwan')
+  ) {
+    return 'makanan';
+  }
+
+  // 3. Wedang Geprek & Minuman Herbal (default station)
+  return 'wedang';
+}
 
 export interface BluetoothPrinterState {
   isConnected: boolean;
@@ -377,6 +424,92 @@ class BluetoothPrinterService {
     builder.text('Tanda Tangan PJ Kasir:');
     builder.newLine(3);
     builder.text(`( ${shift.karyawan_nama || 'Kasir Cabang'} )`);
+    builder.newLine();
+    builder.cut();
+
+    return builder.getBytes();
+  }
+
+  // Generate binary ESC/POS for Kitchen Station Ticket (3 Ruangan Masak: Wedang, Serabi, Makanan)
+  buildKitchenStationTicket(
+    transaksi: Transaksi,
+    cabang: Cabang,
+    station: KitchenStation = 'semua'
+  ): Uint8Array {
+    const builder = new EscPosBuilder();
+    builder.init();
+
+    // Filter items matching the station
+    const stationItems = station === 'semua' 
+      ? transaksi.items 
+      : transaksi.items.filter(it => getItemKitchenStation(it) === station);
+
+    if (stationItems.length === 0) {
+      return new Uint8Array();
+    }
+
+    const stationTitles: Record<KitchenStation, string> = {
+      serabi: 'DAPUR SERABI',
+      wedang: 'BAR WEDANG',
+      makanan: 'DAPUR MAKANAN',
+      semua: 'PESANAN SEMUA DAPUR'
+    };
+
+    const stationTitle = stationTitles[station] || 'TIKET DAPUR';
+
+    // Header Besar Ruangan Masak
+    builder.alignCenter();
+    builder.bold(true).size(true, true);
+    builder.text(`[ ${stationTitle} ]`);
+    builder.newLine();
+    builder.size(false, false);
+    builder.bold(false);
+    builder.text('SERABI BAWEL & WEDANG GEPREK');
+    builder.newLine();
+    builder.text(cabang.nama);
+    builder.newLine();
+    builder.line('=', 32);
+
+    // Identitas Meja / Pelanggan (BESAR agar koki/barista mudah membaca dari kejauhan)
+    builder.alignLeft();
+    builder.bold(true).size(true, true);
+    const mejaLabel = transaksi.meja || (transaksi.nama_pelanggan.toLowerCase().includes('meja') ? transaksi.nama_pelanggan : `Meja: ${transaksi.nama_pelanggan}`);
+    builder.text(mejaLabel.toUpperCase());
+    builder.newLine();
+    builder.size(false, false);
+    builder.bold(false);
+
+    builder.row('No. Nota:', transaksi.invoice_no);
+    builder.row('Waktu:', formatWaktu(transaksi.waktu));
+    builder.row('Kasir:', (transaksi.karyawan_nama || 'Kasir').split('(')[0].trim());
+    builder.row('Status:', transaksi.status === 'pending_payment' ? 'BELUM BAYAR (DINE-IN)' : 'LUNAS DI AWAL');
+    builder.line('-', 32);
+
+    // Daftar Pesanan Ruangan Ini
+    let totalPorsi = 0;
+    for (const item of stationItems) {
+      totalPorsi += item.qty;
+      builder.bold(true).size(false, true); // Double height agar jelas
+      builder.text(`${item.qty}x  ${item.nama_menu}`);
+      builder.newLine();
+      builder.size(false, false).bold(false);
+      if (item.catatan) {
+        builder.bold(true);
+        builder.text(`    >> Catatan: ${item.catatan}`);
+        builder.newLine();
+        builder.bold(false);
+      }
+    }
+
+    builder.line('=', 32);
+
+    // Footer Tiket Dapur
+    builder.alignCenter();
+    builder.bold(true);
+    builder.text(`TOTAL: ${totalPorsi} PORSI`);
+    builder.newLine();
+    builder.bold(false);
+    builder.text('*** MOHON SEGERA DIMASAK ***');
     builder.newLine();
     builder.cut();
 

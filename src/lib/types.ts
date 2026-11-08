@@ -117,6 +117,8 @@ export interface Shift {
 
 export type PaymentMethod = 'tunai' | 'shopeefood' | 'gofood' | 'grabfood' | 'qris' | 'transfer';
 
+export type KitchenStation = 'serabi' | 'wedang' | 'makanan' | 'semua';
+
 export interface TransaksiItem {
   id?: string;
   transaksi_id?: string;
@@ -137,6 +139,7 @@ export interface Transaksi {
   karyawan_id?: string;
   karyawan_nama?: string;
   nama_pelanggan: string;
+  meja?: string; // No. Meja / Lokasi Meja (contoh: 'Meja 03', 'Lesehan 02', 'Takeaway')
   waktu: string;
   subtotal: number;
   diskon: number;
@@ -144,7 +147,7 @@ export interface Transaksi {
   metode_bayar: PaymentMethod;
   bayar: number;
   kembali: number;
-  status: 'completed' | 'cancelled';
+  status: 'completed' | 'cancelled' | 'pending_payment';
   is_offline_synced: boolean;
   offline_created_at?: string;
   items: TransaksiItem[];

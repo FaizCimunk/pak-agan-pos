@@ -10,7 +10,8 @@ import {
   Printer, 
   ShieldCheck,
   Smartphone,
-  Bike
+  Bike,
+  Building2
 } from 'lucide-react';
 import { PaymentMethod, Cabang } from '@/lib/types';
 import { formatRupiah, formatNominal, parseNominal } from '@/lib/utils';
@@ -94,7 +95,7 @@ export default function PaymentModal({
           <label className="text-[11px] font-bold text-slate-500 block mb-1.5 uppercase tracking-wider">
             Pilih Channel / Posisi Uang Masuk:
           </label>
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             
             {/* 1. TUNAI */}
             <button
@@ -126,7 +127,22 @@ export default function PaymentModal({
               <span className="text-[9px] text-slate-400">Scan QR</span>
             </button>
 
-            {/* 3. SHOPEEFOOD / SHOPEEPAY */}
+            {/* 3. TRANSFER BANK */}
+            <button
+              type="button"
+              onClick={() => { setMethod('transfer'); setBayarInput(total); }}
+              className={`flex flex-col items-center justify-center p-2 rounded-2xl border text-center transition-all cursor-pointer ${
+                method === 'transfer'
+                  ? 'bg-indigo-50 border-indigo-500 text-indigo-900 shadow-sm ring-2 ring-indigo-500/20'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Building2 className="w-5 h-5 text-indigo-600 mb-1" />
+              <span className="text-xs font-black">Transfer</span>
+              <span className="text-[9px] text-slate-400">Rek Pusat</span>
+            </button>
+
+            {/* 4. SHOPEEFOOD / SHOPEEPAY */}
             <button
               type="button"
               onClick={() => { setMethod('shopeefood'); setBayarInput(total); }}
@@ -143,7 +159,7 @@ export default function PaymentModal({
               <span className="text-[9px] text-slate-400">ShopeePay</span>
             </button>
 
-            {/* 4. GOFOOD / GOPAY */}
+            {/* 5. GOFOOD / GOPAY */}
             <button
               type="button"
               onClick={() => { setMethod('gofood'); setBayarInput(total); }}
@@ -160,7 +176,7 @@ export default function PaymentModal({
               <span className="text-[9px] text-slate-400">GoPay</span>
             </button>
 
-            {/* 5. GRABFOOD / OVO */}
+            {/* 6. GRABFOOD / OVO */}
             <button
               type="button"
               onClick={() => { setMethod('grabfood'); setBayarInput(total); }}
@@ -314,7 +330,69 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* TAB 3: SHOPEEFOOD / SHOPEEPAY */}
+          {/* TAB 3: TRANSFER BANK (REKENING PUSAT) */}
+          {method === 'transfer' && (
+            <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-indigo-950 space-y-3">
+              <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <h4 className="font-extrabold text-xs text-indigo-950">Transfer Bank Rekening Pusat</h4>
+                    <span className="text-[10px] text-indigo-700">BCA &amp; Mandiri Resmi Perusahaan</span>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-200 text-indigo-900">
+                  Rekening Owner
+                </span>
+              </div>
+
+              {/* Rincian Nomor Rekening Transfer */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
+                <div className="p-2.5 rounded-xl bg-white border border-indigo-100 shadow-xs space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Bank BCA</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800">BCA 014</span>
+                  </div>
+                  <div className="font-mono font-black text-sm text-slate-900 tracking-wider">
+                    8465-102-888
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    a.n. SERABI BAWEL &amp; WEDANG GEPREK
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white border border-indigo-100 shadow-xs space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Bank Mandiri</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900">MDR 008</span>
+                  </div>
+                  <div className="font-mono font-black text-sm text-slate-900 tracking-wider">
+                    137-00-1988888-2
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    a.n. PAK AGAN HERBAL PUSAT
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-indigo-100/60 text-indigo-900 text-center space-y-1">
+                <div className="text-xs font-mono font-black text-indigo-950">
+                  Total Transfer: {formatRupiah(total)}
+                </div>
+                <p className="text-[11px] text-indigo-800 leading-snug">
+                  Kasir memeriksa mutasi / bukti transfer pembeli. Uang langsung masuk rekening pusat dan tercatat otomatis di mutasi transfer dashboard pusat.
+                </p>
+                <div className="text-[10px] text-emerald-700 font-bold flex items-center justify-center space-x-1 pt-0.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Otomatis menambah saldo transfer rekening pusat</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: SHOPEEFOOD / SHOPEEPAY */}
           {method === 'shopeefood' && (
             <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-amber-950 space-y-2 text-center">
               <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-lg font-black mx-auto shadow-sm">

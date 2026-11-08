@@ -14,6 +14,8 @@ import DeviceSetupModal from '@/components/DeviceSetupModal';
 import BranchAttendanceModal from '@/components/BranchAttendanceModal';
 import DailyBranchReportModal from '@/components/DailyBranchReportModal';
 import DailyMaterialStockModal from '@/components/DailyMaterialStockModal';
+import KitchenTicketModal from '@/components/KitchenTicketModal';
+import OpenBillsModal from '@/components/OpenBillsModal';
 
 import { 
   Cabang, 
@@ -45,13 +47,20 @@ export default function PosPage() {
   // Cart & Order State
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState<string>('Pelanggan Walk-in');
+  const [tableName, setTableName] = useState<string>('Meja 1');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
+
+  // Open Bills (Bayar Nanti) State
+  const [openBills, setOpenBills] = useState<Transaksi[]>([]);
+  const [selectedBillForPayment, setSelectedBillForPayment] = useState<Transaksi | null>(null);
 
   // Modals
   const [isShiftOpenOpen, setIsShiftOpenOpen] = useState<boolean>(false);
   const [isShiftCloseOpen, setIsShiftCloseOpen] = useState<boolean>(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState<boolean>(false);
   const [isReceiptOpen, setIsReceiptOpen] = useState<boolean>(false);
+  const [isKitchenModalOpen, setIsKitchenModalOpen] = useState<boolean>(false);
+  const [isOpenBillsModalOpen, setIsOpenBillsModalOpen] = useState<boolean>(false);
   const [isExpenseOpen, setIsExpenseOpen] = useState<boolean>(false);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState<boolean>(false);
   const [isDeviceSetupOpen, setIsDeviceSetupOpen] = useState<boolean>(false);
@@ -60,6 +69,7 @@ export default function PosPage() {
   const [transaksiList, setTransaksiList] = useState<Transaksi[]>([]);
   const [expenseList, setExpenseList] = useState<PengeluaranKasbon[]>([]);
   const [lastTransaksi, setLastTransaksi] = useState<Transaksi | null>(null);
+  const [kitchenTicketTrx, setKitchenTicketTrx] = useState<Transaksi | null>(null);
 
   const router = useRouter();
   const currentCabangRef = useRef<Cabang | null>(null);
@@ -117,6 +127,8 @@ export default function PosPage() {
         setActiveShift(shift);
         const kars = await db.getKaryawanByCabang(targetCabang.id);
         setKaryawanList(kars);
+        const bills = await db.getOpenBills(targetCabang.id);
+        setOpenBills(bills);
       }
 
       const trxs = await db.getTransaksiList();
@@ -158,6 +170,8 @@ export default function PosPage() {
           setActiveShift(shift);
           const kars = await db.getKaryawanByCabang(target.id);
           setKaryawanList(kars);
+          const bills = await db.getOpenBills(target.id);
+          setOpenBills(bills);
         }
 
         const menus = await db.getMenuList();
@@ -172,6 +186,7 @@ export default function PosPage() {
     };
 
     window.addEventListener('pak_agan_db_updated', handleStorageUpdate);
+    window.addEventListener('pak_agan_open_bills_updated', handleStorageUpdate);
     window.addEventListener('storage', handleStorageUpdate);
 
     // Auto-flush antrean offline saat tablet terhubung kembali ke internet
@@ -206,6 +221,7 @@ export default function PosPage() {
     return () => {
       clearInterval(syncInterval);
       window.removeEventListener('pak_agan_db_updated', handleStorageUpdate);
+      window.removeEventListener('pak_agan_open_bills_updated', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('online', handleOnline);
     };
@@ -277,21 +293,29 @@ export default function PosPage() {
       setIsShiftOpenOpen(true);
       return;
     }
+    setSelectedBillForPayment(null);
     setIsPaymentOpen(true);
   };
 
-  const handlePaymentSuccess = async (
-    method: PaymentMethod,
-    bayar: number,
-    kembali: number,
-    autoPrint: boolean
-  ) => {
+  // Simpan Pesanan Meja (Bayar Nanti) & Buka Tiket Dapur 3 Ruangan
+  const handleSaveOpenBill = async () => {
     if (!currentCabang) return;
+    if (cart.length === 0) {
+      alert('Pilih menu terlebih dahulu ke dalam keranjang.');
+      return;
+    }
+    if (!activeShift) {
+      alert('Silakan buka shift kasir terlebih dahulu untuk mencatat pesanan meja.');
+      setIsShiftOpenOpen(true);
+      return;
+    }
 
     const subtotal = cart.reduce((acc, it) => acc + it.menu.harga * it.qty, 0);
     const total = subtotal;
+    const finalTable = tableName.trim() || 'Meja 1';
+    const finalCustomer = customerName.trim() || finalTable;
 
-    const newTrx: Transaksi = {
+    const openTrx: Transaksi = {
       id: generateUUID(),
       invoice_no: generateInvoiceNumber(currentCabang.kode),
       cabang_id: currentCabang.id,
@@ -299,16 +323,17 @@ export default function PosPage() {
       shift_id: activeShift?.id,
       karyawan_id: activeShift?.karyawan_id,
       karyawan_nama: activeShift?.karyawan_nama,
-      nama_pelanggan: customerName.trim() || 'Pelanggan Walk-in',
+      meja: finalTable,
+      nama_pelanggan: finalCustomer,
       waktu: new Date().toISOString(),
       subtotal,
       diskon: 0,
       total,
-      metode_bayar: method,
-      bayar,
-      kembali,
-      status: 'completed',
-      is_offline_synced: navigator.onLine,
+      metode_bayar: 'tunai',
+      bayar: 0,
+      kembali: 0,
+      status: 'pending_payment',
+      is_offline_synced: false,
       items: cart.map(it => ({
         menu_id: it.menu.id,
         nama_menu: it.menu.nama,
@@ -319,10 +344,100 @@ export default function PosPage() {
       })),
     };
 
-    if (!navigator.onLine) {
-      await queueOfflineTransaction(newTrx);
+    await db.saveOpenBill(openTrx);
+    const updatedBills = await db.getOpenBills(currentCabang.id);
+    setOpenBills(updatedBills);
+
+    // Reset keranjang untuk pelanggan berikutnya
+    setCart([]);
+    setCustomerName('Pelanggan Walk-in');
+
+    // Buka otomatis tiket dapur untuk 3 ruangan masak (Wedang, Serabi, Makanan)
+    setKitchenTicketTrx(openTrx);
+    setIsKitchenModalOpen(true);
+  };
+
+  const handleStartPayOpenBill = (bill: Transaksi) => {
+    setSelectedBillForPayment(bill);
+    setIsOpenBillsModalOpen(false);
+    setIsPaymentOpen(true);
+  };
+
+  const handlePrintOpenBillKitchenTicket = (bill: Transaksi) => {
+    setKitchenTicketTrx(bill);
+    setIsKitchenModalOpen(true);
+  };
+
+  const handleCancelOpenBill = async (billId: string) => {
+    await db.cancelOpenBill(billId);
+    if (currentCabang) {
+      const updated = await db.getOpenBills(currentCabang.id);
+      setOpenBills(updated);
+    }
+  };
+
+  const handlePaymentSuccess = async (
+    method: PaymentMethod,
+    bayar: number,
+    kembali: number,
+    autoPrint: boolean
+  ) => {
+    if (!currentCabang) return;
+
+    let savedTrx: Transaksi;
+
+    if (selectedBillForPayment) {
+      // Pelunasan Pesanan Meja (Bayar Nanti)
+      savedTrx = await db.payOpenBill(selectedBillForPayment.id, {
+        metode_bayar: method,
+        bayar,
+        kembali,
+      });
+      setSelectedBillForPayment(null);
+      const updatedBills = await db.getOpenBills(currentCabang.id);
+      setOpenBills(updatedBills);
     } else {
-      await db.createTransaksi(newTrx);
+      // Pembayaran Langsung dari Keranjang Kasir
+      const subtotal = cart.reduce((acc, it) => acc + it.menu.harga * it.qty, 0);
+      const total = subtotal;
+
+      const newTrx: Transaksi = {
+        id: generateUUID(),
+        invoice_no: generateInvoiceNumber(currentCabang.kode),
+        cabang_id: currentCabang.id,
+        cabang_nama: currentCabang.nama,
+        shift_id: activeShift?.id,
+        karyawan_id: activeShift?.karyawan_id,
+        karyawan_nama: activeShift?.karyawan_nama,
+        meja: tableName.trim() || 'Meja 1',
+        nama_pelanggan: customerName.trim() || 'Pelanggan Walk-in',
+        waktu: new Date().toISOString(),
+        subtotal,
+        diskon: 0,
+        total,
+        metode_bayar: method,
+        bayar,
+        kembali,
+        status: 'completed',
+        is_offline_synced: navigator.onLine,
+        items: cart.map(it => ({
+          menu_id: it.menu.id,
+          nama_menu: it.menu.nama,
+          harga: it.menu.harga,
+          qty: it.qty,
+          subtotal: it.menu.harga * it.qty,
+          catatan: it.catatan,
+        })),
+      };
+
+      if (!navigator.onLine) {
+        await queueOfflineTransaction(newTrx);
+      } else {
+        await db.createTransaksi(newTrx);
+      }
+      savedTrx = newTrx;
+      setCart([]);
+      setCustomerName('Pelanggan Walk-in');
     }
 
     if (activeShift) {
@@ -331,15 +446,13 @@ export default function PosPage() {
     }
 
     if (autoPrint) {
-      const bytes = printerService.buildReceiptCommands(newTrx, currentCabang);
+      const bytes = printerService.buildReceiptCommands(savedTrx, currentCabang);
       await printerService.printRaw(bytes);
     }
 
-    setLastTransaksi(newTrx);
+    setLastTransaksi(savedTrx);
     setIsPaymentOpen(false);
     setIsReceiptOpen(true);
-    setCart([]);
-    setCustomerName('Pelanggan Walk-in');
   };
 
   // Filter menu yang aktif dan dijual di cabang kasir saat ini (Wajib di atas early return agar urutan hooks konsisten)
@@ -386,6 +499,8 @@ export default function PosPage() {
         onMaterialStockClick={() => setIsMaterialStockOpen(true)}
         onDailyReportClick={() => setIsDailyReportOpen(true)}
         onDeviceSettingsClick={() => setIsDeviceSetupOpen(true)}
+        onOpenBillsClick={() => setIsOpenBillsModalOpen(true)}
+        openBillsCount={openBills.length}
       />
 
       {/* Main Dual-Pane POS Interface */}
@@ -407,11 +522,14 @@ export default function PosPage() {
             items={cart}
             customerName={customerName}
             onCustomerNameChange={setCustomerName}
+            tableName={tableName}
+            onTableNameChange={setTableName}
             onUpdateQty={handleUpdateQty}
             onUpdateNotes={handleUpdateNotes}
             onRemoveItem={handleRemoveItem}
             onClearCart={handleClearCart}
             onCheckout={handleCheckoutClick}
+            onSaveOpenBill={handleSaveOpenBill}
             isShiftOpen={!!activeShift}
           />
         </aside>
@@ -468,6 +586,8 @@ export default function PosPage() {
                 items={cart}
                 customerName={customerName}
                 onCustomerNameChange={setCustomerName}
+                tableName={tableName}
+                onTableNameChange={setTableName}
                 onUpdateQty={handleUpdateQty}
                 onUpdateNotes={handleUpdateNotes}
                 onRemoveItem={handleRemoveItem}
@@ -475,6 +595,10 @@ export default function PosPage() {
                 onCheckout={() => {
                   setIsMobileCartOpen(false);
                   handleCheckoutClick();
+                }}
+                onSaveOpenBill={() => {
+                  setIsMobileCartOpen(false);
+                  handleSaveOpenBill();
                 }}
                 isShiftOpen={!!activeShift}
               />
@@ -531,10 +655,35 @@ export default function PosPage() {
 
       {isPaymentOpen && (
         <PaymentModal
-          total={cart.reduce((sum, it) => sum + (it.menu.harga * it.qty), 0)}
+          total={selectedBillForPayment ? selectedBillForPayment.total : cart.reduce((sum, it) => sum + (it.menu.harga * it.qty), 0)}
           cabang={currentCabang}
-          onClose={() => setIsPaymentOpen(false)}
+          onClose={() => {
+            setIsPaymentOpen(false);
+            setSelectedBillForPayment(null);
+          }}
           onSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {isKitchenModalOpen && kitchenTicketTrx && currentCabang && (
+        <KitchenTicketModal
+          transaksi={kitchenTicketTrx}
+          cabang={currentCabang}
+          onClose={() => {
+            setIsKitchenModalOpen(false);
+            setKitchenTicketTrx(null);
+          }}
+        />
+      )}
+
+      {isOpenBillsModalOpen && currentCabang && (
+        <OpenBillsModal
+          openBills={openBills}
+          cabang={currentCabang}
+          onClose={() => setIsOpenBillsModalOpen(false)}
+          onPayBill={handleStartPayOpenBill}
+          onPrintKitchenTicket={handlePrintOpenBillKitchenTicket}
+          onCancelBill={handleCancelOpenBill}
         />
       )}
 
