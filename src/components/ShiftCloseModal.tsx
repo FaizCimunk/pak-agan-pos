@@ -11,7 +11,7 @@ import {
   Coins,
   DollarSign
 } from 'lucide-react';
-import { Shift, Cabang } from '@/lib/types';
+import { Shift, Cabang, PengeluaranKasbon } from '@/lib/types';
 import { db } from '@/lib/db';
 import { printerService } from '@/lib/printer';
 import { formatRupiah, formatNominal, parseNominal } from '@/lib/utils';
@@ -34,6 +34,7 @@ export default function ShiftCloseModal({
   const [catatan, setCatatan] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [showDenomHelper, setShowDenomHelper] = useState<boolean>(false);
+  const [pendingList, setPendingList] = useState<PengeluaranKasbon[]>([]);
 
   // Denominations counter
   const [counts, setCounts] = useState<{ [key: number]: number }>({
@@ -54,9 +55,17 @@ export default function ShiftCloseModal({
       setCalculatedShift(refreshed);
       // Pre-fill physical with system balance for easy counting
       setSaldoFisik(refreshed.saldo_akhir_sistem);
+
+      try {
+        const allExp = await db.getPengeluaranList(cabang.id);
+        const pending = allExp.filter(e => e.status === 'pending');
+        setPendingList(pending);
+      } catch (err) {
+        console.warn('Failed loading pending expenses:', err);
+      }
     }
     loadNumbers();
-  }, [shift]);
+  }, [shift, cabang.id]);
 
   const handleDenomChange = (denom: number, count: number) => {
     const nextCounts = { ...counts, [denom]: Math.max(0, count) };
@@ -155,6 +164,24 @@ export default function ShiftCloseModal({
               </span>
             </div>
           </div>
+
+          {/* Pending Expense Alert Banner (Belanja Toko & Kasbon Belum Di-Approve) */}
+          {pendingList.length > 0 && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-1.5 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5 font-extrabold text-amber-950">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Ada {pendingList.length} Pengajuan Berstatus Menunggu (Pending)</span>
+                </div>
+                <span className="font-mono font-black text-amber-950 bg-amber-200/80 px-2 py-0.5 rounded-md text-[11px]">
+                  {formatRupiah(pendingList.reduce((s, e) => s + Number(e.nominal || 0), 0))}
+                </span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-amber-800">
+                Sesuai SOP, pengajuan belanja toko / kasbon yang <b>belum di-approve Admin Pusat</b> di Peninjauan Dashboard Utama <b>TIDAK memotong saldo laci kasir</b> saat ini. Begitu di-approve, nominal akan otomatis terpotong resmi.
+              </p>
+            </div>
+          )}
 
           {/* Bank / QRIS Digital Inflow Summary */}
           <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200 text-slate-800 space-y-1.5 text-xs">

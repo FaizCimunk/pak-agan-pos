@@ -200,10 +200,10 @@ export default function PosHeader({
                   ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-500/30 animate-pulse'
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
               }`}
-              title="Daftar Tagihan Belum Dibayar (Bayar Nanti / Pesanan Meja)"
+              title="Daftar Tagihan Belum Dibayar (Bayar Nanti)"
             >
               <Clock className="w-3.5 h-3.5" />
-              <span className="font-extrabold">{openBillsCount} Meja</span>
+              <span className="font-extrabold">{openBillsCount} Tagihan</span>
             </button>
 
             {pendingSyncCount > 0 && (
@@ -394,14 +394,14 @@ export default function PosHeader({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-black text-amber-950 text-xs sm:text-sm truncate">
-                        Tagihan Meja (Bayar Nanti)
+                        Tagihan / Pesanan Aktif (Bayar Nanti)
                       </span>
                       <span className="text-[10px] font-mono font-black px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-950 border border-amber-400 shrink-0">
-                        {openBillsCount} Meja Aktif
+                        {openBillsCount} Pesanan Aktif
                       </span>
                     </div>
                     <p className="text-[11px] sm:text-xs text-amber-900/80 font-normal leading-relaxed">
-                      Kelola pesanan meja yang sedang makan di tempat, cetak tiket dapur 3 ruangan, atau lakukan pelunasan saat selesai.
+                      Kelola pesanan pelanggan yang sedang disantap atau belum lunas, cetak tiket dapur 3 ruangan, atau lakukan pelunasan saat selesai.
                     </p>
                   </div>
                 </button>

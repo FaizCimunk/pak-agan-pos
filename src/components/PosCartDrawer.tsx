@@ -159,19 +159,19 @@ export default function PosCartDrawer({
         </div>
       </div>
 
-      {/* Sleek Compact Penanda / Nomor Meja Bar (Hemat Tempat, Kasir Leluasa Scroll) */}
+      {/* Sleek Compact Penanda / Tanda Nama Bar (Hemat Tempat, Kasir Leluasa Scroll) */}
       <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200/80 flex items-center gap-1.5 shrink-0">
-        <div className="flex items-center space-x-1 shrink-0 text-slate-500">
+        <div className="flex items-center space-x-1 shrink-0 text-slate-600">
           <Tag className="w-3 h-3 text-amber-600" />
-          <span className="text-[10px] font-black uppercase tracking-tight">Meja:</span>
+          <span className="text-[10px] font-black uppercase tracking-tight">Tanda / Nama:</span>
         </div>
 
         <input
           type="text"
           value={penanda}
           onChange={(e) => onPenandaChange(e.target.value)}
-          placeholder="No. 01 / Meja Depan / Nama..."
-          className="flex-1 min-w-0 px-2 py-0.5 bg-white rounded-lg border border-slate-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
+          placeholder="Tanda / nama pemesan (No. 01 / Pak Budi / dll)..."
+          className="flex-1 min-w-0 px-2 py-0.5 bg-white rounded-lg border border-slate-300 font-bold text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
         />
 
         {/* Quick Numbers */}
