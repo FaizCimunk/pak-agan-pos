@@ -250,6 +250,20 @@ export function getMenuUuid(idOrCode?: string | null): string | null {
   return null;
 }
 
+export const KATEGORI_UUID_MAP: Record<string, string> = {
+  'kat-sb': '6d639aab-ff78-40b3-87df-4c18a4977288',
+  'kat-wg': '26606c3e-0efb-46e2-b7c5-52669da2b7e1',
+  'kat-6': 'ccae656c-4c48-421f-aa93-efe6e5b28f43',
+};
+
+export function getKategoriUuid(idOrCode?: string | null): string | null {
+  if (!idOrCode) return null;
+  const clean = idOrCode.trim().toLowerCase();
+  if (KATEGORI_UUID_MAP[clean]) return KATEGORI_UUID_MAP[clean];
+  if (isValidUuid(idOrCode)) return idOrCode;
+  return null;
+}
+
 export class PosDatabase {
   // --------------------------------------------------------------------------
   // CABANG (10 CABANG RESMI)
@@ -426,11 +440,24 @@ export class PosDatabase {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        if (item.id) {
-          await supabase.from('menu').update(savedItem).eq('id', item.id);
-        } else {
-          await supabase.from('menu').insert(savedItem);
-        }
+        const supabaseMenuId = getMenuUuid(savedItem.id) || getMenuUuid(savedItem.kode) || (isValidUuid(savedItem.id) ? savedItem.id : generateUUID());
+        const supabaseKatId = getKategoriUuid(savedItem.kategori_id);
+
+        const supabaseRow: any = {
+          id: supabaseMenuId,
+          kategori_id: supabaseKatId,
+          kode: savedItem.kode,
+          nama: savedItem.nama,
+          deskripsi: savedItem.deskripsi || null,
+          harga: savedItem.harga,
+          hpp: savedItem.hpp || 0,
+          gambar: savedItem.gambar || null,
+          is_favorite: !!savedItem.is_favorite,
+          is_active: savedItem.is_active !== false,
+          cabang_ids: savedItem.cabang_ids || [],
+        };
+
+        await supabase.from('menu').upsert(supabaseRow, { onConflict: 'kode' });
       } catch (e) {
         console.warn('Supabase saveMenu fallback local:', e);
       }
@@ -446,7 +473,10 @@ export class PosDatabase {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('menu').delete().eq('id', id);
+        const uuid = getMenuUuid(id) || (isValidUuid(id) ? id : null);
+        if (uuid) {
+          await supabase.from('menu').delete().eq('id', uuid);
+        }
       } catch (e) {
         console.warn('Supabase deleteMenu fallback local:', e);
       }

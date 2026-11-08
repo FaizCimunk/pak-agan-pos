@@ -299,8 +299,11 @@ export default function AdminDashboardPage() {
         .subscribe();
     }
 
-    // 2. Polling cadangan setiap 10 detik agar data transaksi live selalu segar
+    // 2. Polling cadangan setiap 10 detik agar data transaksi live selalu segar (kecuali jika ada modal terbuka)
     const pollInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.querySelector('.fixed.inset-0.z-50')) {
+        return; // Jangan refresh saat pengguna sedang mengisi form modal
+      }
       refreshAllData();
     }, 10000);
 
@@ -2596,7 +2599,7 @@ export default function AdminDashboardPage() {
                     <option value="all">Semua Cabang (10 Cabang Resmi)</option>
                     {cabangList.map(c => (
                       <option key={c.id} value={c.id}>
-                        {c.kode} - {c.nama.replace(/^(Cabang \d+ - )/, '')}
+                        #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
                       </option>
                     ))}
                   </select>
