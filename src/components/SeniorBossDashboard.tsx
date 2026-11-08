@@ -189,24 +189,39 @@ export default function SeniorBossDashboard({
   const totalFixedCostHarian = sewaHarian + wifiHarian + gajiStafHadir;
 
   // VARIABLE COST HARI INI (HPP Modal Porsi yang Terjual di Kasir):
-  const menuHppMap = useMemo(() => {
+  const { menuHppMap, menuHppEsMap } = useMemo(() => {
     const map: Record<string, number> = {};
+    const mapEs: Record<string, number> = {};
     menuList.forEach(m => {
-      map[m.id] = m.hpp || (m.kategori_id === 'kat-wg' ? 4000 : 5000);
+      const defaultHpp = m.hpp !== undefined && m.hpp > 0 ? m.hpp : (m.kategori_id === 'kat-wg' ? 4000 : 5000);
+      const defaultHppEs = m.hpp_es !== undefined && m.hpp_es > 0 ? m.hpp_es : defaultHpp;
+      map[m.id] = defaultHpp;
+      mapEs[m.id] = defaultHppEs;
+      if (m.kode) {
+        map[m.kode] = defaultHpp;
+        mapEs[m.kode] = defaultHppEs;
+      }
+      if (m.nama) {
+        map[m.nama.toLowerCase()] = defaultHpp;
+        mapEs[m.nama.toLowerCase()] = defaultHppEs;
+      }
     });
-    return map;
+    return { menuHppMap: map, menuHppEsMap: mapEs };
   }, [menuList]);
 
   const totalHppBahan = useMemo(() => {
     let sumHpp = 0;
     targetTrx.forEach(trx => {
       trx.items.forEach(it => {
-        const itemHpp = menuHppMap[it.menu_id] || 4000;
+        const isDingin = it.temperature === 'dingin';
+        const itemHpp = isDingin
+          ? (menuHppEsMap[it.menu_id] || (it.nama_menu && menuHppEsMap[it.nama_menu.toLowerCase()]) || menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000)
+          : (menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000);
         sumHpp += itemHpp * it.qty;
       });
     });
     return sumHpp;
-  }, [targetTrx, menuHppMap]);
+  }, [targetTrx, menuHppMap, menuHppEsMap]);
 
   const totalVariableCostHarian = totalHppBahan;
 

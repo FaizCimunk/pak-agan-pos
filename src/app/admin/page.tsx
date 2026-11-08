@@ -575,7 +575,21 @@ export default function AdminDashboardPage() {
   const bossDailyProfits = useMemo(() => {
     const targetDate = selectedBossSummaryDate;
     const menuHppMap: Record<string, number> = {};
-    menuList.forEach(m => { menuHppMap[m.id] = m.hpp || 4000; });
+    const menuHppEsMap: Record<string, number> = {};
+    menuList.forEach(m => { 
+      const defaultHpp = m.hpp !== undefined && m.hpp > 0 ? m.hpp : Math.round(m.harga * 0.32) || 4000;
+      const defaultHppEs = m.hpp_es !== undefined && m.hpp_es > 0 ? m.hpp_es : defaultHpp;
+      menuHppMap[m.id] = defaultHpp;
+      menuHppEsMap[m.id] = defaultHppEs;
+      if (m.kode) {
+        menuHppMap[m.kode] = defaultHpp;
+        menuHppEsMap[m.kode] = defaultHppEs;
+      }
+      if (m.nama) {
+        menuHppMap[m.nama.toLowerCase()] = defaultHpp;
+        menuHppEsMap[m.nama.toLowerCase()] = defaultHppEs;
+      }
+    });
 
     const branchBreakdowns = cabangList.map(cabang => {
       // 1. Sewa, Wifi/Listrik, Iuran Harian (Bulanan / 30) + Beban Tambahan
@@ -596,7 +610,11 @@ export default function AdminDashboardPage() {
       branchTrx.forEach(trx => {
         omzetKotor += trx.total;
         trx.items.forEach(it => {
-          totalHppBahan += (menuHppMap[it.menu_id] || 4000) * it.qty;
+          const isDingin = it.temperature === 'dingin';
+          const itemHpp = isDingin 
+            ? (menuHppEsMap[it.menu_id] || (it.nama_menu && menuHppEsMap[it.nama_menu.toLowerCase()]) || menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000)
+            : (menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000);
+          totalHppBahan += itemHpp * it.qty;
         });
       });
 

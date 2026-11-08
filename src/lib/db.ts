@@ -2609,12 +2609,29 @@ export class PosDatabase {
 
     const allMenus = await this.getMenuList();
     const menuHppMap: Record<string, number> = {};
-    allMenus.forEach(m => { menuHppMap[m.id] = m.hpp || 4000; });
+    const menuHppEsMap: Record<string, number> = {};
+    allMenus.forEach(m => { 
+      const defaultHpp = m.hpp !== undefined && m.hpp > 0 ? m.hpp : Math.round(m.harga * 0.32) || 4000;
+      const defaultHppEs = m.hpp_es !== undefined && m.hpp_es > 0 ? m.hpp_es : defaultHpp;
+      menuHppMap[m.id] = defaultHpp;
+      menuHppEsMap[m.id] = defaultHppEs;
+      if (m.kode) {
+        menuHppMap[m.kode] = defaultHpp;
+        menuHppEsMap[m.kode] = defaultHppEs;
+      }
+      if (m.nama) {
+        menuHppMap[m.nama.toLowerCase()] = defaultHpp;
+        menuHppEsMap[m.nama.toLowerCase()] = defaultHppEs;
+      }
+    });
 
     for (const trx of dayTransactions) {
       omzetKotor += trx.total;
       for (const it of trx.items) {
-        const itemHpp = menuHppMap[it.menu_id] || 4000;
+        const isDingin = it.temperature === 'dingin';
+        const itemHpp = isDingin
+          ? (menuHppEsMap[it.menu_id] || (it.nama_menu && menuHppEsMap[it.nama_menu.toLowerCase()]) || menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000)
+          : (menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000);
         totalHppBahan += (itemHpp * it.qty);
       }
     }
