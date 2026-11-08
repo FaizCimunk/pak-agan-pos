@@ -207,6 +207,12 @@ export default function AdminDashboardPage() {
     alert('Gembok akun berhasil dibuka! Staf dapat langsung login kembali.');
   };
 
+  const handleLockUser = async (karyawanId: string) => {
+    await db.toggleKaryawanLock(karyawanId, true);
+    await refreshAllData();
+    alert('Akun staf berhasil digembok! Akses login kasir dinonaktifkan.');
+  };
+
   // Payroll Period & Branch Filters (Cetak Rekap Per-Cabang)
   const [payrollMode, setPayrollMode] = useState<'harian' | 'rentang' | 'bulanan'>('rentang');
   const [payrollBranchFilter, setPayrollBranchFilter] = useState<string>('all');
@@ -500,19 +506,27 @@ export default function AdminDashboardPage() {
         });
         const totalKasbon = unsettled.reduce((sum, e) => sum + e.nominal, 0);
 
-        // Kehadiran Staf per Tanggal Terpilih
-        let staffPresence = 0;
-        if (payrollMode === 'harian') {
-          const match = absensiList.filter(a => a.karyawan_id === kar.id && a.tanggal === payrollSingleDate && a.status === 'hadir');
-          staffPresence = match.length;
-        } else if (payrollMode === 'rentang') {
-          const match = absensiList.filter(a => a.karyawan_id === kar.id && a.tanggal >= payrollStartDate && a.tanggal <= payrollEndDate && a.status === 'hadir');
-          staffPresence = match.length;
-        } else {
-          const targetPrefix = `${payrollYear}-${String(payrollMonth).padStart(2, '0')}`;
-          const match = absensiList.filter(a => a.karyawan_id === kar.id && a.tanggal.startsWith(targetPrefix) && a.status === 'hadir');
-          staffPresence = match.length;
+        // Kehadiran Staf per Tanggal Terpilih (Mendukung ID, UUID, nama, dan 1/2 hari)
+        const match = absensiList.filter(a => {
+          const isMatchId = a.karyawan_id === kar.id || 
+                            (a.karyawan_nama && a.karyawan_nama.toLowerCase() === kar.nama.toLowerCase());
+          if (!isMatchId) return false;
+          if (payrollMode === 'harian') {
+            return !payrollSingleDate || a.tanggal === payrollSingleDate;
+          } else if (payrollMode === 'rentang') {
+            return (!payrollStartDate || a.tanggal >= payrollStartDate) && (!payrollEndDate || a.tanggal <= payrollEndDate);
+          } else {
+            const targetPrefix = `${payrollYear}-${String(payrollMonth).padStart(2, '0')}`;
+            return a.tanggal.startsWith(targetPrefix);
+          }
+        });
+
+        let totalDays = 0;
+        for (const a of match) {
+          if (a.status === 'hadir') totalDays += 1;
+          else if (a.status === 'setengah_hari') totalDays += 0.5;
         }
+        const staffPresence = totalDays;
 
         const isHarian = kar.tipe_gaji === 'harian';
         const upahRate = kar.gaji_harian || 100000;
@@ -2898,7 +2912,7 @@ export default function AdminDashboardPage() {
 
               </div>
 
-              {/* 4 Stat Cards Ringkasan Toko Terpilih */}
+              {/* 4 Stat Cards Ringkasan SDM & Pekerja */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-5 pt-4 border-t border-slate-100">
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
                   <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
@@ -2908,46 +2922,47 @@ export default function AdminDashboardPage() {
                     {filteredKaryawan.length}
                     <span className="text-xs font-normal text-slate-500"> Orang</span>
                   </div>
-                  <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
-                    {filteredKaryawan.filter(k => !k.is_locked).length} akun aktif • {filteredKaryawan.filter(k => k.is_locked).length} tergembok
+                  <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
+                    Data SDM &amp; Akun Pekerja
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
                   <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                    Beban Upah Harian {karyawanBranchFilter === 'all' ? '10 Toko' : 'Toko'}
+                    Akun Staf Aktif
                   </span>
-                  <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
-                    {formatRupiah(filteredKaryawan.reduce((sum, k) => sum + (k.gaji_harian || 120000), 0))}
-                    <span className="text-xs font-normal text-slate-500"> /hari</span>
+                  <div className="text-xl font-mono font-black text-emerald-800 mt-1 tabular-nums">
+                    {filteredKaryawan.filter(k => !k.is_locked && k.role !== 'owner').length}
+                    <span className="text-xs font-normal text-slate-500"> Staf</span>
                   </div>
                   <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
-                    Otomatis potong omzet harian saat hadir
+                    Bisa login kasir &amp; presensi
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
                   <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                    Total Karyawan Aktif
+                    Akun Tergembok / Kunci
                   </span>
-                  <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
-                    {filteredKaryawan.filter(k => k.role !== 'owner').length}
-                    <span className="text-xs font-normal text-slate-500"> Karyawan</span>
+                  <div className="text-xl font-mono font-black text-rose-700 mt-1 tabular-nums">
+                    {filteredKaryawan.filter(k => k.is_locked).length}
+                    <span className="text-xs font-normal text-slate-500"> Akun</span>
                   </div>
                   <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
-                    Karyawan operasional seluruh cabang
+                    Akses login dinonaktifkan
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200">
-                  <span className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider block">
-                    Plafon Kasbon Terdaftar
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Penempatan Cabang
                   </span>
-                  <div className="text-xl font-mono font-black text-amber-950 mt-1 tabular-nums">
-                    {formatRupiah(filteredKaryawan.reduce((sum, k) => sum + (k.plafon_kasbon || 500000), 0))}
+                  <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
+                    {cabangList.length || 10}
+                    <span className="text-xs font-normal text-slate-500"> Cabang</span>
                   </div>
-                  <span className="text-[10px] text-amber-900 font-bold mt-0.5 block">
-                    Limit pinjaman kasbon staf
+                  <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
+                    Struktur cabang resmi tercover
                   </span>
                 </div>
               </div>
@@ -2961,14 +2976,14 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-lg">👥</span>
                     <h3 className="text-sm font-extrabold text-slate-900">
-                      Tabel Master Karyawan, Skema Gaji &amp; PIN
+                      Tabel Master Karyawan &amp; Kredensial Akun
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       {filteredKaryawan.length} Pekerja
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Kelola profil pekerja, penempatan cabang, tarif upah harian / tunjangan makan, plafon kasbon, dan PIN/sandi akun.
+                    Kelola profil pekerja, penempatan cabang toko, ubah username, sandi kuat, PIN kasir, dan buka/tutup gembok akun.
                   </p>
                 </div>
 
@@ -2999,108 +3014,43 @@ export default function AdminDashboardPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
                     <tr>
-                      <th className="py-3 px-3">Nama Karyawan</th>
-                      <th className="py-3 px-3">Penempatan Cabang</th>
-                      <th className="py-3 px-3">Skema Gaji</th>
-                      <th className="py-3 px-3 text-right">Tarif Gaji Harian</th>
-                      <th className="py-3 px-3 text-right">Gaji Mingguan &amp; Sebulan</th>
-                      <th className="py-3 px-3 text-right">Plafon Kasbon</th>
-                      <th className="py-3 px-3 text-center">Celengan Tabungan</th>
-                      <th className="py-3 px-3 text-center">PIN &amp; Sandi Guard</th>
-                      <th className="py-3 px-3 text-center">Aksi Kelola</th>
+                      <th className="py-3 px-4">Nama Karyawan &amp; Kontak</th>
+                      <th className="py-3 px-4">Penempatan Cabang</th>
+                      <th className="py-3 px-4 text-center">Kredensial &amp; Sandi / PIN</th>
+                      <th className="py-3 px-4 text-center">Aksi Kelola Pekerja</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredKaryawan.map(kar => {
                       const branch = cabangList.find(c => isBranchMatch(c.id, kar.cabang_id));
                       const isRevealed = revealedPasswords[kar.id];
-                      const isHarian = kar.tipe_gaji === 'harian';
-                      const uHarian = kar.gaji_harian || 100000;
-                      const estimasiMingguan = 6 * uHarian;
-                      const estimasiSebulan26 = 26 * uHarian;
 
                       return (
                         <tr key={kar.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-3 px-3">
-                            <span className="font-extrabold text-slate-900 block">{kar.nama}</span>
-                            <span className="text-[10px] text-slate-500 font-medium">
-                              <span className="capitalize">{formatKaryawanRole(kar.role)}</span> • <span className="font-mono text-emerald-700">{kar.telepon}</span>
-                            </span>
+                          <td className="py-3.5 px-4">
+                            <span className="font-extrabold text-slate-900 block text-sm">{kar.nama}</span>
+                            <div className="flex items-center space-x-2 mt-0.5 text-xs text-slate-500 font-medium">
+                              <span className="capitalize px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
+                                {formatKaryawanRole(kar.role)}
+                              </span>
+                              <span>•</span>
+                              <span className="font-mono text-emerald-800 font-bold">{kar.telepon}</span>
+                            </div>
                           </td>
 
-                          <td className="py-3 px-3">
-                            <span className="font-bold text-slate-800 block">
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-slate-800 block text-xs">
                               {branch?.nama.split('-')[1]?.trim() || branch?.nama || 'Pusat'}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              {branch?.kode || 'CBG-01'}
+                            <span className="text-[10px] text-slate-400 font-mono font-bold">
+                              #{branch?.nomor || '01'} • {branch?.kode || 'CBG-01'}
                             </span>
-                          </td>
-
-                          <td className="py-3 px-3">
-                            {isHarian ? (
-                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
-                                <span>Upah Harian (Mingguan)</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
-                                <span>Gaji Bulanan</span>
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="py-3 px-3 text-right font-mono font-bold text-slate-800 tabular-nums">
-                            {isHarian ? (
-                              <div>
-                                <span>{formatRupiah(uHarian)}</span>
-                                <span className="text-[9px] text-slate-400 block font-normal">/ hari hadir</span>
-                              </div>
-                            ) : (
-                              <div>
-                                <span>{formatRupiah(kar.gaji_pokok)}</span>
-                                <span className="text-[9px] text-slate-400 block font-normal">/ bulan</span>
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Gaji Mingguan (6 Hari) & Sebulan (26 Hari Tanpa Bon) */}
-                          <td className="py-3 px-3 text-right tabular-nums">
-                            <div className="font-mono font-black text-emerald-800 text-xs">
-                              {formatRupiah(estimasiMingguan)} <span className="text-[9px] font-normal text-slate-500">/mg</span>
-                            </div>
-                            <div className="text-[10px] text-slate-500 font-bold font-mono">
-                              {formatRupiah(estimasiSebulan26)} <span className="text-[8.5px] text-slate-400 font-sans font-normal">(26 hr tanpa bon)</span>
-                            </div>
-                          </td>
-
-                          <td className="py-3 px-3 text-right font-mono font-bold text-amber-700 tabular-nums">
-                            {formatRupiah(kar.plafon_kasbon)}
-                          </td>
-
-                          {/* Celengan Tabungan Karyawan */}
-                          <td className="py-3 px-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedKaryawanForTabungan(kar)}
-                              className="inline-flex flex-col items-center p-1.5 rounded-xl bg-amber-50 hover:bg-amber-100/90 border border-amber-200 transition text-amber-950 cursor-pointer shadow-2xs group"
-                              title="Buka Buku Tabungan Karyawan"
-                            >
-                              <div className="flex items-center space-x-1">
-                                <PiggyBank className="w-3.5 h-3.5 text-amber-600 group-hover:scale-110 transition-transform" />
-                                <span className="font-mono font-black text-xs text-amber-950">
-                                  {formatRupiah(kar.total_tabungan || 0)}
-                                </span>
-                              </div>
-                              <span className="text-[9px] font-bold text-amber-800">
-                                {kar.tabungan_rutin_mingguan ? `+${formatRupiah(kar.tabungan_rutin_mingguan)}/mg` : 'Tanpa Nabung'}
-                              </span>
-                            </button>
                           </td>
 
                           {/* Sandi / PIN & Status Gembok */}
-                          <td className="py-3 px-3 text-center">
-                            <div className="space-y-1">
-                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-lg font-mono font-bold text-slate-800 text-[11px]">
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="inline-flex flex-col items-center gap-1">
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-slate-800 text-xs shadow-2xs">
                                 <span>
                                   {isRevealed 
                                     ? (kar.password_plain || '1234') 
@@ -3112,16 +3062,16 @@ export default function AdminDashboardPage() {
                                   className="text-slate-400 hover:text-slate-700 ml-1"
                                   title={isRevealed ? "Sembunyikan" : "Lihat Sandi Asli"}
                                 >
-                                  {isRevealed ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                  {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                 </button>
                               </div>
                               <div>
                                 {kar.is_locked ? (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
                                     <span>🔒</span> TERGEMBOK
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     <span>✓</span> AKTIF
                                   </span>
                                 )}
@@ -3129,66 +3079,61 @@ export default function AdminDashboardPage() {
                             </div>
                           </td>
 
-                          {/* Aksi Kelola Lengkap */}
-                          <td className="py-3 px-3 text-center">
-                            <div className="flex flex-wrap items-center justify-center gap-1">
-                              {kar.is_locked && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUnlockUser(kar.id)}
-                                  className="px-2 py-1 text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-300 transition-colors inline-flex items-center space-x-0.5"
-                                  title="Buka Gembok Akun"
-                                >
-                                  <Unlock className="w-3 h-3" />
-                                  <span>Buka</span>
-                                </button>
-                              )}
+                          {/* Aksi Kelola Simpel & Praktis (Ploting, Ubah Sandi/PIN, Gembok, Hapus) */}
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="flex flex-wrap items-center justify-center gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => {
                                   setSelectedKaryawanForPlot(kar);
                                   setTargetBranchIdForPlot(kar.cabang_id);
                                 }}
-                                className="px-2 py-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg border border-emerald-300 transition-colors inline-flex items-center space-x-0.5"
+                                className="px-3 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 rounded-xl border border-emerald-300 transition-colors inline-flex items-center space-x-1 shadow-2xs btn-tactile"
                                 title="Ploting Penempatan Cabang Karyawan"
                               >
-                                <ArrowRightLeft className="w-3 h-3 text-emerald-600" />
+                                <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-700" />
                                 <span>Ploting</span>
                               </button>
-                              <button
-                                onClick={() => setSelectedKaryawanForSalaryEdit(kar)}
-                                className="px-2 py-1 text-[11px] font-bold text-brand-primary hover:bg-brand-subtle rounded-lg border border-brand-primary/30 transition-colors inline-flex items-center space-x-0.5"
-                                title="Ubah Skema & Tarif Upah Staf"
-                              >
-                                <DollarSign className="w-3 h-3" />
-                                <span>Ubah Gaji</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSelectedKaryawanForTabungan(kar)}
-                                className="px-2 py-1 text-[11px] font-bold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-300 transition-colors inline-flex items-center space-x-0.5 shadow-2xs"
-                                title="Buka Buku Tabungan &amp; Celengan Karyawan"
-                              >
-                                <PiggyBank className="w-3 h-3 text-amber-700" />
-                                <span>Tabungan</span>
-                              </button>
+
                               <button
                                 onClick={() => setSelectedKaryawanForPinReset(kar)}
-                                className="px-2 py-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-300 bg-white transition-colors inline-flex items-center space-x-0.5 shadow-2xs"
-                                title="Ganti Username, Sandi Kuat & PIN"
+                                className="px-3 py-1.5 text-xs font-bold text-amber-900 hover:text-amber-950 bg-amber-50 hover:bg-amber-100/80 rounded-xl border border-amber-300 transition-colors inline-flex items-center space-x-1 shadow-2xs btn-tactile"
+                                title="Ganti Username, Sandi Kuat & PIN Tablet Kasir"
                               >
-                                <KeyRound className="w-3 h-3 text-amber-600" />
-                                <span>PIN</span>
+                                <KeyRound className="w-3.5 h-3.5 text-amber-700" />
+                                <span>Ubah Sandi &amp; PIN</span>
                               </button>
+
+                              {kar.is_locked ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnlockUser(kar.id)}
+                                  className="px-2.5 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl border border-emerald-300 transition-colors inline-flex items-center space-x-1"
+                                  title="Buka Gembok Akun"
+                                >
+                                  <Unlock className="w-3.5 h-3.5" />
+                                  <span>Buka</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleLockUser(kar.id)}
+                                  className="px-2.5 py-1.5 text-xs font-bold text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl border border-slate-200 hover:border-rose-300 transition-colors inline-flex items-center space-x-1"
+                                  title="Gembok Akun Karyawan"
+                                >
+                                  <Lock className="w-3.5 h-3.5" />
+                                  <span>Kunci</span>
+                                </button>
+                              )}
+
                               {kar.role !== 'owner' && (
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteKaryawan(kar.id, kar.nama)}
-                                  className="px-2 py-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg border border-rose-300 bg-white transition-colors inline-flex items-center space-x-0.5 shadow-2xs"
+                                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                                   title="Hapus Karyawan"
                                 >
-                                  <Trash2 className="w-3 h-3 text-rose-600" />
-                                  <span>Hapus</span>
+                                  <Trash2 className="w-4 h-4 text-rose-600" />
                                 </button>
                               )}
                             </div>
@@ -3354,6 +3299,58 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
+            {/* 4 Financial Stat Cards Modul Payroll */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 shadow-2xs">
+                <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block">
+                  Total Gaji Bersih Periode Ini
+                </span>
+                <div className="text-xl font-mono font-black text-emerald-950 mt-1 tabular-nums">
+                  {formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + d.gaji_bersih, 0))}
+                </div>
+                <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
+                  Siap transfer ke {calculatedPayrollDrafts.length} staf
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                  Beban Upah Harian 10 Toko
+                </span>
+                <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
+                  {formatRupiah(karyawanList.filter(k => k.role !== 'owner').reduce((sum, k) => sum + (k.gaji_harian || 100000), 0))}
+                  <span className="text-xs font-normal text-slate-500"> /hari</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
+                  Tarif upah harian operasional
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200 shadow-2xs">
+                <span className="text-[10px] font-extrabold text-rose-800 uppercase tracking-wider block">
+                  Kasbon Terpotong Otomatis
+                </span>
+                <div className="text-xl font-mono font-black text-rose-900 mt-1 tabular-nums">
+                  -{formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + d.potongan_kasbon, 0))}
+                </div>
+                <span className="text-[10px] text-rose-700 font-bold mt-0.5 block">
+                  Otomatis lunas saat kunci gaji
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 shadow-2xs">
+                <span className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider block">
+                  Plafon Kasbon Terdaftar
+                </span>
+                <div className="text-xl font-mono font-black text-amber-950 mt-1 tabular-nums">
+                  {formatRupiah(karyawanList.filter(k => k.role !== 'owner').reduce((sum, k) => sum + (k.plafon_kasbon || 500000), 0))}
+                </div>
+                <span className="text-[10px] text-amber-900 font-bold mt-0.5 block">
+                  Limit pinjaman kasbon staf
+                </span>
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
@@ -3388,7 +3385,7 @@ export default function AdminDashboardPage() {
                       </td>
                       <td className="py-3 px-4">
                         <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
-                          <span>{draft.total_kehadiran_hari || 22} Hari Hadir</span>
+                          <span>{draft.total_kehadiran_hari} Hari Hadir</span>
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-semibold text-slate-700 tabular-nums">
@@ -3426,7 +3423,7 @@ export default function AdminDashboardPage() {
                         {formatRupiah(draft.gaji_bersih)}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center space-x-1.5">
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
                           {draft.status === 'paid' ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-[11px] font-black">
                               ✓ Lunas
@@ -3434,7 +3431,7 @@ export default function AdminDashboardPage() {
                           ) : (
                             <button
                               onClick={() => setSelectedPayrollForPayout(draft)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full text-xs font-bold transition shadow-xs btn-tactile"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full text-xs font-bold transition shadow-xs btn-tactile"
                               title="Cairkan Dana & Transfer ke Rekening Staf"
                             >
                               <span>💸</span>
@@ -3444,11 +3441,11 @@ export default function AdminDashboardPage() {
 
                           <button
                             onClick={() => setSelectedPayrollSlip(draft)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-full text-xs font-bold transition shadow-xs btn-tactile"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-full text-xs font-bold transition shadow-xs btn-tactile"
                             title="Buka Rincian Absensi, Kasbon & Slip Gaji Digital"
                           >
                             <span>🔍</span>
-                            <span>Buka Rincian &amp; Slip</span>
+                            <span>Slip</span>
                           </button>
                           
                           <button
@@ -3472,11 +3469,37 @@ export default function AdminDashboardPage() {
                               });
                               window.open(waUrl, '_blank');
                             }}
-                            className="px-2.5 py-1.5 rounded-lg bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs transition-colors inline-flex items-center space-x-1 shadow-xs btn-tactile"
+                            className="px-2.5 py-1 rounded-full bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs transition-colors inline-flex items-center space-x-1 shadow-xs btn-tactile"
                             title="Kirim Slip Gaji Resmi Langsung ke WhatsApp Staf"
                           >
                             <MessageCircle className="w-3.5 h-3.5 fill-white" />
                             <span>Kirim WA</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const kar = karyawanList.find(k => k.id === draft.karyawan_id);
+                              if (kar) setSelectedKaryawanForSalaryEdit(kar);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-bold transition shadow-2xs btn-tactile"
+                            title="Ubah Tarif Upah Harian & Skema Gaji"
+                          >
+                            <span>$</span>
+                            <span>Ubah Gaji</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const kar = karyawanList.find(k => k.id === draft.karyawan_id);
+                              if (kar) setSelectedKaryawanForTabungan(kar);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-xs font-bold transition shadow-2xs btn-tactile"
+                            title="Buka Buku Tabungan & Celengan Karyawan"
+                          >
+                            <PiggyBank className="w-3.5 h-3.5 text-amber-700" />
+                            <span>Tabungan</span>
                           </button>
                         </div>
                       </td>

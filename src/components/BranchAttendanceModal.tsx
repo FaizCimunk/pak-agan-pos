@@ -202,7 +202,7 @@ export default function BranchAttendanceModal({
       }));
 
       await db.saveBranchAttendance(entries);
-      alert(`Presensi ${entries.length} staf ${cabang.nama} untuk tanggal ${selectedDate} berhasil disimpan!\nTotal upah harian otomatis tercatat ke Fixed Cost Toko.`);
+      alert(`Presensi ${entries.length} staf ${cabang.nama} untuk tanggal ${selectedDate} berhasil disimpan!\nData kehadiran otomatis terhubung ke Modul Payroll Dashboard Pusat.`);
       onSuccess();
     } catch (err: any) {
       alert('Gagal menyimpan presensi: ' + err.message);
@@ -321,18 +321,6 @@ export default function BranchAttendanceModal({
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Upah Kehadiran Harian (Rp)
-                  </label>
-                  <input
-                    type="number"
-                    value={newUpah}
-                    onChange={(e) => setNewUpah(Number(e.target.value))}
-                    step={5000}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-emerald-700 outline-none focus:border-brand-primary"
-                  />
-                </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -421,16 +409,8 @@ export default function BranchAttendanceModal({
                             {worker.role}
                           </span>
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
-                          <span>Upah: </span>
-                          <input
-                            type="number"
-                            value={worker.gaji_harian}
-                            onChange={(e) => updateWorkerField(worker.karyawan_id, 'gaji_harian', Number(e.target.value))}
-                            step={5000}
-                            className="w-24 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded font-mono font-bold text-emerald-800 text-xs"
-                          />
-                          <span className="text-slate-400">/hari</span>
+                        <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5 font-mono">
+                          <span>🕒 Shift: {worker.jam_masuk} - {worker.jam_pulang}</span>
                         </div>
                       </div>
                     </div>
@@ -529,8 +509,8 @@ export default function BranchAttendanceModal({
             <div className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold">
               Total Hadir: <span className="font-extrabold text-emerald-700">{totalHadirCount} staf</span>
             </div>
-            <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 font-bold">
-              Total Upah Hari Ini: <span className="font-mono font-extrabold text-emerald-800">{formatRupiah(totalUpahHariIni)}</span>
+            <div className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-bold">
+              Total Terdaftar: <span className="font-mono font-extrabold text-slate-800">{workersList.length} orang</span>
             </div>
           </div>
 
