@@ -264,7 +264,8 @@ export default function ProfilTokoManager({
                     type="text"
                     value={kode}
                     readOnly
-                    className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl font-mono font-black text-slate-700 text-xs uppercase cursor-not-allowed select-none shadow-inner"
+                    disabled
+                    className="w-full px-3 py-2 bg-slate-100/90 border border-slate-300 rounded-xl font-mono font-black text-slate-500 text-xs uppercase cursor-not-allowed select-none shadow-inner opacity-90"
                     title="Kode Paten ini dikunci permanen agar relasi keuangan, mutasi kas, staf, dan struk tidak pernah error/bug."
                   />
                   <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
