@@ -597,8 +597,18 @@ export default function AdminDashboardPage() {
         });
       });
 
-      // Total Potongan Harian = Sewa + Wifi/Listrik + Iuran + Beban Tambahan + Gaji Karyawan + HPP Bahan
-      const totalPotongan = sewaHarian + wifiListrikHarian + iuranHarian + biayaLainHarian + totalGajiKaryawan + totalHppBahan;
+      // 4. Belanja Operasional Toko Laci Approved Hari Ini (Gas LPG, Es Batu, Kresek, dll)
+      const branchBelanja = expenseList.filter(e => 
+        isBranchMatch(e.cabang_id, cabang.id) && 
+        e.jenis === 'belanja' && 
+        e.status === 'approved' &&
+        (e.metode_pencairan === 'laci' || !e.metode_pencairan) &&
+        ((e.approved_at && e.approved_at.slice(0, 10) === targetDate) || (e.tanggal && e.tanggal.slice(0, 10) === targetDate))
+      );
+      const totalBelanjaLaci = branchBelanja.reduce((sum, e) => sum + (e.nominal || 0), 0);
+
+      // Total Potongan Harian = Sewa + Wifi/Listrik + Iuran + Beban Tambahan + Gaji Karyawan + HPP Bahan + Belanja Laci Toko
+      const totalPotongan = sewaHarian + wifiListrikHarian + iuranHarian + biayaLainHarian + totalGajiKaryawan + totalHppBahan + totalBelanjaLaci;
       const uangBersihBoss = omzetKotor - totalPotongan;
 
       return {
@@ -609,6 +619,7 @@ export default function AdminDashboardPage() {
         biayaLainHarian,
         totalGajiKaryawan,
         totalHppBahan,
+        totalBelanjaLaci,
         totalPotongan,
         omzetKotor,
         uangBersihBoss,
@@ -623,7 +634,8 @@ export default function AdminDashboardPage() {
     const totalBiayaLain10Toko = branchBreakdowns.reduce((sum, b) => sum + (b.biayaLainHarian || 0), 0);
     const totalGaji10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalGajiKaryawan, 0);
     const totalHpp10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalHppBahan, 0);
-    const totalPotongan10Toko = totalSewa10Toko + totalWifiListrik10Toko + totalIuran10Toko + totalBiayaLain10Toko + totalGaji10Toko + totalHpp10Toko;
+    const totalBelanja10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalBelanjaLaci, 0);
+    const totalPotongan10Toko = totalSewa10Toko + totalWifiListrik10Toko + totalIuran10Toko + totalBiayaLain10Toko + totalGaji10Toko + totalHpp10Toko + totalBelanja10Toko;
     const totalBersihBoss10Toko = totalOmzet10Toko - totalPotongan10Toko;
 
     return {
@@ -636,10 +648,11 @@ export default function AdminDashboardPage() {
       totalBiayaLain10Toko,
       totalGaji10Toko,
       totalHpp10Toko,
+      totalBelanja10Toko,
       totalPotongan10Toko,
       totalBersihBoss10Toko,
     };
-  }, [cabangList, menuList, absensiList, transaksiList, selectedBossSummaryDate]);
+  }, [cabangList, menuList, absensiList, transaksiList, expenseList, selectedBossSummaryDate]);
 
   // --------------------------------------------------------------------------
   // EXECUTIVE SUMMARY HARIAN (KONSOLIDASI 10 CABANG ATAU PER CABANG PILIHAN)
@@ -702,7 +715,8 @@ export default function AdminDashboardPage() {
     const omzet = targetBreakdowns.reduce((sum, b) => sum + b.omzetKotor, 0);
     const hpp = targetBreakdowns.reduce((sum, b) => sum + b.totalHppBahan, 0);
     const gaji = targetBreakdowns.reduce((sum, b) => sum + b.totalGajiKaryawan, 0);
-    const totalPotongan = effectiveFixedCost + hpp + gaji;
+    const belanja = targetBreakdowns.reduce((sum, b) => sum + (b.totalBelanjaLaci || 0), 0);
+    const totalPotongan = effectiveFixedCost + hpp + gaji + belanja;
     const uangBersih = omzet - totalPotongan;
     const stafHadir = targetBreakdowns.reduce((sum, b) => sum + b.stafHadirCount, 0);
 
@@ -721,6 +735,7 @@ export default function AdminDashboardPage() {
       targetCount: targetBreakdowns.length,
       hpp,
       gaji,
+      belanja,
       totalPotongan,
       uangBersih,
       stafHadir,
@@ -1113,8 +1128,8 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
 
-              {/* Rincian 5 Kartu Pipeline Alur Keuangan Realtime */}
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-3.5 mt-4">
+              {/* Rincian 6 Kartu Pipeline Alur Keuangan Realtime */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-3.5 mt-4">
                 
                 {/* 1. Omzet Kotor */}
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-emerald-500/40 transition">
@@ -1189,8 +1204,23 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
 
-                {/* 5. Uang Bersih Boss */}
-                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black col-span-2 lg:col-span-1 shadow-lg border border-amber-300 flex flex-col justify-between">
+                {/* 5. Belanja Toko Laci (Kas Kecil Approved) */}
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-purple-500/40 transition">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-purple-300 block">
+                      5. Belanja Toko Laci
+                    </span>
+                    <div className="text-base sm:text-lg lg:text-xl font-mono font-extrabold text-purple-300 mt-1 whitespace-nowrap">
+                      {activeExecutiveSummary.belanja === 0 ? 'Rp 0' : `-${formatRupiah(activeExecutiveSummary.belanja)}`}
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-white/60 block mt-2">
+                    Gas LPG, Es Batu &amp; Operasional
+                  </span>
+                </div>
+
+                {/* 6. Uang Bersih Boss */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black col-span-2 sm:col-span-1 lg:col-span-1 shadow-lg border border-amber-300 flex flex-col justify-between">
                   <div>
                     <span className="text-[10px] uppercase font-black tracking-wider text-slate-900 block">
                       💰 Uang Bersih Boss
@@ -1227,6 +1257,10 @@ export default function AdminDashboardPage() {
                   <span className="px-2 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 whitespace-nowrap">
                     Upah ({formatRupiah(activeExecutiveSummary.gaji)})
                   </span>
+                  <span className="text-white/60 font-black">−</span>
+                  <span className="px-2 py-0.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 whitespace-nowrap">
+                    Belanja Laci ({formatRupiah(activeExecutiveSummary.belanja)})
+                  </span>
                   <span className="text-amber-300 font-black">=</span>
                   <span className="px-2.5 py-0.5 rounded-xl bg-amber-400 text-slate-950 font-black shadow-sm whitespace-nowrap">
                     Bersih: {formatRupiah(activeExecutiveSummary.uangBersih)}
@@ -1234,7 +1268,7 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <span className="text-[10px] text-emerald-300/80 font-medium">
-                  *Terhitung otomatis realtime setiap kasir mencatat transaksi atau presensi staf masuk.
+                  *Terhitung otomatis realtime setiap kasir mencatat transaksi, presensi staf masuk, atau belanja kas kecil disetujui.
                 </span>
               </div>
 
@@ -1256,7 +1290,7 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
                 {/* Tahap 1 */}
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
                   <div className="flex items-center space-x-1.5 text-emerald-700 font-extrabold text-xs">
@@ -1298,6 +1332,17 @@ export default function AdminDashboardPage() {
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
                     Staf yang melakukan <strong>presensi masuk</strong> otomatis dicatat upah hadir &amp; uang makannya, memotong omzet toko hari itu dan diakumulasi ke payroll bulanan.
+                  </p>
+                </div>
+
+                {/* Tahap 5 */}
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                  <div className="flex items-center space-x-1.5 text-purple-700 font-extrabold text-xs">
+                    <span className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center text-[10px]">5</span>
+                    <span>Potong Belanja Kas Laci</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Pengajuan belanja kasir (gas LPG, es batu, kresek) yang <strong>di-approve Boss</strong> otomatis memotong saldo fisik laci kasir dan mengurangi laba harian secara transparan.
                   </p>
                 </div>
               </div>
@@ -1459,6 +1504,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-3.5 text-right text-rose-300">Potongan Fixed Cost</th>
                       <th className="py-3 px-3.5 text-right text-amber-300">HPP Bahan Baku</th>
                       <th className="py-3 px-3.5 text-right text-blue-300">Upah Staf Hadir</th>
+                      <th className="py-3 px-3.5 text-right text-purple-300">Belanja Toko Laci</th>
                       <th className="py-3 px-3.5 text-right bg-slate-950 text-amber-300">Uang Bersih Toko</th>
                     </tr>
                   </thead>
@@ -1505,6 +1551,10 @@ export default function AdminDashboardPage() {
                             -{formatRupiah(b.totalGajiKaryawan)}
                             <span className="text-[9px] text-slate-400 block font-normal">{b.stafHadirCount} Staf Hadir</span>
                           </td>
+                          <td className="py-3 px-3.5 text-right font-mono font-bold text-purple-700 text-xs whitespace-nowrap">
+                            {b.totalBelanjaLaci > 0 ? `-${formatRupiah(b.totalBelanjaLaci)}` : 'Rp 0'}
+                            <span className="text-[9px] text-slate-400 block font-normal">Gas/Es/Operasional</span>
+                          </td>
                           <td className="py-3 px-3.5 text-right font-mono font-black text-sm bg-slate-50 text-emerald-800 whitespace-nowrap">
                             {formatRupiah(b.uangBersihBoss)}
                           </td>
@@ -1526,6 +1576,9 @@ export default function AdminDashboardPage() {
                       </td>
                       <td className="py-3 px-3.5 text-right font-mono text-blue-700 whitespace-nowrap">
                         -{formatRupiah(bossDailyProfits.totalGaji10Toko)}
+                      </td>
+                      <td className="py-3 px-3.5 text-right font-mono text-purple-700 whitespace-nowrap">
+                        -{formatRupiah(bossDailyProfits.totalBelanja10Toko)}
                       </td>
                       <td className="py-3 px-3.5 text-right font-mono font-black text-sm bg-slate-200 text-slate-950 whitespace-nowrap">
                         {formatRupiah(bossDailyProfits.totalBersihBoss10Toko)}
