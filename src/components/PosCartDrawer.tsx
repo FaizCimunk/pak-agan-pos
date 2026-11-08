@@ -212,15 +212,8 @@ export default function PosCartDrawer({
             const unitPrice = getCartItemUnitPrice(item);
             const lineSubtotal = unitPrice * item.qty;
 
-            // Kategori-specific Quick Notes: Tanpa Es/Panas (sudah di kartu), fokus ke Bungkus, Makan Sini, & Rasa
-            let quickTags: string[] = [];
-            if (station === 'wedang') {
-              quickTags = ['Bungkus', 'Makan Sini', 'Sedikit Manis', 'Tanpa Gula', 'Pisah Gula', 'Tanpa Es'];
-            } else if (station === 'serabi') {
-              quickTags = ['Bungkus', 'Makan Sini', 'Gula Sedikit', 'Matang Kering', 'Hangat', 'Kuah Pisah'];
-            } else {
-              quickTags = ['Bungkus', 'Makan Sini', 'Pisah Sambal', 'Goreng Kering', 'Hangat', 'Pedas Sedang'];
-            }
+            // Cukup 2 pilihan cepat (Bungkus & Makan Sini) serta tulis catatan sendiri
+            const quickTags = ['Bungkus', 'Makan Sini'];
 
             return (
               <div
@@ -319,8 +312,8 @@ export default function PosCartDrawer({
                       </div>
                     ) : null}
 
-                    {/* Quick Note Pills: Spesifik Kategori (Makanan Tanpa Es, Minuman Lengkap) */}
-                    <div className="flex items-center space-x-1 overflow-x-auto no-scrollbar text-[10px]">
+                    {/* Catatan Cepat: Cukup Bungkus, Makan Sini & Tulis Catatan Sendiri */}
+                    <div className="flex items-center space-x-1.5 text-[10px] pt-0.5">
                       {quickTags.map(tag => {
                         const isSelected = (item.catatan || '').toLowerCase().includes(tag.toLowerCase());
                         return (
@@ -328,25 +321,26 @@ export default function PosCartDrawer({
                             key={tag}
                             type="button"
                             onClick={() => handleQuickAppendNote(index, tag)}
-                            className={`px-1.5 py-0.5 rounded-md font-bold shrink-0 transition-colors cursor-pointer ${
+                            className={`px-2 py-0.5 rounded-lg font-bold shrink-0 transition-colors cursor-pointer flex items-center space-x-1 ${
                               isSelected
-                                ? 'bg-amber-600 text-white shadow-2xs'
-                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                ? (tag === 'Bungkus' ? 'bg-amber-600 text-white shadow-2xs' : 'bg-emerald-700 text-white shadow-2xs')
+                                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
                             }`}
                           >
-                            + {tag}
+                            <span>{tag === 'Bungkus' ? '🛍️' : '🍽️'}</span>
+                            <span>{tag}</span>
                           </button>
                         );
                       })}
-                      {!item.catatan && (
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditNote(index, '')}
-                          className="px-1.5 py-0.5 rounded-md font-bold text-slate-400 hover:text-slate-700 shrink-0 italic cursor-pointer"
-                        >
-                          + Catatan...
-                        </button>
-                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditNote(index, item.catatan || '')}
+                        className="px-2 py-0.5 rounded-lg font-bold text-slate-500 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-100 shrink-0 cursor-pointer flex items-center space-x-1"
+                      >
+                        <Edit3 className="w-2.5 h-2.5" />
+                        <span>{item.catatan ? 'Ubah' : 'Tulis Catatan...'}</span>
+                      </button>
                     </div>
                   </div>
                 )}
