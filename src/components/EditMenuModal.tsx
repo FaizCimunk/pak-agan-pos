@@ -27,11 +27,9 @@ interface EditMenuModalProps {
 }
 
 const KATEGORI_OPTIONS = [
-  { id: 'kat-sb', nama: 'Serabi Bawel Spesial' },
-  { id: 'kat-wg', nama: 'Wedang Geprek Rempah' },
-  { id: 'kat-3', nama: 'Es Herbal & Jamu Segar' },
-  { id: 'kat-5', nama: 'STMJ & Stamina' },
-  { id: 'kat-6', nama: 'Camilan Tradisional' },
+  { id: 'kat-sb', nama: '🥞 Serabi Bawel (Tungku Serabi)' },
+  { id: 'kat-wg', nama: '🍵 Minuman (Wedang, Rempah & Es)' },
+  { id: 'kat-6', nama: '🍲 Makanan & Camilan (Dapur Masak)' },
 ];
 
 export default function EditMenuModal({
@@ -49,6 +47,8 @@ export default function EditMenuModal({
   const [deskripsi, setDeskripsi] = useState<string>('');
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   const [isActive, setIsActive] = useState<boolean>(true);
+  const [hasTemperatureOption, setHasTemperatureOption] = useState<boolean>(true);
+  const [defaultTemperature, setDefaultTemperature] = useState<'panas' | 'dingin'>('panas');
   const [isAllBranches, setIsAllBranches] = useState<boolean>(true);
   const [selectedCabangIds, setSelectedCabangIds] = useState<string[]>([]);
 
@@ -91,6 +91,8 @@ export default function EditMenuModal({
       setDeskripsi(menu.deskripsi || '');
       setIsFavorite(!!menu.is_favorite);
       setIsActive(menu.is_active ?? true);
+      setHasTemperatureOption(menu.has_temperature_option ?? (menu.kategori_id === 'kat-wg' || !menu.kategori_id?.includes('sb')));
+      setDefaultTemperature(menu.default_temperature || 'panas');
 
       const cIds = menu.cabang_ids;
       if (!cIds || cIds.length === 0 || cIds.includes('all')) {
@@ -109,6 +111,8 @@ export default function EditMenuModal({
       setDeskripsi('');
       setIsFavorite(false);
       setIsActive(true);
+      setHasTemperatureOption(true);
+      setDefaultTemperature('panas');
       setIsAllBranches(true);
       setSelectedCabangIds(cabangList.length > 0 ? cabangList.map(c => c.id) : []);
     }
@@ -154,6 +158,8 @@ export default function EditMenuModal({
         gambar: '', // Tanpa gambar sesuai permintaan
         is_favorite: isFavorite,
         is_active: isActive,
+        has_temperature_option: hasTemperatureOption,
+        default_temperature: defaultTemperature,
         cabang_ids: isAllBranches ? [] : selectedCabangIds,
       };
 
@@ -303,6 +309,60 @@ export default function EditMenuModal({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Section: Varian Suhu (Panas vs Es) */}
+          <div className="p-3 rounded-2xl bg-gradient-to-r from-teal-50/70 to-emerald-50/70 border border-teal-200/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-slate-800 flex items-center space-x-1.5 text-xs">
+                <span>Varian Suhu Kasir (🔥 Panas &amp; 🧊 Es)</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setHasTemperatureOption(!hasTemperatureOption)}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                  hasTemperatureOption
+                    ? 'bg-emerald-600 text-white border-emerald-700'
+                    : 'bg-slate-200 text-slate-600 border-slate-300'
+                }`}
+              >
+                {hasTemperatureOption ? 'AKTIF (Dual Button)' : 'NON-AKTIF'}
+              </button>
+            </div>
+
+            {hasTemperatureOption ? (
+              <div className="flex items-center justify-between pt-1 text-[11px]">
+                <span className="text-slate-600">Suhu bawaan awal (default):</span>
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setDefaultTemperature('panas')}
+                    className={`px-2.5 py-1 rounded-lg font-bold border transition-all ${
+                      defaultTemperature === 'panas'
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-2xs'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-amber-50'
+                    }`}
+                  >
+                    🔥 Panas / Hangat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDefaultTemperature('dingin')}
+                    className={`px-2.5 py-1 rounded-lg font-bold border transition-all ${
+                      defaultTemperature === 'dingin'
+                        ? 'bg-sky-500 text-white border-sky-600 shadow-2xs'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-sky-50'
+                    }`}
+                  >
+                    🧊 Dingin / Es
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-500">
+                Menu ini akan langsung masuk keranjang kasir tanpa pilihan suhu (seperti makanan/serabi).
+              </p>
+            )}
           </div>
 
           {/* Section: HPP Bahan Baku & Margin Keuntungan */}

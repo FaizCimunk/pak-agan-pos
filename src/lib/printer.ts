@@ -286,6 +286,10 @@ class BluetoothPrinterService {
     builder.row('No:', transaksi.invoice_no);
     builder.row('Tgl:', formatWaktu(transaksi.waktu));
     builder.row('Kasir:', transaksi.karyawan_nama || 'Kasir Cabang');
+    const penandaReceipt = (transaksi as any).penanda || (transaksi as any).meja;
+    if (penandaReceipt) {
+      builder.row('Penanda:', penandaReceipt);
+    }
     builder.row('Pelanggan:', transaksi.nama_pelanggan);
     builder.row('Metode:', transaksi.metode_bayar.toUpperCase());
     builder.line('-', 32);
@@ -293,7 +297,8 @@ class BluetoothPrinterService {
     // Items
     for (const item of transaksi.items) {
       builder.bold(true);
-      builder.text(item.nama_menu);
+      const tempSuffix = item.temperature === 'dingin' ? ' [ES]' : item.temperature === 'panas' ? ' [PANAS]' : '';
+      builder.text(`${item.nama_menu}${tempSuffix}`);
       builder.newLine();
       builder.bold(false);
       const detailStr = `  ${item.qty}x @${formatRupiah(item.harga).replace('Rp\u00a0', '')}`;
@@ -470,11 +475,11 @@ class BluetoothPrinterService {
     builder.newLine();
     builder.line('=', 32);
 
-    // Identitas Meja / Pelanggan (BESAR agar koki/barista mudah membaca dari kejauhan)
+    // Identitas Penanda / Meja / Pelanggan (BESAR agar koki/barista mudah membaca dari kejauhan)
     builder.alignLeft();
     builder.bold(true).size(true, true);
-    const mejaLabel = transaksi.meja || (transaksi.nama_pelanggan.toLowerCase().includes('meja') ? transaksi.nama_pelanggan : `Meja: ${transaksi.nama_pelanggan}`);
-    builder.text(mejaLabel.toUpperCase());
+    const penandaDisplay = (transaksi as any).penanda || (transaksi as any).meja || (transaksi.nama_pelanggan.toLowerCase().includes('meja') ? transaksi.nama_pelanggan : `Pesanan: ${transaksi.nama_pelanggan}`);
+    builder.text(penandaDisplay.toUpperCase());
     builder.newLine();
     builder.size(false, false);
     builder.bold(false);
@@ -482,7 +487,10 @@ class BluetoothPrinterService {
     builder.row('No. Nota:', transaksi.invoice_no);
     builder.row('Waktu:', formatWaktu(transaksi.waktu));
     builder.row('Kasir:', (transaksi.karyawan_nama || 'Kasir').split('(')[0].trim());
-    builder.row('Status:', transaksi.status === 'pending_payment' ? 'BELUM BAYAR (DINE-IN)' : 'LUNAS DI AWAL');
+    if (transaksi.nama_pelanggan && transaksi.nama_pelanggan !== penandaDisplay) {
+      builder.row('Pelanggan:', transaksi.nama_pelanggan);
+    }
+    builder.row('Status:', transaksi.status === 'pending_payment' ? 'BELUM BAYAR (BAYAR NANTI)' : 'LUNAS DI AWAL');
     builder.line('-', 32);
 
     // Daftar Pesanan Ruangan Ini
@@ -490,7 +498,8 @@ class BluetoothPrinterService {
     for (const item of stationItems) {
       totalPorsi += item.qty;
       builder.bold(true).size(false, true); // Double height agar jelas
-      builder.text(`${item.qty}x  ${item.nama_menu}`);
+      const tempSuffix = item.temperature === 'dingin' ? ' [🧊 ES]' : item.temperature === 'panas' ? ' [🔥 PANAS]' : '';
+      builder.text(`${item.qty}x  ${item.nama_menu}${tempSuffix}`);
       builder.newLine();
       builder.size(false, false).bold(false);
       if (item.catatan) {

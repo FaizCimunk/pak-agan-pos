@@ -221,11 +221,9 @@ export const INITIAL_CABANG: Cabang[] = [
 
 export const INITIAL_KATEGORI: KategoriMenu[] = [
   { id: 'kat-1', nama: 'Semua Menu', icon: 'Sparkles', urutan: 0 },
-  { id: 'kat-sb', nama: 'Serabi Bawel Spesial', icon: 'Cookie', urutan: 1 },
-  { id: 'kat-wg', nama: 'Wedang Geprek Rempah', icon: 'Flame', urutan: 2 },
-  { id: 'kat-3', nama: 'Es Herbal & Jamu Segar', icon: 'Sparkles', urutan: 3 },
-  { id: 'kat-5', nama: 'STMJ & Stamina', icon: 'Zap', urutan: 4 },
-  { id: 'kat-6', nama: 'Camilan Tradisional', icon: 'Cookie', urutan: 5 },
+  { id: 'kat-sb', nama: '🥞 Serabi', icon: 'Cookie', urutan: 1 },
+  { id: 'kat-wg', nama: '🍵 Minuman', icon: 'Flame', urutan: 2 },
+  { id: 'kat-6', nama: '🍲 Makanan / Camilan', icon: 'UtensilsCrossed', urutan: 3 },
 ];
 
 export const INITIAL_MENU: MenuItem[] = [

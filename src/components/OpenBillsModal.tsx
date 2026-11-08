@@ -14,7 +14,8 @@ import {
   AlertCircle,
   ArrowRight,
   Flame,
-  Coffee
+  Coffee,
+  Edit3
 } from 'lucide-react';
 import { Transaksi, Cabang } from '@/lib/types';
 import { formatRupiah, formatWaktu } from '@/lib/utils';
@@ -25,6 +26,7 @@ interface OpenBillsModalProps {
   cabang: Cabang;
   onClose: () => void;
   onPayBill: (bill: Transaksi) => void;
+  onEditBill: (bill: Transaksi) => void;
   onPrintKitchenTicket: (bill: Transaksi) => void;
   onCancelBill: (billId: string) => Promise<void>;
 }
@@ -34,6 +36,7 @@ export default function OpenBillsModal({
   cabang,
   onClose,
   onPayBill,
+  onEditBill,
   onPrintKitchenTicket,
   onCancelBill,
 }: OpenBillsModalProps) {
@@ -45,8 +48,8 @@ export default function OpenBillsModal({
   };
 
   const handleCancelClick = async (bill: Transaksi) => {
-    const mesaName = bill.meja || bill.nama_pelanggan || 'Pesanan Meja';
-    if (confirm(`Apakah Anda yakin ingin membatalkan pesanan "${mesaName}" senilai ${formatRupiah(bill.total)}?`)) {
+    const penandaText = bill.penanda || bill.meja || bill.nama_pelanggan || 'Pesanan';
+    if (confirm(`Apakah Anda yakin ingin membatalkan pesanan "${penandaText}" senilai ${formatRupiah(bill.total)}?`)) {
       setDeletingId(bill.id);
       try {
         await onCancelBill(bill.id);
@@ -74,11 +77,11 @@ export default function OpenBillsModal({
                   Tagihan Belum Dibayar (Bayar Nanti)
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/25 text-white">
-                  {openBills.length} Meja
+                  {openBills.length} Pesanan
                 </span>
               </div>
               <p className="text-[11px] text-amber-100 font-medium">
-                Pesanan dine-in yang sedang makan di tempat dan akan dibayar saat selesai
+                Pesanan yang sedang dimasak/santap dan dibayar saat selesai
               </p>
             </div>
           </div>
@@ -117,14 +120,14 @@ export default function OpenBillsModal({
                   Semua Tagihan Sudah Lunas!
                 </h4>
                 <p className="text-xs text-slate-500 max-w-sm mt-1">
-                  Tidak ada meja atau pesanan yang berstatus bayar nanti. Transaksi baru yang disimpan sebagai &quot;Bayar Nanti&quot; akan muncul di sini.
+                  Tidak ada pesanan yang berstatus bayar nanti. Transaksi baru yang disimpan sebagai &quot;Bayar Nanti&quot; akan muncul di sini.
                 </p>
               </div>
             </div>
           ) : (
             openBills.map(bill => {
               const isExpanded = expandedId === bill.id;
-              const mesaText = bill.meja || (bill.nama_pelanggan.toLowerCase().includes('meja') ? bill.nama_pelanggan : `Meja: ${bill.nama_pelanggan}`);
+              const penandaText = bill.penanda || bill.meja || bill.nama_pelanggan || 'Pesanan';
               const totalItems = bill.items.reduce((s, it) => s + it.qty, 0);
 
               return (
@@ -135,19 +138,19 @@ export default function OpenBillsModal({
                   {/* Card Main Row */}
                   <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     
-                    {/* Left: Table & Customer */}
+                    {/* Left: Penanda & Customer */}
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 flex flex-col items-center justify-center shrink-0">
-                        <span className="text-[10px] font-bold uppercase tracking-wider leading-none">Meja</span>
-                        <span className="text-sm font-black font-mono mt-0.5 leading-none">
-                          {bill.meja ? bill.meja.replace(/[^0-9]/g, '') || '#' : '#'}
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 flex flex-col items-center justify-center shrink-0 px-1">
+                        <span className="text-[8px] font-extrabold uppercase tracking-wider leading-none">Penanda</span>
+                        <span className="text-[11px] font-black font-mono mt-0.5 leading-tight text-center truncate max-w-full">
+                          {bill.penanda || bill.meja || '#'}
                         </span>
                       </div>
 
                       <div>
                         <div className="flex items-center space-x-2">
                           <h4 className="font-extrabold text-sm text-slate-900">
-                            {mesaText}
+                            🏷️ {penandaText}
                           </h4>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-800">
                             {totalItems} Menu
@@ -163,8 +166,8 @@ export default function OpenBillsModal({
                     </div>
 
                     {/* Right: Total & Primary Actions */}
-                    <div className="flex items-center justify-between sm:justify-end space-x-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                      <div className="text-left sm:text-right">
+                    <div className="flex items-center justify-between sm:justify-end space-x-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                      <div className="text-left sm:text-right mr-1">
                         <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
                           Total Tagihan
                         </div>
@@ -174,6 +177,17 @@ export default function OpenBillsModal({
                       </div>
 
                       <div className="flex items-center space-x-1.5">
+                        {/* Tombol Tambah Menu / Ubah Pesanan */}
+                        <button
+                          type="button"
+                          onClick={() => onEditBill(bill)}
+                          className="px-2.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs transition-colors flex items-center space-x-1 shrink-0 btn-tactile"
+                          title="Tambah menu atau ubah pesanan"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                          <span className="hidden sm:inline">+ Tambah Menu</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => onPrintKitchenTicket(bill)}
@@ -190,7 +204,7 @@ export default function OpenBillsModal({
                           className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-700/20 transition-all flex items-center space-x-1.5 btn-tactile shrink-0"
                         >
                           <DollarSign className="w-3.5 h-3.5" />
-                          <span>Bayar Sekarang</span>
+                          <span>Bayar</span>
                         </button>
 
                         <button
@@ -209,7 +223,7 @@ export default function OpenBillsModal({
                   {isExpanded && (
                     <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 text-xs space-y-2 animate-fadeIn">
                       <div className="font-bold text-slate-700 text-[11px] uppercase tracking-wider">
-                        Rincian Pesanan Meja Ini:
+                        Rincian Pesanan Ini:
                       </div>
                       
                       <div className="space-y-1 divide-y divide-slate-200/50">
@@ -220,7 +234,7 @@ export default function OpenBillsModal({
 
                           return (
                             <div key={idx} className="pt-1 flex items-center justify-between text-xs">
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-2 flex-wrap gap-y-0.5">
                                 <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${stationColor}`}>
                                   {stationLabel}
                                 </span>
@@ -230,6 +244,13 @@ export default function OpenBillsModal({
                                 <span className="font-medium text-slate-800">
                                   {it.nama_menu}
                                 </span>
+                                {it.temperature && (
+                                  <span className={`px-1.5 py-0.2 rounded text-[9px] font-black ${
+                                    it.temperature === 'dingin' ? 'bg-sky-100 text-sky-800' : 'bg-rose-100 text-rose-800'
+                                  }`}>
+                                    {it.temperature === 'dingin' ? '🧊 ES' : '🔥 PANAS'}
+                                  </span>
+                                )}
                                 {it.catatan && (
                                   <span className="text-[11px] text-amber-600 italic">
                                     ({it.catatan})

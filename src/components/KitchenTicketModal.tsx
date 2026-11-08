@@ -74,7 +74,7 @@ export default function KitchenTicketModal({
     }
   };
 
-  const mesaLabel = (transaksi.meja || (transaksi.nama_pelanggan.toLowerCase().includes('meja') ? transaksi.nama_pelanggan : `Meja: ${transaksi.nama_pelanggan}`)).toUpperCase();
+  const penandaDisplay = (transaksi.penanda || transaksi.meja || transaksi.nama_pelanggan || 'Pesanan').toUpperCase();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-sm animate-fadeIn">
@@ -109,11 +109,12 @@ export default function KitchenTicketModal({
           </button>
         </div>
 
-        {/* Info Pesanan Meja */}
+        {/* Info Penanda Pesanan */}
         <div className="p-4 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="px-3 py-1.5 rounded-xl bg-emerald-700 text-white font-mono font-black text-sm shadow-xs">
-              {mesaLabel}
+            <div className="px-3 py-1.5 rounded-xl bg-emerald-700 text-white font-mono font-black text-sm shadow-xs flex items-center space-x-1.5">
+              <span>🏷️</span>
+              <span>{penandaDisplay}</span>
             </div>
             <div>
               <div className="text-xs font-bold text-slate-800">
@@ -139,7 +140,7 @@ export default function KitchenTicketModal({
         {/* 3 Stasiun Dapur Grid */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1 bg-slate-50/40">
           
-          {/* Stasiun 1: Dapur Serabi Bawel */}
+          {/* Stasiun 1: Tungku Serabi Bawel */}
           <div className={`p-4 rounded-2xl border transition-all ${
             serabiItems.length > 0 
               ? 'bg-white border-amber-200/90 shadow-soft-sm' 
@@ -250,6 +251,13 @@ export default function KitchenTicketModal({
                       <span className="font-extrabold text-slate-900 mr-2 font-mono text-emerald-700">
                         {it.qty}x
                       </span>
+                      {it.temperature && (
+                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-black mr-1.5 ${
+                          it.temperature === 'dingin' ? 'bg-sky-100 text-sky-800 border border-sky-300' : 'bg-rose-100 text-rose-800 border border-rose-300'
+                        }`}>
+                          {it.temperature === 'dingin' ? '🧊 ES' : '🔥 PANAS'}
+                        </span>
+                      )}
                       <span className="font-bold text-slate-800">{it.nama_menu}</span>
                       {it.catatan && (
                         <div className="text-[11px] text-emerald-600 italic pl-5 font-medium">

@@ -47,12 +47,13 @@ export default function PosPage() {
   // Cart & Order State
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState<string>('Pelanggan Walk-in');
-  const [tableName, setTableName] = useState<string>('Meja 1');
+  const [penanda, setPenanda] = useState<string>('No. 01');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
 
   // Open Bills (Bayar Nanti) State
   const [openBills, setOpenBills] = useState<Transaksi[]>([]);
   const [selectedBillForPayment, setSelectedBillForPayment] = useState<Transaksi | null>(null);
+  const [editingBill, setEditingBill] = useState<Transaksi | null>(null);
 
   // Modals
   const [isShiftOpenOpen, setIsShiftOpenOpen] = useState<boolean>(false);
@@ -249,42 +250,62 @@ export default function PosPage() {
   };
 
   // Cart Management
-  const handleAddToCart = (item: MenuItem) => {
+  const handleAddToCart = (item: MenuItem, temp?: 'panas' | 'dingin') => {
+    const chosenTemp: 'panas' | 'dingin' | undefined =
+      temp || (item.has_temperature_option ? (item.default_temperature || 'panas') : undefined);
+
     setCart(prev => {
-      const existingIndex = prev.findIndex(ci => ci.menu.id === item.id);
+      const existingIndex = prev.findIndex(ci => ci.menu.id === item.id && ci.temperature === chosenTemp);
       if (existingIndex !== -1) {
         const next = [...prev];
         next[existingIndex] = { ...next[existingIndex], qty: next[existingIndex].qty + 1 };
         return next;
       }
-      return [...prev, { menu: item, qty: 1, catatan: '' }];
+      return [...prev, { menu: item, qty: 1, catatan: '', temperature: chosenTemp }];
     });
   };
 
-  const handleUpdateQty = (menuId: string, delta: number) => {
+  const handleUpdateQty = (itemIndex: number, delta: number) => {
     setCart(prev => {
-      return prev
-        .map(it => {
-          if (it.menu.id === menuId) {
-            const nextQty = it.qty + delta;
-            return nextQty > 0 ? { ...it, qty: nextQty } : null;
-          }
-          return it;
-        })
-        .filter(Boolean) as CartItem[];
+      if (itemIndex < 0 || itemIndex >= prev.length) return prev;
+      const target = prev[itemIndex];
+      const nextQty = target.qty + delta;
+      if (nextQty <= 0) {
+        return prev.filter((_, i) => i !== itemIndex);
+      }
+      const next = [...prev];
+      next[itemIndex] = { ...target, qty: nextQty };
+      return next;
     });
   };
 
-  const handleUpdateNotes = (menuId: string, notes: string) => {
-    setCart(prev => prev.map(it => it.menu.id === menuId ? { ...it, catatan: notes } : it));
+  const handleUpdateNotes = (itemIndex: number, notes: string) => {
+    setCart(prev => {
+      if (itemIndex < 0 || itemIndex >= prev.length) return prev;
+      const next = [...prev];
+      next[itemIndex] = { ...next[itemIndex], catatan: notes };
+      return next;
+    });
   };
 
-  const handleRemoveItem = (menuId: string) => {
-    setCart(prev => prev.filter(it => it.menu.id !== menuId));
+  const handleToggleTemperature = (itemIndex: number) => {
+    setCart(prev => {
+      if (itemIndex < 0 || itemIndex >= prev.length) return prev;
+      const target = prev[itemIndex];
+      const nextTemp: 'panas' | 'dingin' = target.temperature === 'dingin' ? 'panas' : 'dingin';
+      const next = [...prev];
+      next[itemIndex] = { ...target, temperature: nextTemp };
+      return next;
+    });
+  };
+
+  const handleRemoveItem = (itemIndex: number) => {
+    setCart(prev => prev.filter((_, i) => i !== itemIndex));
   };
 
   const handleClearCart = () => {
     setCart([]);
+    setEditingBill(null);
   };
 
   // Checkout & Payment
@@ -293,11 +314,33 @@ export default function PosPage() {
       setIsShiftOpenOpen(true);
       return;
     }
+    if (editingBill) {
+      const subtotal = cart.reduce((acc, it) => acc + it.menu.harga * it.qty, 0);
+      const updatedEditingBill: Transaksi = {
+        ...editingBill,
+        penanda: penanda.trim() || editingBill.penanda || 'No. 01',
+        meja: penanda.trim() || editingBill.meja || 'No. 01',
+        subtotal,
+        total: subtotal,
+        items: cart.map(it => ({
+          menu_id: it.menu.id,
+          nama_menu: it.menu.nama,
+          harga: it.menu.harga,
+          qty: it.qty,
+          subtotal: it.menu.harga * it.qty,
+          catatan: it.catatan,
+          temperature: it.temperature,
+        })),
+      };
+      setSelectedBillForPayment(updatedEditingBill);
+      setIsPaymentOpen(true);
+      return;
+    }
     setSelectedBillForPayment(null);
     setIsPaymentOpen(true);
   };
 
-  // Simpan Pesanan Meja (Bayar Nanti) & Buka Tiket Dapur 3 Ruangan
+  // Simpan Pesanan Penanda (Bayar Nanti) & Buka Tiket Dapur 3 Ruangan
   const handleSaveOpenBill = async () => {
     if (!currentCabang) return;
     if (cart.length === 0) {
@@ -305,27 +348,28 @@ export default function PosPage() {
       return;
     }
     if (!activeShift) {
-      alert('Silakan buka shift kasir terlebih dahulu untuk mencatat pesanan meja.');
+      alert('Silakan buka shift kasir terlebih dahulu untuk mencatat pesanan.');
       setIsShiftOpenOpen(true);
       return;
     }
 
     const subtotal = cart.reduce((acc, it) => acc + it.menu.harga * it.qty, 0);
     const total = subtotal;
-    const finalTable = tableName.trim() || 'Meja 1';
-    const finalCustomer = customerName.trim() || finalTable;
+    const finalPenanda = penanda.trim() || 'No. 01';
+    const finalCustomer = customerName.trim() || finalPenanda;
 
     const openTrx: Transaksi = {
-      id: generateUUID(),
-      invoice_no: generateInvoiceNumber(currentCabang.kode),
+      id: editingBill?.id || generateUUID(),
+      invoice_no: editingBill?.invoice_no || generateInvoiceNumber(currentCabang.kode),
       cabang_id: currentCabang.id,
       cabang_nama: currentCabang.nama,
       shift_id: activeShift?.id,
       karyawan_id: activeShift?.karyawan_id,
       karyawan_nama: activeShift?.karyawan_nama,
-      meja: finalTable,
+      penanda: finalPenanda,
+      meja: finalPenanda,
       nama_pelanggan: finalCustomer,
-      waktu: new Date().toISOString(),
+      waktu: editingBill?.waktu || new Date().toISOString(),
       subtotal,
       diskon: 0,
       total,
@@ -341,6 +385,7 @@ export default function PosPage() {
         qty: it.qty,
         subtotal: it.menu.harga * it.qty,
         catatan: it.catatan,
+        temperature: it.temperature,
       })),
     };
 
@@ -348,13 +393,48 @@ export default function PosPage() {
     const updatedBills = await db.getOpenBills(currentCabang.id);
     setOpenBills(updatedBills);
 
-    // Reset keranjang untuk pelanggan berikutnya
+    // Reset keranjang untuk transaksi berikutnya
+    setEditingBill(null);
     setCart([]);
     setCustomerName('Pelanggan Walk-in');
+    setPenanda('No. 01');
 
     // Buka otomatis tiket dapur untuk 3 ruangan masak (Wedang, Serabi, Makanan)
     setKitchenTicketTrx(openTrx);
     setIsKitchenModalOpen(true);
+  };
+
+  const handleEditOpenBill = (bill: Transaksi) => {
+    setEditingBill(bill);
+    setPenanda(bill.penanda || bill.meja || 'No. 01');
+    setCustomerName(bill.nama_pelanggan || 'Pelanggan Walk-in');
+
+    const reconstructedCart: CartItem[] = bill.items.map(it => {
+      const matched = menuList.find(m => m.id === it.menu_id);
+      const menuItem: MenuItem = matched || {
+        id: it.menu_id,
+        nama: it.nama_menu,
+        kode: '',
+        kategori_id: 'kat-wg',
+        kategori_nama: 'Minuman / Menu',
+        harga: it.harga,
+        hpp: 0,
+        deskripsi: '',
+        gambar: '',
+        is_favorite: false,
+        is_active: true,
+      };
+      return {
+        menu: menuItem,
+        qty: it.qty,
+        catatan: it.catatan || '',
+        temperature: it.temperature,
+      };
+    });
+
+    setCart(reconstructedCart);
+    setIsOpenBillsModalOpen(false);
+    setIsMobileCartOpen(true);
   };
 
   const handleStartPayOpenBill = (bill: Transaksi) => {
@@ -387,19 +467,25 @@ export default function PosPage() {
     let savedTrx: Transaksi;
 
     if (selectedBillForPayment) {
-      // Pelunasan Pesanan Meja (Bayar Nanti)
+      // Pelunasan Pesanan Meja / Penanda (Bayar Nanti)
+      if (editingBill && editingBill.id === selectedBillForPayment.id) {
+        await db.saveOpenBill(selectedBillForPayment);
+      }
       savedTrx = await db.payOpenBill(selectedBillForPayment.id, {
         metode_bayar: method,
         bayar,
         kembali,
       });
       setSelectedBillForPayment(null);
+      setEditingBill(null);
+      setCart([]);
       const updatedBills = await db.getOpenBills(currentCabang.id);
       setOpenBills(updatedBills);
     } else {
       // Pembayaran Langsung dari Keranjang Kasir
       const subtotal = cart.reduce((acc, it) => acc + it.menu.harga * it.qty, 0);
       const total = subtotal;
+      const finalPenanda = penanda.trim() || 'No. 01';
 
       const newTrx: Transaksi = {
         id: generateUUID(),
@@ -409,7 +495,8 @@ export default function PosPage() {
         shift_id: activeShift?.id,
         karyawan_id: activeShift?.karyawan_id,
         karyawan_nama: activeShift?.karyawan_nama,
-        meja: tableName.trim() || 'Meja 1',
+        penanda: finalPenanda,
+        meja: finalPenanda,
         nama_pelanggan: customerName.trim() || 'Pelanggan Walk-in',
         waktu: new Date().toISOString(),
         subtotal,
@@ -427,6 +514,7 @@ export default function PosPage() {
           qty: it.qty,
           subtotal: it.menu.harga * it.qty,
           catatan: it.catatan,
+          temperature: it.temperature,
         })),
       };
 
@@ -438,6 +526,8 @@ export default function PosPage() {
       savedTrx = newTrx;
       setCart([]);
       setCustomerName('Pelanggan Walk-in');
+      setPenanda('No. 01');
+      setEditingBill(null);
     }
 
     if (activeShift) {
@@ -522,15 +612,22 @@ export default function PosPage() {
             items={cart}
             customerName={customerName}
             onCustomerNameChange={setCustomerName}
-            tableName={tableName}
-            onTableNameChange={setTableName}
+            penanda={penanda}
+            onPenandaChange={setPenanda}
             onUpdateQty={handleUpdateQty}
             onUpdateNotes={handleUpdateNotes}
+            onToggleTemperature={handleToggleTemperature}
             onRemoveItem={handleRemoveItem}
             onClearCart={handleClearCart}
             onCheckout={handleCheckoutClick}
             onSaveOpenBill={handleSaveOpenBill}
             isShiftOpen={!!activeShift}
+            isEditingOpenBill={!!editingBill}
+            editingBillInvoice={editingBill?.invoice_no}
+            onCancelEditOpenBill={() => {
+              setEditingBill(null);
+              setCart([]);
+            }}
           />
         </aside>
 
@@ -586,10 +683,11 @@ export default function PosPage() {
                 items={cart}
                 customerName={customerName}
                 onCustomerNameChange={setCustomerName}
-                tableName={tableName}
-                onTableNameChange={setTableName}
+                penanda={penanda}
+                onPenandaChange={setPenanda}
                 onUpdateQty={handleUpdateQty}
                 onUpdateNotes={handleUpdateNotes}
+                onToggleTemperature={handleToggleTemperature}
                 onRemoveItem={handleRemoveItem}
                 onClearCart={handleClearCart}
                 onCheckout={() => {
@@ -601,6 +699,13 @@ export default function PosPage() {
                   handleSaveOpenBill();
                 }}
                 isShiftOpen={!!activeShift}
+                isEditingOpenBill={!!editingBill}
+                editingBillInvoice={editingBill?.invoice_no}
+                onCancelEditOpenBill={() => {
+                  setEditingBill(null);
+                  setCart([]);
+                  setIsMobileCartOpen(false);
+                }}
               />
             </div>
           </div>
@@ -684,6 +789,7 @@ export default function PosPage() {
           onPayBill={handleStartPayOpenBill}
           onPrintKitchenTicket={handlePrintOpenBillKitchenTicket}
           onCancelBill={handleCancelOpenBill}
+          onEditBill={handleEditOpenBill}
         />
       )}
 

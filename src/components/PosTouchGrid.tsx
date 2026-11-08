@@ -16,46 +16,34 @@ import {
 } from 'lucide-react';
 import { MenuItem, KategoriMenu, CartItem } from '@/lib/types';
 import { formatRupiah } from '@/lib/utils';
+import { getItemKitchenStation } from '@/lib/printer';
 
 interface PosTouchGridProps {
   menuList: MenuItem[];
-  kategoriList: KategoriMenu[];
-  onAddToCart: (item: MenuItem) => void;
+  kategoriList?: KategoriMenu[];
+  onAddToCart: (item: MenuItem, temp?: 'panas' | 'dingin') => void;
   cart?: CartItem[];
 }
 
 export default function PosTouchGrid({
   menuList,
-  kategoriList,
   onAddToCart,
   cart = [],
 }: PosTouchGridProps) {
-  const [selectedKatId, setSelectedKatId] = useState<string>('all');
+  const [selectedKatId, setSelectedKatId] = useState<'all' | 'serabi' | 'minuman' | 'makanan'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [tappedItemId, setTappedItemId] = useState<string | null>(null);
-
-  // Icon mapping
-  const getCategoryIcon = (iconName: string, id: string) => {
-    if (id === 'kat-sb') return <span className="text-sm">🥞</span>;
-    if (id === 'kat-wg') return <span className="text-sm">🔥</span>;
-    if (id === 'kat-3') return <span className="text-sm">✨</span>;
-    if (id === 'kat-5') return <span className="text-sm">⚡</span>;
-    if (id === 'kat-6') return <span className="text-sm">🍪</span>;
-
-    switch (iconName) {
-      case 'Flame': return <Flame className="w-3.5 h-3.5" />;
-      case 'Sparkles': return <Sparkles className="w-3.5 h-3.5" />;
-      case 'ShieldCheck': return <ShieldCheck className="w-3.5 h-3.5" />;
-      case 'Zap': return <Zap className="w-3.5 h-3.5" />;
-      case 'Cookie': return <Cookie className="w-3.5 h-3.5" />;
-      default: return <Sparkles className="w-3.5 h-3.5" />;
-    }
-  };
 
   const filteredMenu = useMemo(() => {
     return menuList.filter(item => {
       if (!item.is_active) return false;
-      const matchesKat = selectedKatId === 'all' || item.kategori_id === selectedKatId;
+      const station = getItemKitchenStation(item);
+      const matchesKat = 
+        selectedKatId === 'all' ||
+        (selectedKatId === 'serabi' && station === 'serabi') ||
+        (selectedKatId === 'minuman' && station === 'wedang') ||
+        (selectedKatId === 'makanan' && station === 'makanan');
+
       const q = searchQuery.toLowerCase().trim();
       if (!q) return matchesKat;
 
@@ -66,28 +54,38 @@ export default function PosTouchGrid({
     });
   }, [menuList, selectedKatId, searchQuery]);
 
-  // Count items per category
+  // Count items per 3 core categories
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      all: menuList.filter(m => m.is_active).length,
-    };
+    let serabi = 0;
+    let minuman = 0;
+    let makanan = 0;
     menuList.forEach(m => {
-      if (m.is_active && m.kategori_id) {
-        counts[m.kategori_id] = (counts[m.kategori_id] || 0) + 1;
+      if (m.is_active) {
+        const st = getItemKitchenStation(m);
+        if (st === 'serabi') serabi++;
+        else if (st === 'wedang') minuman++;
+        else if (st === 'makanan') makanan++;
       }
     });
-    return counts;
+    return {
+      all: menuList.filter(m => m.is_active).length,
+      serabi,
+      minuman,
+      makanan,
+    };
   }, [menuList]);
 
   // Check how many of this item is already in cart
   const getItemQtyInCart = (menuId: string) => {
-    const found = cart.find(ci => ci.menu.id === menuId);
-    return found ? found.qty : 0;
+    const found = cart.filter(ci => ci.menu.id === menuId);
+    return found.reduce((sum, ci) => sum + ci.qty, 0);
   };
 
-  const handleItemClick = (item: MenuItem) => {
+  const handleItemClick = (item: MenuItem, defaultTemp?: 'panas' | 'dingin') => {
     setTappedItemId(item.id);
-    onAddToCart(item);
+    const isDrink = getItemKitchenStation(item) === 'wedang';
+    const temp = defaultTemp || (isDrink ? (item.nama.toLowerCase().includes('es ') ? 'dingin' : 'panas') : undefined);
+    onAddToCart(item, temp);
     setTimeout(() => {
       setTappedItemId(null);
     }, 250);
@@ -124,50 +122,85 @@ export default function PosTouchGrid({
         </div>
       </div>
 
-      {/* 2. Baris Kategori Menu Horizontal Scrollable (Pills) */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none select-none">
+      {/* 2. Baris Kategori Menu Sederhana: 3 Kategori Utama (Serabi, Minuman, Makanan) */}
+      <div className="grid grid-cols-4 gap-1.5 sm:flex sm:items-center sm:gap-2 select-none">
+        
+        {/* Semua */}
         <button
           type="button"
           onClick={() => setSelectedKatId('all')}
-          className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all btn-tactile ${
+          className={`flex items-center justify-center sm:justify-start space-x-1.5 px-3 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all btn-tactile ${
             selectedKatId === 'all'
               ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-600/30'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          <span>Semua Menu</span>
+          <span className="hidden sm:inline">Semua</span>
+          <span className="sm:hidden">Semua</span>
           <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
             selectedKatId === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
           }`}>
-            {categoryCounts.all || 0}
+            {categoryCounts.all}
           </span>
         </button>
 
-        {kategoriList.filter(kat => kat.id !== 'kat-1' && !kat.nama.toLowerCase().includes('semua')).map(kat => {
-          const isSelected = selectedKatId === kat.id;
-          const count = categoryCounts[kat.id] || 0;
+        {/* 1. Serabi */}
+        <button
+          type="button"
+          onClick={() => setSelectedKatId('serabi')}
+          className={`flex items-center justify-center sm:justify-start space-x-1.5 px-3 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all btn-tactile ${
+            selectedKatId === 'serabi'
+              ? 'bg-amber-600 text-white shadow-md shadow-amber-900/20 ring-2 ring-amber-500/30'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <span>🥞</span>
+          <span className="truncate">Serabi</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+            selectedKatId === 'serabi' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+          }`}>
+            {categoryCounts.serabi}
+          </span>
+        </button>
 
-          return (
-            <button
-              key={kat.id}
-              type="button"
-              onClick={() => setSelectedKatId(kat.id)}
-              className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all btn-tactile ${
-                isSelected
-                  ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-600/30'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {getCategoryIcon(kat.icon, kat.id)}
-              <span>{kat.nama}</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-              }`}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
+        {/* 2. Minuman */}
+        <button
+          type="button"
+          onClick={() => setSelectedKatId('minuman')}
+          className={`flex items-center justify-center sm:justify-start space-x-1.5 px-3 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all btn-tactile ${
+            selectedKatId === 'minuman'
+              ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-600/30'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <span>🍵</span>
+          <span className="truncate">Minuman</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+            selectedKatId === 'minuman' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+          }`}>
+            {categoryCounts.minuman}
+          </span>
+        </button>
+
+        {/* 3. Makanan & Camilan */}
+        <button
+          type="button"
+          onClick={() => setSelectedKatId('makanan')}
+          className={`flex items-center justify-center sm:justify-start space-x-1.5 px-3 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all btn-tactile ${
+            selectedKatId === 'makanan'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20 ring-2 ring-blue-500/30'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <span>🍲</span>
+          <span className="truncate">Makanan</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+            selectedKatId === 'makanan' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+          }`}>
+            {categoryCounts.makanan}
+          </span>
+        </button>
+
       </div>
 
       {/* 3. Grid Menu Kasir Touch Screen */}
@@ -194,6 +227,8 @@ export default function PosTouchGrid({
             {filteredMenu.map(item => {
               const inCartQty = getItemQtyInCart(item.id);
               const isTapped = tappedItemId === item.id;
+              const station = getItemKitchenStation(item);
+              const isDrink = station === 'wedang';
 
               return (
                 <div
@@ -208,8 +243,14 @@ export default function PosTouchGrid({
                   {/* Top Row: Category Pill + Code & Status Badges (Tanpa Foto) */}
                   <div className="flex items-center justify-between gap-1 mb-2">
                     <div className="flex items-center space-x-1.5">
-                      <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-[10px]">
-                        {item.kategori_id === 'kat-sb' ? '🥞 Serabi' : item.kategori_id === 'kat-wg' ? '🔥 Wedang' : item.kategori_id === 'kat-3' ? '✨ Jamu' : item.kategori_id === 'kat-5' ? '⚡ STMJ' : '🍪 Camilan'}
+                      <span className={`px-2 py-0.5 rounded-lg border font-bold text-[10px] ${
+                        station === 'serabi' 
+                          ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                          : station === 'wedang' 
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                          : 'bg-blue-50 text-blue-800 border-blue-200'
+                      }`}>
+                        {station === 'serabi' ? '🥞 Serabi' : station === 'wedang' ? '🍵 Minuman' : '🍲 Makanan'}
                       </span>
                       <span className="font-mono text-[10px] text-slate-400 font-bold">
                         #{item.kode}
@@ -243,30 +284,59 @@ export default function PosTouchGrid({
                     </p>
                   </div>
 
-                  {/* Footer Row: Harga Besar & Tombol Tambah */}
-                  <div className="flex items-center justify-between pt-3 mt-2 border-t border-slate-100">
-                    <div className="flex flex-col">
+                  {/* Footer Row: Harga Besar & Tombol Pilihan Panas / Es untuk Minuman */}
+                  <div className="flex items-center justify-between pt-3 mt-2 border-t border-slate-100 gap-1.5">
+                    <div className="flex flex-col min-w-0">
                       <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Harga</span>
-                      <span className="font-mono font-black text-sm sm:text-base text-emerald-950 tabular-nums">
+                      <span className="font-mono font-black text-sm sm:text-base text-emerald-950 tabular-nums truncate">
                         {formatRupiah(item.harga)}
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleItemClick(item);
-                      }}
-                      className={`h-8 px-3 rounded-xl font-extrabold text-xs flex items-center space-x-1 transition-all shadow-sm ${
-                        inCartQty > 0
-                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                          : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200/80'
-                      }`}
-                    >
-                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span className="text-[11px]">{inCartQty > 0 ? `+${inCartQty}` : 'Tambah'}</span>
-                    </button>
+                    {isDrink ? (
+                      <div className="flex items-center space-x-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleItemClick(item, 'panas');
+                          }}
+                          className="h-8 px-2 rounded-xl font-black text-[11px] bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 transition-all flex items-center space-x-1 shadow-2xs btn-tactile"
+                          title="Tambah varian Panas"
+                        >
+                          <span>🔥</span>
+                          <span className="hidden sm:inline">Panas</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleItemClick(item, 'dingin');
+                          }}
+                          className="h-8 px-2 rounded-xl font-black text-[11px] bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200 transition-all flex items-center space-x-1 shadow-2xs btn-tactile"
+                          title="Tambah varian Es / Dingin"
+                        >
+                          <span>🧊</span>
+                          <span className="hidden sm:inline">Es</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleItemClick(item);
+                        }}
+                        className={`h-8 px-3 rounded-xl font-extrabold text-xs flex items-center space-x-1 transition-all shadow-sm shrink-0 ${
+                          inCartQty > 0
+                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200/80'
+                        }`}
+                      >
+                        <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span className="text-[11px]">{inCartQty > 0 ? `+${inCartQty}` : 'Tambah'}</span>
+                      </button>
+                    )}
                   </div>
 
                 </div>
@@ -275,7 +345,6 @@ export default function PosTouchGrid({
           </div>
         )}
       </div>
-
     </div>
   );
 }

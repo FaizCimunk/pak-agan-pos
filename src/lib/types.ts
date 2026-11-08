@@ -91,6 +91,8 @@ export interface MenuItem {
   is_favorite: boolean;
   is_active: boolean;
   cabang_ids?: string[]; // Daftar ID Cabang yang menjual menu ini. Undefined atau kosong = Semua Cabang
+  has_temperature_option?: boolean; // Pilihan varian Panas / Dingin (Es)
+  default_temperature?: 'panas' | 'dingin';
   created_at?: string;
 }
 
@@ -128,6 +130,7 @@ export interface TransaksiItem {
   qty: number;
   subtotal: number;
   catatan?: string;
+  temperature?: 'panas' | 'dingin'; // Varian Panas / Dingin (Es)
 }
 
 export interface Transaksi {
@@ -139,7 +142,8 @@ export interface Transaksi {
   karyawan_id?: string;
   karyawan_nama?: string;
   nama_pelanggan: string;
-  meja?: string; // No. Meja / Lokasi Meja (contoh: 'Meja 03', 'Lesehan 02', 'Takeaway')
+  penanda?: string; // Penanda Pesanan / No. Antrean / Nama (misal: 'No. 01', 'Kak Rina', 'Bungkus')
+  meja?: string; // Cadangan kompatibilitas
   waktu: string;
   subtotal: number;
   diskon: number;
@@ -158,6 +162,7 @@ export interface CartItem {
   menu: MenuItem;
   qty: number;
   catatan: string;
+  temperature?: 'panas' | 'dingin'; // Varian Panas / Dingin (Es)
 }
 
 export type PengeluaranJenis = 'belanja' | 'kasbon';

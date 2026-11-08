@@ -1,69 +1,99 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Trash2, Plus, Minus, Edit3, ShoppingBag, ArrowRight, Clock } from 'lucide-react';
+import { Trash2, Plus, Minus, Edit3, ShoppingBag, ArrowRight, Clock, Tag, X } from 'lucide-react';
 import { CartItem } from '@/lib/types';
 import { formatRupiah } from '@/lib/utils';
+import { getItemKitchenStation } from '@/lib/printer';
 
 interface PosCartDrawerProps {
   items: CartItem[];
-  customerName: string;
-  onCustomerNameChange: (val: string) => void;
-  tableName: string;
-  onTableNameChange: (val: string) => void;
-  onUpdateQty: (menuId: string, delta: number) => void;
-  onUpdateNotes: (menuId: string, notes: string) => void;
-  onRemoveItem: (menuId: string) => void;
+  customerName?: string;
+  onCustomerNameChange?: (val: string) => void;
+  tableName?: string;
+  onTableNameChange?: (val: string) => void;
+  penanda: string;
+  onPenandaChange: (val: string) => void;
+  onUpdateQty: (itemIndex: number, delta: number) => void;
+  onUpdateNotes: (itemIndex: number, notes: string) => void;
+  onToggleTemperature?: (itemIndex: number) => void;
+  onRemoveItem: (itemIndex: number) => void;
   onClearCart: () => void;
   onCheckout: () => void;
   onSaveOpenBill: () => void;
   isShiftOpen: boolean;
+  isEditingOpenBill?: boolean;
+  editingBillInvoice?: string;
+  onCancelEditOpenBill?: () => void;
 }
 
 export default function PosCartDrawer({
   items,
-  customerName,
-  onCustomerNameChange,
-  tableName,
-  onTableNameChange,
+  penanda,
+  onPenandaChange,
   onUpdateQty,
   onUpdateNotes,
+  onToggleTemperature,
   onRemoveItem,
   onClearCart,
   onCheckout,
   onSaveOpenBill,
   isShiftOpen,
+  isEditingOpenBill = false,
+  editingBillInvoice,
+  onCancelEditOpenBill,
 }: PosCartDrawerProps) {
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
   const [tempNote, setTempNote] = useState<string>('');
 
   const totalQty = items.reduce((sum, it) => sum + it.qty, 0);
   const subtotal = items.reduce((sum, it) => sum + (it.menu.harga * it.qty), 0);
   const total = subtotal;
 
-  const handleStartEditNote = (item: CartItem) => {
-    setEditingNoteId(item.menu.id);
-    setTempNote(item.catatan || '');
+  const handleStartEditNote = (index: number, currentNote?: string) => {
+    setEditingNoteIndex(index);
+    setTempNote(currentNote || '');
   };
 
-  const handleSaveNote = (menuId: string) => {
-    onUpdateNotes(menuId, tempNote);
-    setEditingNoteId(null);
+  const handleSaveNote = (index: number) => {
+    onUpdateNotes(index, tempNote);
+    setEditingNoteIndex(null);
     setTempNote('');
   };
 
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl border border-slate-200/90 shadow-soft-md overflow-hidden">
+      
+      {/* Top Banner jika sedang Edit Pesanan Belum Bayar */}
+      {isEditingOpenBill && (
+        <div className="bg-amber-500 text-white px-3.5 py-2 flex items-center justify-between text-xs animate-fadeIn shrink-0">
+          <div className="flex items-center space-x-1.5 font-bold truncate">
+            <span>✏️</span>
+            <span className="truncate">Mengubah: <strong>{penanda || 'Belum Bayar'}</strong> {editingBillInvoice ? `(${editingBillInvoice})` : ''}</span>
+          </div>
+          {onCancelEditOpenBill && (
+            <button
+              type="button"
+              onClick={onCancelEditOpenBill}
+              className="text-[10px] font-black bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-lg transition-colors shrink-0"
+              title="Batal mengubah dan kembalikan keranjang"
+            >
+              Batal Edit
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Drawer Header */}
-      <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+      <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-lg bg-brand-primary/10 text-brand-primary flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-emerald-600/10 text-emerald-800 flex items-center justify-center">
             <ShoppingBag className="w-4 h-4" />
           </div>
           <div>
             <h2 className="font-extrabold text-slate-800 text-sm">Pesanan Kasir</h2>
             <span className="text-[11px] text-slate-500 font-medium">
-              {totalQty} Minuman terpilih
+              {totalQty} item pesanan terpilih
             </span>
           </div>
         </div>
@@ -80,56 +110,46 @@ export default function PosCartDrawer({
         )}
       </div>
 
-      {/* Table & Customer Inputs */}
-      <div className="px-4 py-2.5 bg-slate-50/70 border-b border-slate-100 space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block mb-1">
-              Nomor Meja
-            </label>
-            <input
-              type="text"
-              value={tableName}
-              onChange={(e) => onTableNameChange(e.target.value)}
-              placeholder="Contoh: Meja 03..."
-              className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs font-bold text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-mono"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block mb-1">
-              Nama Pemesan
-            </label>
-            <input
-              type="text"
-              value={customerName}
-              onChange={(e) => onCustomerNameChange(e.target.value)}
-              placeholder="Pelanggan Walk-in..."
-              className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
-            />
-          </div>
+      {/* Penanda Pesanan / Nama Pemesan (Menggantikan Meja Rigid) */}
+      <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 space-y-2">
+        <div>
+          <label className="text-[10px] uppercase font-extrabold tracking-wider text-slate-500 block mb-1 flex items-center justify-between">
+            <span className="flex items-center space-x-1">
+              <Tag className="w-3 h-3 text-amber-600" />
+              <span>Penanda / Nama Pesanan:</span>
+            </span>
+            <span className="text-slate-400 font-medium text-[9px]">Nomor atau nama pelanggan</span>
+          </label>
+          <input
+            type="text"
+            value={penanda}
+            onChange={(e) => onPenandaChange(e.target.value)}
+            placeholder="Contoh: No. 01 / Mas Dimas / Bungkus..."
+            className="w-full px-3 py-1.5 bg-white rounded-xl border border-slate-200 text-xs font-black text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-mono placeholder:font-normal placeholder:text-slate-400"
+          />
         </div>
 
-        {/* Quick Table Buttons */}
-        <div className="flex items-center space-x-1 overflow-x-auto pb-0.5 no-scrollbar text-[10px]">
-          {['Meja 1', 'Meja 2', 'Meja 3', 'Meja 4', 'Meja 5', 'Meja 6', 'Meja 7', 'Meja 8', 'Bungkus'].map(m => (
+        {/* Quick Tag Pills: No 01, No 02, Bungkus, dll */}
+        <div className="flex items-center space-x-1.5 overflow-x-auto pb-0.5 no-scrollbar text-[10px]">
+          {['No. 01', 'No. 02', 'No. 03', 'No. 04', 'No. 05', 'Bungkus', 'Di Tempat'].map(tag => (
             <button
-              key={m}
+              key={tag}
               type="button"
-              onClick={() => onTableNameChange(m)}
-              className={`px-2 py-0.5 rounded font-mono font-bold shrink-0 transition-colors ${
-                tableName === m 
-                  ? 'bg-amber-600 text-white' 
+              onClick={() => onPenandaChange(tag)}
+              className={`px-2 py-0.5 rounded-lg font-mono font-bold shrink-0 transition-colors ${
+                penanda === tag 
+                  ? 'bg-amber-600 text-white shadow-2xs' 
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >
-              {m}
+              {tag}
             </button>
           ))}
         </div>
       </div>
 
       {/* Cart Items List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2.5">
         {items.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 py-12">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
@@ -137,96 +157,120 @@ export default function PosCartDrawer({
             </div>
             <p className="font-bold text-slate-600 text-sm">Keranjang Masih Kosong</p>
             <p className="text-xs text-slate-400 max-w-[200px] mt-1">
-              Sentuh menu minuman herbal di sebelah kiri untuk menambah ke pesanan
+              Sentuh menu di sebelah kiri untuk menambah ke pesanan
             </p>
           </div>
         ) : (
-          items.map(item => (
-            <div
-              key={item.menu.id}
-              className="p-3 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-slate-200 transition-all flex flex-col space-y-2"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1 pr-2">
-                  <h4 className="font-bold text-xs text-slate-900 leading-snug">
-                    {item.menu.nama}
-                  </h4>
-                  <span className="text-[11px] font-mono font-medium text-slate-500 tabular-nums">
-                    @ {formatRupiah(item.menu.harga)}
+          items.map((item, index) => {
+            const isDrink = getItemKitchenStation(item.menu) === 'wedang';
+            const temp = item.temperature || (isDrink ? 'panas' : undefined);
+
+            return (
+              <div
+                key={`${item.menu.id}-${index}`}
+                className="p-3 rounded-2xl bg-slate-50/90 border border-slate-100 hover:border-slate-200 transition-all flex flex-col space-y-2"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 pr-2">
+                    <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                      <h4 className="font-extrabold text-xs text-slate-900 leading-snug">
+                        {item.menu.nama}
+                      </h4>
+
+                      {/* Tombol Toggle Cepat Panas / Es untuk Minuman */}
+                      {isDrink && onToggleTemperature && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleTemperature(index)}
+                          className={`px-1.5 py-0.2 rounded-md font-black text-[9px] border transition-colors flex items-center space-x-0.5 ${
+                            temp === 'dingin'
+                              ? 'bg-sky-100 text-sky-800 border-sky-300 hover:bg-sky-200'
+                              : 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
+                          }`}
+                          title="Klik untuk mengubah Panas / Es"
+                        >
+                          <span>{temp === 'dingin' ? '🧊 ES' : '🔥 PANAS'}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <span className="text-[11px] font-mono font-medium text-slate-500 tabular-nums block mt-0.5">
+                      @ {formatRupiah(item.menu.harga)}
+                    </span>
+                  </div>
+
+                  <span className="font-mono font-black text-xs text-brand-dark tabular-nums">
+                    {formatRupiah(item.menu.harga * item.qty)}
                   </span>
                 </div>
 
-                <span className="font-mono font-bold text-xs text-brand-dark tabular-nums">
-                  {formatRupiah(item.menu.harga * item.qty)}
-                </span>
-              </div>
+                {/* Notes Display or Input */}
+                {editingNoteIndex === index ? (
+                  <div className="flex items-center space-x-1.5 pt-1">
+                    <input
+                      type="text"
+                      value={tempNote}
+                      onChange={(e) => setTempNote(e.target.value)}
+                      placeholder="Contoh: Manis sedikit, tanpa es..."
+                      className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-brand-primary"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => handleSaveNote(index)}
+                      className="px-2.5 py-1 text-xs font-bold bg-brand-primary text-white rounded-lg"
+                    >
+                      Simpan
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <button
+                      onClick={() => handleStartEditNote(index, item.catatan)}
+                      className="flex items-center space-x-1 text-slate-400 hover:text-brand-primary transition-colors italic"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>{item.catatan || 'Tambah catatan...'}</span>
+                    </button>
+                  </div>
+                )}
 
-              {/* Notes Display or Input */}
-              {editingNoteId === item.menu.id ? (
-                <div className="flex items-center space-x-1.5 pt-1">
-                  <input
-                    type="text"
-                    value={tempNote}
-                    onChange={(e) => setTempNote(e.target.value)}
-                    placeholder="Contoh: Panas, manis sedikit..."
-                    className="flex-1 px-2 py-1 text-xs bg-white border border-slate-300 rounded focus:outline-none focus:border-brand-primary"
-                    autoFocus
-                  />
+                {/* Stepper & Delete */}
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200/50">
                   <button
-                    onClick={() => handleSaveNote(item.menu.id)}
-                    className="px-2 py-1 text-xs font-bold bg-brand-primary text-white rounded"
+                    onClick={() => onRemoveItem(index)}
+                    className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                    title="Hapus"
                   >
-                    Simpan
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
-                  <button
-                    onClick={() => handleStartEditNote(item)}
-                    className="flex items-center space-x-1 text-slate-400 hover:text-brand-primary transition-colors italic"
-                  >
-                    <Edit3 className="w-3 h-3" />
-                    <span>{item.catatan || 'Tambah catatan...'}</span>
-                  </button>
-                </div>
-              )}
 
-              {/* Stepper & Delete */}
-              <div className="flex items-center justify-between pt-1 border-t border-slate-200/50">
-                <button
-                  onClick={() => onRemoveItem(item.menu.id)}
-                  className="text-slate-400 hover:text-rose-500 transition-colors p-1"
-                  title="Hapus"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-
-                <div className="flex items-center space-x-2 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-sm">
-                  <button
-                    onClick={() => onUpdateQty(item.menu.id, -1)}
-                    className="w-5 h-5 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition-all font-bold"
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
-                  <span className="font-mono font-extrabold text-xs text-slate-800 w-5 text-center tabular-nums">
-                    {item.qty}
-                  </span>
-                  <button
-                    onClick={() => onUpdateQty(item.menu.id, 1)}
-                    className="w-5 h-5 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition-all font-bold"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
+                  <div className="flex items-center space-x-2 bg-white px-2 py-1 rounded-xl border border-slate-200 shadow-2xs">
+                    <button
+                      onClick={() => onUpdateQty(index, -1)}
+                      className="w-5 h-5 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition-all font-bold"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="font-mono font-black text-xs text-slate-800 w-5 text-center tabular-nums">
+                      {item.qty}
+                    </span>
+                    <button
+                      onClick={() => onUpdateQty(index, 1)}
+                      className="w-5 h-5 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition-all font-bold"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
       {/* Drawer Footer & Checkout Button */}
-      <div className="p-4 border-t border-slate-100 bg-slate-50/80 space-y-3">
-        <div className="space-y-1.5">
+      <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/90 space-y-3">
+        <div className="space-y-1">
           <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
             <span>Subtotal ({totalQty} item)</span>
             <span className="font-mono tabular-nums">{formatRupiah(subtotal)}</span>
@@ -259,10 +303,10 @@ export default function PosCartDrawer({
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/25 active:scale-95'
               }`}
-              title="Simpan pesanan meja untuk dimasak dan dibayar nanti"
+              title="Simpan pesanan untuk dimasak dan dibayar nanti"
             >
               <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">Bayar Nanti</span>
+              <span className="truncate">{isEditingOpenBill ? 'Simpan & Tiket Dapur' : 'Bayar Nanti'}</span>
             </button>
 
             <button
@@ -276,7 +320,7 @@ export default function PosCartDrawer({
               }`}
               title="Bayar langsung lunas di kasir"
             >
-              <span>Bayar Lunas</span>
+              <span className="truncate">{isEditingOpenBill ? 'Bayar Lunas Sekarang' : 'Bayar Lunas'}</span>
               {items.length > 0 && <ArrowRight className="w-3.5 h-3.5 shrink-0" />}
             </button>
           </div>
