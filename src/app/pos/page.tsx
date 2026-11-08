@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation';
 import PosHeader from '@/components/PosHeader';
 import PosTouchGrid from '@/components/PosTouchGrid';
-import PosCartDrawer from '@/components/PosCartDrawer';
+import PosCartDrawer, { getCartItemUnitPrice } from '@/components/PosCartDrawer';
 import PaymentModal from '@/components/PaymentModal';
 import ShiftOpenModal from '@/components/ShiftOpenModal';
 import ShiftCloseModal from '@/components/ShiftCloseModal';
@@ -29,7 +29,7 @@ import {
   PaymentMethod 
 } from '@/lib/types';
 import { db, generateUUID, isBranchMatch } from '@/lib/db';
-import { printerService } from '@/lib/printer';
+import { printerService, getItemKitchenStation } from '@/lib/printer';
 import { queueOfflineTransaction } from '@/lib/offline-sync';
 import { generateInvoiceNumber, formatRupiah, getTodayDateString } from '@/lib/utils';
 import { Lock, ShoppingBag, ArrowRight, X } from 'lucide-react';
@@ -250,15 +250,32 @@ export default function PosPage() {
   };
 
   // Cart Management
-  const handleAddToCart = (item: MenuItem) => {
+  const handleAddToCart = (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number) => {
+    const isDrink = getItemKitchenStation(item) === 'wedang';
+    const finalTemp = isDrink ? (temp || (item.suhu_mode === 'khusus_es' ? 'dingin' : 'panas')) : undefined;
+    const finalUnitPrice = customHarga || (finalTemp === 'dingin' && item.harga_es ? item.harga_es : item.harga);
+
     setCart(prev => {
-      const existingIndex = prev.findIndex(ci => ci.menu.id === item.id && !ci.catatan);
+      const existingIndex = prev.findIndex(ci => 
+        ci.menu.id === item.id && 
+        ci.temperature === finalTemp && 
+        getCartItemUnitPrice(ci) === finalUnitPrice &&
+        !ci.catatan
+      );
+
       if (existingIndex !== -1) {
         const next = [...prev];
         next[existingIndex] = { ...next[existingIndex], qty: next[existingIndex].qty + 1 };
         return next;
       }
-      return [...prev, { menu: item, qty: 1, catatan: '' }];
+
+      return [...prev, { 
+        menu: item, 
+        qty: 1, 
+        catatan: '',
+        temperature: finalTemp,
+        custom_harga: finalUnitPrice,
+      }];
     });
   };
 
@@ -289,9 +306,18 @@ export default function PosPage() {
     setCart(prev => {
       if (itemIndex < 0 || itemIndex >= prev.length) return prev;
       const target = prev[itemIndex];
+      const isDrink = getItemKitchenStation(target.menu) === 'wedang';
+      if (!isDrink) return prev;
+
       const nextTemp: 'panas' | 'dingin' = target.temperature === 'dingin' ? 'panas' : 'dingin';
+      const nextPrice = nextTemp === 'dingin' && target.menu.harga_es ? target.menu.harga_es : target.menu.harga;
+
       const next = [...prev];
-      next[itemIndex] = { ...target, temperature: nextTemp };
+      next[itemIndex] = { 
+        ...target, 
+        temperature: nextTemp,
+        custom_harga: nextPrice,
+      };
       return next;
     });
   };
@@ -312,22 +338,25 @@ export default function PosPage() {
       return;
     }
     if (editingBill) {
-      const subtotal = cart.reduce((acc, it) => acc + it.menu.harga * it.qty, 0);
+      const subtotal = cart.reduce((acc, it) => acc + getCartItemUnitPrice(it) * it.qty, 0);
       const updatedEditingBill: Transaksi = {
         ...editingBill,
         penanda: penanda.trim() || editingBill.penanda || 'No. 01',
         meja: penanda.trim() || editingBill.meja || 'No. 01',
         subtotal,
         total: subtotal,
-        items: cart.map(it => ({
-          menu_id: it.menu.id,
-          nama_menu: it.menu.nama,
-          harga: it.menu.harga,
-          qty: it.qty,
-          subtotal: it.menu.harga * it.qty,
-          catatan: it.catatan,
-          temperature: it.temperature,
-        })),
+        items: cart.map(it => {
+          const unitPrice = getCartItemUnitPrice(it);
+          return {
+            menu_id: it.menu.id,
+            nama_menu: it.menu.nama,
+            harga: unitPrice,
+            qty: it.qty,
+            subtotal: unitPrice * it.qty,
+            catatan: it.catatan,
+            temperature: it.temperature,
+          };
+        }),
       };
       setSelectedBillForPayment(updatedEditingBill);
       setIsPaymentOpen(true);
@@ -350,7 +379,7 @@ export default function PosPage() {
       return;
     }
 
-    const subtotal = cart.reduce((acc, it) => acc + it.menu.harga * it.qty, 0);
+    const subtotal = cart.reduce((acc, it) => acc + getCartItemUnitPrice(it) * it.qty, 0);
     const total = subtotal;
     const finalPenanda = penanda.trim() || 'No. 01';
     const finalCustomer = customerName.trim() || finalPenanda;
@@ -375,15 +404,18 @@ export default function PosPage() {
       kembali: 0,
       status: 'pending_payment',
       is_offline_synced: false,
-      items: cart.map(it => ({
-        menu_id: it.menu.id,
-        nama_menu: it.menu.nama,
-        harga: it.menu.harga,
-        qty: it.qty,
-        subtotal: it.menu.harga * it.qty,
-        catatan: it.catatan,
-        temperature: it.temperature,
-      })),
+      items: cart.map(it => {
+        const unitPrice = getCartItemUnitPrice(it);
+        return {
+          menu_id: it.menu.id,
+          nama_menu: it.menu.nama,
+          harga: unitPrice,
+          qty: it.qty,
+          subtotal: unitPrice * it.qty,
+          catatan: it.catatan,
+          temperature: it.temperature,
+        };
+      }),
     };
 
     await db.saveOpenBill(openTrx);
@@ -426,6 +458,7 @@ export default function PosPage() {
         qty: it.qty,
         catatan: it.catatan || '',
         temperature: it.temperature,
+        custom_harga: it.harga,
       };
     });
 
@@ -480,7 +513,7 @@ export default function PosPage() {
       setOpenBills(updatedBills);
     } else {
       // Pembayaran Langsung dari Keranjang Kasir
-      const subtotal = cart.reduce((acc, it) => acc + it.menu.harga * it.qty, 0);
+      const subtotal = cart.reduce((acc, it) => acc + getCartItemUnitPrice(it) * it.qty, 0);
       const total = subtotal;
       const finalPenanda = penanda.trim() || 'No. 01';
 
@@ -504,15 +537,18 @@ export default function PosPage() {
         kembali,
         status: 'completed',
         is_offline_synced: navigator.onLine,
-        items: cart.map(it => ({
-          menu_id: it.menu.id,
-          nama_menu: it.menu.nama,
-          harga: it.menu.harga,
-          qty: it.qty,
-          subtotal: it.menu.harga * it.qty,
-          catatan: it.catatan,
-          temperature: it.temperature,
-        })),
+        items: cart.map(it => {
+          const unitPrice = getCartItemUnitPrice(it);
+          return {
+            menu_id: it.menu.id,
+            nama_menu: it.menu.nama,
+            harga: unitPrice,
+            qty: it.qty,
+            subtotal: unitPrice * it.qty,
+            catatan: it.catatan,
+            temperature: it.temperature,
+          };
+        }),
       };
 
       if (!navigator.onLine) {
@@ -646,7 +682,7 @@ export default function PosPage() {
                   Total Pesanan
                 </span>
                 <span className="text-base font-mono font-extrabold tabular-nums tracking-tight">
-                  {formatRupiah(cart.reduce((sum, it) => sum + (it.menu.harga * it.qty), 0))}
+                  {formatRupiah(cart.reduce((sum, it) => sum + (getCartItemUnitPrice(it) * it.qty), 0))}
                 </span>
               </div>
             </div>

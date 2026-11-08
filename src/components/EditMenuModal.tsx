@@ -50,9 +50,9 @@ export default function EditMenuModal({
   const [kategoriId, setKategoriId] = useState<string>('kat-wg');
   const [harga, setHarga] = useState<number>(15000);
   const [hargaEs, setHargaEs] = useState<number>(0);
-  const [hasDifferentIcePrice, setHasDifferentIcePrice] = useState<boolean>(false);
-  const [suhuType, setSuhuType] = useState<'bebas' | 'khusus_panas' | 'khusus_es'>('bebas');
   const [hpp, setHpp] = useState<number>(4800);
+  const [hppEs, setHppEs] = useState<number>(0);
+  const [suhuMode, setSuhuMode] = useState<'bisa_keduanya' | 'beda_harga_es' | 'khusus_panas' | 'khusus_es'>('bisa_keduanya');
   const [deskripsi, setDeskripsi] = useState<string>('');
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   const [isActive, setIsActive] = useState<boolean>(true);
@@ -103,19 +103,27 @@ export default function EditMenuModal({
       setKode(menu.kode || '');
       setKategoriId(menu.kategori_id || 'kat-wg');
       setHarga(menu.harga || 15000);
+      setHargaEs(menu.harga_es || (menu.harga ? menu.harga + 2000 : 17000));
       setHpp(menu.hpp !== undefined ? menu.hpp : Math.round((menu.harga || 15000) * 0.32));
+      setHppEs(menu.hpp_es || (menu.hpp ? menu.hpp + 800 : 5000));
       setDeskripsi(menu.deskripsi || '');
       setIsFavorite(!!menu.is_favorite);
       setIsActive(menu.is_active ?? true);
 
-      // Suhu type check
-      const lower = (menu.nama || '').toLowerCase();
-      if (lower.includes('es ') || lower.startsWith('es-')) {
-        setSuhuType('khusus_es');
-      } else if (lower.includes('ronde') || lower.includes('serabi') || lower.includes('pisang')) {
-        setSuhuType('khusus_panas');
+      // Suhu mode initialization
+      if (menu.suhu_mode) {
+        setSuhuMode(menu.suhu_mode);
+      } else if (menu.harga_es && menu.harga_es > 0 && menu.harga_es !== menu.harga) {
+        setSuhuMode('beda_harga_es');
       } else {
-        setSuhuType('bebas');
+        const lower = (menu.nama || '').toLowerCase();
+        if (lower.startsWith('es ') || lower.includes('es-') || lower.includes('dingin')) {
+          setSuhuMode('khusus_es');
+        } else if (lower.includes('ronde') || lower.includes('serabi') || lower.includes('pisang') || lower.includes('singkong')) {
+          setSuhuMode('khusus_panas');
+        } else {
+          setSuhuMode('bisa_keduanya');
+        }
       }
 
       const cIds = menu.cabang_ids;
@@ -131,17 +139,17 @@ export default function EditMenuModal({
       setKode(`MN-${Math.floor(10 + Math.random() * 90)}`);
       setKategoriId('kat-wg');
       setHarga(15000);
+      setHargaEs(17000);
       setHpp(4800);
-      setHargaEs(0);
-      setHasDifferentIcePrice(false);
-      setSuhuType('bebas');
+      setHppEs(5600);
+      setSuhuMode('bisa_keduanya');
       setDeskripsi('');
       setIsFavorite(false);
       setIsActive(true);
       setIsAllBranches(true);
       setSelectedCabangIds(cabangList.length > 0 ? cabangList.map(c => c.id) : []);
     }
-  }, [menu?.id, isNew]);
+  }, [menu?.id, isNew, cabangList]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,6 +170,12 @@ export default function EditMenuModal({
       return;
     }
 
+    const isFood = kategoriId === 'kat-sb' || kategoriId === 'kat-6';
+    if (!isFood && suhuMode === 'beda_harga_es' && hargaEs <= 0) {
+      setErrorMsg('Varian Beda Harga Es dipilih! Masukkan nominal harga es yang valid.');
+      return;
+    }
+
     if (!isAllBranches && selectedCabangIds.length === 0) {
       setErrorMsg('Pilih minimal 1 cabang atau pilih "Semua 10 Kasir"!');
       return;
@@ -171,6 +185,10 @@ export default function EditMenuModal({
 
     try {
       const selectedKat = KATEGORI_OPTIONS.find(k => k.id === kategoriId);
+      const finalSuhuMode = isFood ? undefined : suhuMode;
+      const finalHargaEs = (!isFood && suhuMode === 'beda_harga_es' && hargaEs > 0) ? hargaEs : undefined;
+      const finalHppEs = (!isFood && suhuMode === 'beda_harga_es' && hppEs > 0) ? hppEs : undefined;
+
       const payload: Partial<MenuItem> = {
         ...(menu?.id ? { id: menu.id } : {}),
         nama: nama.trim(),
@@ -178,13 +196,16 @@ export default function EditMenuModal({
         kategori_id: kategoriId,
         kategori_nama: selectedKat?.nama || 'Minuman Herbal',
         harga: harga,
+        harga_es: finalHargaEs,
         hpp: hpp,
+        hpp_es: finalHppEs,
+        suhu_mode: finalSuhuMode,
         deskripsi: deskripsi.trim(),
         gambar: menu?.gambar || '',
         is_favorite: isFavorite,
         is_active: isActive,
-        has_temperature_option: suhuType === 'bebas',
-        default_temperature: suhuType === 'khusus_es' ? 'dingin' : 'panas',
+        has_temperature_option: !isFood && (suhuMode === 'bisa_keduanya' || suhuMode === 'beda_harga_es'),
+        default_temperature: (!isFood && suhuMode === 'khusus_es') ? 'dingin' : 'panas',
         cabang_ids: isAllBranches ? [] : selectedCabangIds,
       };
 
@@ -200,8 +221,13 @@ export default function EditMenuModal({
     }
   };
 
-  const labaKotor = Math.max(0, harga - hpp);
-  const grossMargin = harga > 0 ? Math.round((labaKotor / harga) * 100) : 0;
+  const isFoodOrSerabi = kategoriId === 'kat-sb' || kategoriId === 'kat-6';
+  const labaKotorPanas = Math.max(0, harga - hpp);
+  const grossMarginPanas = harga > 0 ? Math.round((labaKotorPanas / harga) * 100) : 0;
+
+  const effectiveHppEs = hppEs > 0 ? hppEs : hpp;
+  const labaKotorEs = Math.max(0, hargaEs - effectiveHppEs);
+  const grossMarginEs = hargaEs > 0 ? Math.round((labaKotorEs / hargaEs) * 100) : 0;
 
   return (
     <div 
@@ -327,111 +353,327 @@ export default function EditMenuModal({
                 </div>
               </div>
 
-              {/* Card 2: Harga Resmi Pusat & HPP Resep */}
-              <div className="p-3 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-2.5">
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="font-bold text-slate-800 block mb-1 text-[10px] flex items-center justify-between">
-                      <span>Harga Jual Resmi:</span>
-                      <span className="text-[9px] text-emerald-700 font-mono font-bold">Pusat</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
-                        Rp
-                      </span>
-                      <input
-                        type="text"
-                        value={harga === 0 ? '' : formatNominal(harga)}
-                        onChange={(e) => setHarga(parseNominal(e.target.value))}
-                        placeholder="15.000"
-                        className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs"
-                        required
-                      />
+              {/* Card 2 & 3: Kondisional - Makanan/Serabi (Tanpa Suhu) vs Minuman (Opsi Panas/Es & Beda Harga) */}
+              {isFoodOrSerabi ? (
+                <>
+                  {/* Banner Makanan & Camilan / Serabi Siap Saji */}
+                  <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/90 flex items-center space-x-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 font-bold text-base shadow-2xs">
+                      {kategoriId === 'kat-sb' ? '🥞' : '🍲'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h5 className="font-extrabold text-amber-950 text-xs">
+                        {kategoriId === 'kat-sb' ? 'Kategori Serabi Bawel (Tungku Tanah Liat)' : 'Kategori Makanan & Camilan Dapur'}
+                      </h5>
+                      <p className="text-[10px] text-amber-900/80 leading-snug">
+                        Menu makanan disajikan standar hangat langsung dari dapur masak. Pilihan es / panas otomatis <strong>dinonaktifkan</strong> agar kasir tidak bingung.
+                      </p>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="font-bold text-slate-800 block mb-1 text-[10px] flex items-center justify-between">
-                      <span>HPP Pokok Bahan:</span>
-                      <span className="text-[9px] text-amber-700 font-mono font-bold">Resep</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
-                        Rp
-                      </span>
-                      <input
-                        type="text"
-                        value={hpp === 0 ? '' : formatNominal(hpp)}
-                        onChange={(e) => setHpp(parseNominal(e.target.value))}
-                        placeholder="4.800"
-                        className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-amber-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
-                      />
+                  {/* Card Harga Standar Tunggal untuk Makanan/Serabi */}
+                  <div className="p-3 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="font-bold text-slate-800 block mb-1 text-[10px] flex items-center justify-between">
+                          <span>Harga Jual Resmi:</span>
+                          <span className="text-[9px] text-emerald-700 font-mono font-bold">Pusat</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
+                            Rp
+                          </span>
+                          <input
+                            type="text"
+                            value={harga === 0 ? '' : formatNominal(harga)}
+                            onChange={(e) => setHarga(parseNominal(e.target.value))}
+                            placeholder="15.000"
+                            className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-800 block mb-1 text-[10px] flex items-center justify-between">
+                          <span>HPP Pokok Bahan:</span>
+                          <span className="text-[9px] text-amber-700 font-mono font-bold">Resep</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
+                            Rp
+                          </span>
+                          <input
+                            type="text"
+                            value={hpp === 0 ? '' : formatNominal(hpp)}
+                            onChange={(e) => setHpp(parseNominal(e.target.value))}
+                            placeholder="4.800"
+                            className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-amber-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live Margin Calculation Card */}
+                    <div className="p-2.5 bg-emerald-50/90 rounded-xl border border-emerald-200 text-xs flex items-center justify-between">
+                      <div>
+                        <span className="text-slate-600 text-[10px] block">Laba Kotor per Porsi:</span>
+                        <strong className="font-mono text-xs text-emerald-950 font-black">{formatRupiah(labaKotorPanas)}</strong>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-slate-600 text-[10px] block">Margin Keuntungan:</span>
+                        <span className="inline-block px-2 py-0.2 rounded-full bg-emerald-600 text-white font-mono font-black text-[10px] shadow-2xs">
+                          {grossMarginPanas}% Margin
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </>
+              ) : (
+                <>
+                  {/* Card Karakter & Opsi Suhu Minuman */}
+                  <div className="p-3 rounded-2xl bg-teal-50/70 border border-teal-200/90 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-slate-900 text-[11px] flex items-center space-x-1">
+                        <Flame className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Karakter &amp; Opsi Suhu Minuman:</span>
+                      </span>
+                      <span className="text-[9px] text-teal-800 font-bold px-1.5 py-0.2 bg-teal-100 rounded-full">
+                        Khusus Minuman
+                      </span>
+                    </div>
 
-                {/* Live Margin Calculation Card */}
-                <div className="p-2.5 bg-emerald-50/90 rounded-xl border border-emerald-200 text-xs flex items-center justify-between">
-                  <div>
-                    <span className="text-slate-600 text-[10px] block">Laba Kotor per Porsi:</span>
-                    <strong className="font-mono text-xs text-emerald-950 font-black">{formatRupiah(labaKotor)}</strong>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSuhuMode('bisa_keduanya')}
+                        className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                          suhuMode === 'bisa_keduanya'
+                            ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs font-black'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-bold'
+                        }`}
+                      >
+                        <div className="text-[11px] flex items-center space-x-1">
+                          <span>⚡</span>
+                          <span>Bisa Panas / Es</span>
+                        </div>
+                        <p className={`text-[9px] mt-0.5 ${suhuMode === 'bisa_keduanya' ? 'text-emerald-100' : 'text-slate-400'}`}>
+                          Harga panas &amp; es sama persis
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSuhuMode('beda_harga_es')}
+                        className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                          suhuMode === 'beda_harga_es'
+                            ? 'bg-amber-600 text-white border-amber-700 shadow-2xs font-black'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-bold'
+                        }`}
+                      >
+                        <div className="text-[11px] flex items-center space-x-1">
+                          <span>💰</span>
+                          <span>Ada Beda Harga Es</span>
+                        </div>
+                        <p className={`text-[9px] mt-0.5 ${suhuMode === 'beda_harga_es' ? 'text-amber-100' : 'text-slate-400'}`}>
+                          Harga es berbeda (cup+es kristal)
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSuhuMode('khusus_panas')}
+                        className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                          suhuMode === 'khusus_panas'
+                            ? 'bg-rose-600 text-white border-rose-700 shadow-2xs font-black'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-bold'
+                        }`}
+                      >
+                        <div className="text-[11px] flex items-center space-x-1">
+                          <span>🔥</span>
+                          <span>Khusus Panas Saja</span>
+                        </div>
+                        <p className={`text-[9px] mt-0.5 ${suhuMode === 'khusus_panas' ? 'text-rose-100' : 'text-slate-400'}`}>
+                          Contoh: Ronde, STMJ Panas
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSuhuMode('khusus_es')}
+                        className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                          suhuMode === 'khusus_es'
+                            ? 'bg-sky-600 text-white border-sky-700 shadow-2xs font-black'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-bold'
+                        }`}
+                      >
+                        <div className="text-[11px] flex items-center space-x-1">
+                          <span>🧊</span>
+                          <span>Khusus Dingin / Es</span>
+                        </div>
+                        <p className={`text-[9px] mt-0.5 ${suhuMode === 'khusus_es' ? 'text-sky-100' : 'text-slate-400'}`}>
+                          Contoh: Es Sinom, Es Jamu Segar
+                        </p>
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-slate-600 text-[10px] block">Margin Keuntungan:</span>
-                    <span className="inline-block px-2 py-0.2 rounded-full bg-emerald-600 text-white font-mono font-black text-[10px] shadow-2xs">
-                      {grossMargin}% Margin
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Card 3: Karakter Pilihan Suhu (Simpel Tanpa Bikin Kasir Ribet) */}
-              <div className="p-3 rounded-2xl bg-teal-50/60 border border-teal-200/80 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-extrabold text-slate-800 text-[11px] flex items-center space-x-1">
-                    <span>☕ Karakter Suhu Minuman:</span>
-                  </span>
-                  <span className="text-[9px] text-slate-500 font-medium">Di kasir tinggal klik catatan</span>
-                </div>
+                  {/* Card Harga Minuman: Dual Column jika Beda Harga Es vs Single Column jika Sama */}
+                  {suhuMode === 'beda_harga_es' ? (
+                    <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-300/80 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-black text-amber-950 text-[11px] flex items-center space-x-1">
+                          <span>💰 Atur 2 Harga Berbeda: Panas vs Es</span>
+                        </span>
+                        <span className="text-[9px] text-amber-800 font-bold px-1.5 py-0.2 bg-amber-100 rounded-full">
+                          Kasir langsung sentuh Panas / Es
+                        </span>
+                      </div>
 
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setSuhuType('bebas')}
-                    className={`py-1.5 px-2 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer text-center ${
-                      suhuType === 'bebas'
-                        ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    ⚡ Bisa Panas / Es
-                  </button>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {/* Kolom Panas */}
+                        <div className="p-2.5 bg-white rounded-xl border border-amber-200 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-extrabold text-amber-900 text-[10px] flex items-center space-x-1">
+                              <Flame className="w-3 h-3 text-amber-600" />
+                              <span>Harga Panas:</span>
+                            </span>
+                            <span className="font-mono text-[9px] text-slate-400">Dasar</span>
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">Rp</span>
+                            <input
+                              type="text"
+                              value={harga === 0 ? '' : formatNominal(harga)}
+                              onChange={(e) => setHarga(parseNominal(e.target.value))}
+                              placeholder="15.000"
+                              className="w-full pl-8 pr-2 py-1 bg-amber-50/30 rounded-lg border border-amber-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-amber-600"
+                              required
+                            />
+                          </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setSuhuType('khusus_panas')}
-                    className={`py-1.5 px-2 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer text-center ${
-                      suhuType === 'khusus_panas'
-                        ? 'bg-amber-600 text-white border-amber-700 shadow-2xs'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    🔥 Khusus Panas
-                  </button>
+                          <div>
+                            <label className="font-bold text-slate-600 block mb-0.5 text-[9px]">HPP Panas:</label>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-slate-400 text-[10px]">Rp</span>
+                              <input
+                                type="text"
+                                value={hpp === 0 ? '' : formatNominal(hpp)}
+                                onChange={(e) => setHpp(parseNominal(e.target.value))}
+                                placeholder="4.800"
+                                className="w-full pl-7 pr-1.5 py-0.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-[10px] text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                          </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setSuhuType('khusus_es')}
-                    className={`py-1.5 px-2 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer text-center ${
-                      suhuType === 'khusus_es'
-                        ? 'bg-sky-600 text-white border-sky-700 shadow-2xs'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    🧊 Khusus Es
-                  </button>
-                </div>
-              </div>
+                          <div className="pt-1 border-t border-slate-100 flex items-center justify-between text-[9px]">
+                            <span className="text-slate-500">Margin:</span>
+                            <strong className="font-mono text-emerald-700 font-bold">{grossMarginPanas}% ({formatRupiah(labaKotorPanas)})</strong>
+                          </div>
+                        </div>
+
+                        {/* Kolom Es */}
+                        <div className="p-2.5 bg-white rounded-xl border border-sky-300 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-extrabold text-sky-900 text-[10px] flex items-center space-x-1">
+                              <Snowflake className="w-3 h-3 text-sky-600" />
+                              <span>Harga Es / Dingin:</span>
+                            </span>
+                            <span className="font-mono text-[9px] text-sky-600 font-bold">+Cup Es</span>
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">Rp</span>
+                            <input
+                              type="text"
+                              value={hargaEs === 0 ? '' : formatNominal(hargaEs)}
+                              onChange={(e) => setHargaEs(parseNominal(e.target.value))}
+                              placeholder="17.000"
+                              className="w-full pl-8 pr-2 py-1 bg-sky-50/30 rounded-lg border border-sky-300 font-mono font-black text-xs text-sky-950 focus:outline-none focus:border-sky-600"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-600 block mb-0.5 text-[9px]">HPP Es (+Bahan Es):</label>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-slate-400 text-[10px]">Rp</span>
+                              <input
+                                type="text"
+                                value={hppEs === 0 ? '' : formatNominal(hppEs)}
+                                onChange={(e) => setHppEs(parseNominal(e.target.value))}
+                                placeholder="5.600"
+                                className="w-full pl-7 pr-1.5 py-0.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-[10px] text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pt-1 border-t border-slate-100 flex items-center justify-between text-[9px]">
+                            <span className="text-slate-500">Margin:</span>
+                            <strong className="font-mono text-sky-800 font-bold">{grossMarginEs}% ({formatRupiah(labaKotorEs)})</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-2.5">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="font-bold text-slate-800 block mb-1 text-[10px] flex items-center justify-between">
+                            <span>{suhuMode === 'khusus_panas' ? 'Harga Khusus Panas:' : suhuMode === 'khusus_es' ? 'Harga Khusus Es:' : 'Harga Resmi (Panas & Es):'}</span>
+                            <span className="text-[9px] text-emerald-700 font-mono font-bold">Pusat</span>
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
+                              Rp
+                            </span>
+                            <input
+                              type="text"
+                              value={harga === 0 ? '' : formatNominal(harga)}
+                              onChange={(e) => setHarga(parseNominal(e.target.value))}
+                              placeholder="15.000"
+                              className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="font-bold text-slate-800 block mb-1 text-[10px] flex items-center justify-between">
+                            <span>HPP Pokok Bahan:</span>
+                            <span className="text-[9px] text-amber-700 font-mono font-bold">Resep</span>
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
+                              Rp
+                            </span>
+                            <input
+                              type="text"
+                              value={hpp === 0 ? '' : formatNominal(hpp)}
+                              onChange={(e) => setHpp(parseNominal(e.target.value))}
+                              placeholder="4.800"
+                              className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-amber-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Live Margin Calculation Card */}
+                      <div className="p-2.5 bg-emerald-50/90 rounded-xl border border-emerald-200 text-xs flex items-center justify-between">
+                        <div>
+                          <span className="text-slate-600 text-[10px] block">Laba Kotor per Porsi:</span>
+                          <strong className="font-mono text-xs text-emerald-950 font-black">{formatRupiah(labaKotorPanas)}</strong>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-slate-600 text-[10px] block">Margin Keuntungan:</span>
+                          <span className="inline-block px-2 py-0.2 rounded-full bg-emerald-600 text-white font-mono font-black text-[10px] shadow-2xs">
+                            {grossMarginPanas}% Margin
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
             </div>
 

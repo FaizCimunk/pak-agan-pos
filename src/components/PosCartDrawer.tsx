@@ -27,6 +27,12 @@ interface PosCartDrawerProps {
   onCancelEditOpenBill?: () => void;
 }
 
+export const getCartItemUnitPrice = (it: CartItem): number => {
+  if (it.custom_harga && it.custom_harga > 0) return it.custom_harga;
+  if (it.temperature === 'dingin' && it.menu.harga_es && it.menu.harga_es > 0) return it.menu.harga_es;
+  return it.menu.harga;
+};
+
 export default function PosCartDrawer({
   items,
   penanda,
@@ -47,7 +53,7 @@ export default function PosCartDrawer({
   const [tempNote, setTempNote] = useState<string>('');
 
   const totalQty = items.reduce((sum, it) => sum + it.qty, 0);
-  const subtotal = items.reduce((sum, it) => sum + (it.menu.harga * it.qty), 0);
+  const subtotal = items.reduce((sum, it) => sum + (getCartItemUnitPrice(it) * it.qty), 0);
   const total = subtotal;
 
   const handleStartEditNote = (index: number, currentNote?: string) => {
@@ -233,8 +239,20 @@ export default function PosCartDrawer({
           </div>
         ) : (
           items.map((item, index) => {
-            const isDrink = getItemKitchenStation(item.menu) === 'wedang';
-            const temp = item.temperature || (isDrink ? 'panas' : undefined);
+            const station = getItemKitchenStation(item.menu);
+            const isDrink = station === 'wedang';
+            const unitPrice = getCartItemUnitPrice(item);
+            const lineSubtotal = unitPrice * item.qty;
+
+            // Kategori-specific Quick Notes: Makanan & Serabi TIDAK BOLEH ADA 'Es' / 'Panas'
+            let quickTags: string[] = [];
+            if (station === 'wedang') {
+              quickTags = ['Es', 'Panas', 'Bungkus', 'Sedikit Manis', 'Tanpa Es', 'Pisah Gula'];
+            } else if (station === 'serabi') {
+              quickTags = ['Bungkus', 'Gula Sedikit', 'Matang Kering', 'Hangat', 'Kuah Pisah'];
+            } else {
+              quickTags = ['Bungkus', 'Pisah Sambal', 'Goreng Kering', 'Hangat', 'Pedas Sedang'];
+            }
 
             return (
               <div
@@ -243,42 +261,58 @@ export default function PosCartDrawer({
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 pr-2">
-                    <h4 className="font-extrabold text-xs text-slate-900 leading-snug">
-                      {item.menu.nama}
-                    </h4>
+                    <div className="flex items-center space-x-1.5 flex-wrap">
+                      {isDrink && item.temperature && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleTemperature && onToggleTemperature(index)}
+                          className={`inline-flex items-center px-1.5 py-0.2 rounded-md font-extrabold text-[9px] shrink-0 border cursor-pointer ${
+                            item.temperature === 'dingin'
+                              ? 'bg-sky-100 text-sky-900 border-sky-300'
+                              : 'bg-amber-100 text-amber-900 border-amber-300'
+                          }`}
+                          title="Klik untuk ubah suhu Panas / Es"
+                        >
+                          {item.temperature === 'dingin' ? '🧊 Es' : '🔥 Panas'}
+                        </button>
+                      )}
+                      <h4 className="font-extrabold text-xs text-slate-900 leading-snug">
+                        {item.menu.nama}
+                      </h4>
+                    </div>
 
                     <span className="text-[11px] font-mono font-medium text-slate-500 tabular-nums block mt-0.5">
-                      @ {formatRupiah(item.menu.harga)}
+                      @ {formatRupiah(unitPrice)}
                     </span>
                   </div>
 
                   <span className="font-mono font-black text-xs text-brand-dark tabular-nums">
-                    {formatRupiah(item.menu.harga * item.qty)}
+                    {formatRupiah(lineSubtotal)}
                   </span>
                 </div>
 
-                {/* Notes Display or Input with Quick Note Pills (Es, Panas, Bungkus) */}
+                {/* Notes Display or Input with Quick Note Pills Sesuai Kategori */}
                 {editingNoteIndex === index ? (
                   <div className="flex items-center space-x-1.5 pt-1">
                     <input
                       type="text"
                       value={tempNote}
                       onChange={(e) => setTempNote(e.target.value)}
-                      placeholder="Contoh: Es bungkus, sedikit gula..."
+                      placeholder="Contoh: Bungkus, sedikit gula..."
                       className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-brand-primary"
                       autoFocus
                     />
                     <button
                       type="button"
                       onClick={() => handleSaveNote(index)}
-                      className="px-2.5 py-1 text-xs font-bold bg-brand-primary text-white rounded-lg"
+                      className="px-2.5 py-1 text-xs font-bold bg-brand-primary text-white rounded-lg cursor-pointer"
                     >
                       Simpan
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditingNoteIndex(null)}
-                      className="px-2 py-1 text-xs text-slate-500 hover:bg-slate-200 rounded-lg"
+                      className="px-2 py-1 text-xs text-slate-500 hover:bg-slate-200 rounded-lg cursor-pointer"
                     >
                       Batal
                     </button>
@@ -295,7 +329,7 @@ export default function PosCartDrawer({
                           <button
                             type="button"
                             onClick={() => handleStartEditNote(index, item.catatan)}
-                            className="p-1 text-amber-700 hover:text-amber-900"
+                            className="p-1 text-amber-700 hover:text-amber-900 cursor-pointer"
                             title="Ubah catatan"
                           >
                             <Edit3 className="w-3 h-3" />
@@ -303,7 +337,7 @@ export default function PosCartDrawer({
                           <button
                             type="button"
                             onClick={() => onUpdateNotes(index, '')}
-                            className="p-1 text-rose-500 hover:text-rose-700 text-xs font-bold"
+                            className="p-1 text-rose-500 hover:text-rose-700 text-xs font-bold cursor-pointer"
                             title="Hapus catatan"
                           >
                             ✕
@@ -312,16 +346,16 @@ export default function PosCartDrawer({
                       </div>
                     ) : null}
 
-                    {/* Quick Note Pills: Es, Panas, Bungkus, dll */}
+                    {/* Quick Note Pills: Spesifik Kategori (Makanan Tanpa Es, Minuman Lengkap) */}
                     <div className="flex items-center space-x-1 overflow-x-auto no-scrollbar text-[10px]">
-                      {['Es', 'Panas', 'Bungkus', 'Manis Sedikit', 'Pisah Sambal'].map(tag => {
+                      {quickTags.map(tag => {
                         const isSelected = (item.catatan || '').toLowerCase().includes(tag.toLowerCase());
                         return (
                           <button
                             key={tag}
                             type="button"
                             onClick={() => handleQuickAppendNote(index, tag)}
-                            className={`px-1.5 py-0.5 rounded-md font-bold shrink-0 transition-colors ${
+                            className={`px-1.5 py-0.5 rounded-md font-bold shrink-0 transition-colors cursor-pointer ${
                               isSelected
                                 ? 'bg-amber-600 text-white shadow-2xs'
                                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -335,7 +369,7 @@ export default function PosCartDrawer({
                         <button
                           type="button"
                           onClick={() => handleStartEditNote(index, '')}
-                          className="px-1.5 py-0.5 rounded-md font-bold text-slate-400 hover:text-slate-700 shrink-0 italic"
+                          className="px-1.5 py-0.5 rounded-md font-bold text-slate-400 hover:text-slate-700 shrink-0 italic cursor-pointer"
                         >
                           + Catatan...
                         </button>

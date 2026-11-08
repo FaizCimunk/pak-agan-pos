@@ -86,7 +86,10 @@ export interface MenuItem {
   nama: string;
   deskripsi: string;
   harga: number;
+  harga_es?: number; // Harga khusus varian Es jika berbeda (misal: Panas 10.000, Es 12.000)
   hpp?: number; // Biaya Bahan Baku / HPP per porsi (Tepung, Durian, Rempah, Cup, dll)
+  hpp_es?: number; // HPP khusus varian Es jika berbeda
+  suhu_mode?: 'bisa_keduanya' | 'beda_harga_es' | 'khusus_panas' | 'khusus_es'; // Karakter Suhu Minuman
   gambar: string;
   is_favorite: boolean;
   is_active: boolean;
@@ -163,6 +166,7 @@ export interface CartItem {
   qty: number;
   catatan: string;
   temperature?: 'panas' | 'dingin'; // Varian Panas / Dingin (Es)
+  custom_harga?: number; // Harga varian khusus (misal harga_es)
 }
 
 export type PengeluaranJenis = 'belanja' | 'kasbon';

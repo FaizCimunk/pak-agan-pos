@@ -410,7 +410,10 @@ export class PosDatabase {
           ...current[index],
           ...item,
           harga: Number(item.harga) !== undefined && !isNaN(Number(item.harga)) ? Number(item.harga) : current[index].harga,
+          harga_es: item.harga_es !== undefined ? (item.harga_es ? Number(item.harga_es) : undefined) : current[index].harga_es,
           hpp: Number(item.hpp) !== undefined && !isNaN(Number(item.hpp)) ? Number(item.hpp) : (current[index].hpp || Math.round((Number(item.harga) || 15000) * 0.32)),
+          hpp_es: item.hpp_es !== undefined ? (item.hpp_es ? Number(item.hpp_es) : undefined) : current[index].hpp_es,
+          suhu_mode: item.suhu_mode !== undefined ? item.suhu_mode : current[index].suhu_mode,
         };
         current[index] = savedItem;
       } else {
@@ -426,7 +429,10 @@ export class PosDatabase {
         nama: item.nama || 'Minuman Herbal Baru',
         deskripsi: item.deskripsi || '',
         harga: Number(item.harga) || 15000,
+        harga_es: item.harga_es ? Number(item.harga_es) : undefined,
         hpp: Number(item.hpp) || Math.round((Number(item.harga) || 15000) * 0.32),
+        hpp_es: item.hpp_es ? Number(item.hpp_es) : undefined,
+        suhu_mode: item.suhu_mode,
         gambar: item.gambar || 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&q=80',
         is_favorite: !!item.is_favorite,
         is_active: item.is_active ?? true,
@@ -437,6 +443,9 @@ export class PosDatabase {
     }
 
     saveLocal(STORAGE_KEYS.MENU, current);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
 
     if (isSupabaseConfigured && supabase) {
       try {
@@ -470,6 +479,9 @@ export class PosDatabase {
     let current = await this.getMenuList();
     current = current.filter(m => m.id !== id);
     saveLocal(STORAGE_KEYS.MENU, current);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
 
     if (isSupabaseConfigured && supabase) {
       try {
