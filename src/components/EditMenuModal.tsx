@@ -53,6 +53,13 @@ export default function EditMenuModal({
   const [hpp, setHpp] = useState<number>(4800);
   const [hppEs, setHppEs] = useState<number>(0);
   const [suhuMode, setSuhuMode] = useState<'bisa_keduanya' | 'beda_harga_es' | 'khusus_panas' | 'khusus_es'>('bisa_keduanya');
+  const [hasVariasiHarga, setHasVariasiHarga] = useState<boolean>(false);
+  const [varianNama1, setVarianNama1] = useState<string>('Reguler');
+  const [varianHarga1, setVarianHarga1] = useState<number>(15000);
+  const [varianHpp1, setVarianHpp1] = useState<number>(4800);
+  const [varianNama2, setVarianNama2] = useState<string>('Jumbo');
+  const [varianHarga2, setVarianHarga2] = useState<number>(20000);
+  const [varianHpp2, setVarianHpp2] = useState<number>(6800);
   const [deskripsi, setDeskripsi] = useState<string>('');
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   const [isActive, setIsActive] = useState<boolean>(true);
@@ -106,6 +113,13 @@ export default function EditMenuModal({
       setHargaEs(menu.harga_es || (menu.harga ? menu.harga + 2000 : 17000));
       setHpp(menu.hpp !== undefined ? menu.hpp : Math.round((menu.harga || 15000) * 0.32));
       setHppEs(menu.hpp_es || (menu.hpp ? menu.hpp + 800 : 5000));
+      setHasVariasiHarga(!!menu.has_variasi_harga);
+      setVarianNama1(menu.varian_nama_1 || 'Reguler');
+      setVarianHarga1(menu.varian_harga_1 || menu.harga || 15000);
+      setVarianHpp1(menu.varian_hpp_1 !== undefined ? menu.varian_hpp_1 : (menu.hpp !== undefined ? menu.hpp : 4800));
+      setVarianNama2(menu.varian_nama_2 || 'Jumbo');
+      setVarianHarga2(menu.varian_harga_2 || (menu.harga ? menu.harga + 5000 : 20000));
+      setVarianHpp2(menu.varian_hpp_2 !== undefined ? menu.varian_hpp_2 : (menu.hpp ? menu.hpp + 2000 : 6800));
       setDeskripsi(menu.deskripsi || '');
       setIsFavorite(!!menu.is_favorite);
       setIsActive(menu.is_active ?? true);
@@ -142,6 +156,13 @@ export default function EditMenuModal({
       setHargaEs(17000);
       setHpp(4800);
       setHppEs(5600);
+      setHasVariasiHarga(false);
+      setVarianNama1('Reguler');
+      setVarianHarga1(15000);
+      setVarianHpp1(4800);
+      setVarianNama2('Jumbo');
+      setVarianHarga2(20000);
+      setVarianHpp2(6800);
       setSuhuMode('bisa_keduanya');
       setDeskripsi('');
       setIsFavorite(false);
@@ -165,12 +186,20 @@ export default function EditMenuModal({
       return;
     }
 
-    if (harga <= 0) {
-      setErrorMsg('Harga jual resmi harus lebih dari Rp 0!');
-      return;
+    const isFood = kategoriId === 'kat-sb' || kategoriId === 'kat-6';
+
+    if (isFood && hasVariasiHarga) {
+      if (varianHarga1 <= 0 || varianHarga2 <= 0) {
+        setErrorMsg('Harga kedua variasi harus lebih dari Rp 0!');
+        return;
+      }
+    } else {
+      if (harga <= 0) {
+        setErrorMsg('Harga jual resmi harus lebih dari Rp 0!');
+        return;
+      }
     }
 
-    const isFood = kategoriId === 'kat-sb' || kategoriId === 'kat-6';
     if (!isFood && suhuMode === 'beda_harga_es' && hargaEs <= 0) {
       setErrorMsg('Varian Beda Harga Es dipilih! Masukkan nominal harga es yang valid.');
       return;
@@ -195,10 +224,17 @@ export default function EditMenuModal({
         kode: kode.trim().toUpperCase(),
         kategori_id: kategoriId,
         kategori_nama: selectedKat?.nama || 'Minuman Herbal',
-        harga: harga,
+        harga: (isFood && hasVariasiHarga) ? varianHarga1 : harga,
         harga_es: finalHargaEs,
-        hpp: hpp,
+        hpp: (isFood && hasVariasiHarga) ? varianHpp1 : hpp,
         hpp_es: finalHppEs,
+        has_variasi_harga: isFood ? hasVariasiHarga : false,
+        varian_nama_1: isFood && hasVariasiHarga ? (varianNama1.trim() || 'Reguler') : undefined,
+        varian_harga_1: isFood && hasVariasiHarga ? varianHarga1 : undefined,
+        varian_hpp_1: isFood && hasVariasiHarga ? varianHpp1 : undefined,
+        varian_nama_2: isFood && hasVariasiHarga ? (varianNama2.trim() || 'Jumbo') : undefined,
+        varian_harga_2: isFood && hasVariasiHarga ? varianHarga2 : undefined,
+        varian_hpp_2: isFood && hasVariasiHarga ? varianHpp2 : undefined,
         suhu_mode: finalSuhuMode,
         deskripsi: deskripsi.trim(),
         gambar: menu?.gambar || '',
@@ -224,6 +260,12 @@ export default function EditMenuModal({
   const isFoodOrSerabi = kategoriId === 'kat-sb' || kategoriId === 'kat-6';
   const labaKotorPanas = Math.max(0, harga - hpp);
   const grossMarginPanas = harga > 0 ? Math.round((labaKotorPanas / harga) * 100) : 0;
+
+  const labaVarian1 = Math.max(0, varianHarga1 - varianHpp1);
+  const grossMarginVarian1 = varianHarga1 > 0 ? Math.round((labaVarian1 / varianHarga1) * 100) : 0;
+
+  const labaVarian2 = Math.max(0, varianHarga2 - varianHpp2);
+  const grossMarginVarian2 = varianHarga2 > 0 ? Math.round((labaVarian2 / varianHarga2) * 100) : 0;
 
   const effectiveHppEs = hppEs > 0 ? hppEs : hpp;
   const labaKotorEs = Math.max(0, hargaEs - effectiveHppEs);
@@ -353,66 +395,234 @@ export default function EditMenuModal({
                 </div>
               </div>
 
-              {/* Card 2 & 3: Kondisional - Makanan/Serabi (Hanya Harga & HPP Standar) vs Minuman (Opsi Panas/Es & Beda Harga) */}
+              {/* Card 2 & 3: Kondisional - Makanan/Serabi (Bisa 1 Porsi atau 2 Variasi) vs Minuman (Opsi Panas/Es & Beda Harga) */}
               {isFoodOrSerabi ? (
                 <>
-                  {/* Card Harga Standar Tunggal untuk Makanan/Serabi (Tanpa Pengaturan Suhu) */}
-                  <div className="p-3 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-2.5">
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="font-bold text-slate-800 block mb-1 text-[10px] flex items-center justify-between">
-                          <span>Harga Jual Resmi:</span>
-                          <span className="text-[9px] text-emerald-700 font-mono font-bold">Pusat</span>
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
-                            Rp
-                          </span>
-                          <input
-                            type="text"
-                            value={harga === 0 ? '' : formatNominal(harga)}
-                            onChange={(e) => setHarga(parseNominal(e.target.value))}
-                            placeholder="15.000"
-                            className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="font-bold text-slate-800 block mb-1 text-[10px] flex items-center justify-between">
-                          <span>HPP Pokok Bahan:</span>
-                          <span className="text-[9px] text-amber-700 font-mono font-bold">Resep</span>
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
-                            Rp
-                          </span>
-                          <input
-                            type="text"
-                            value={hpp === 0 ? '' : formatNominal(hpp)}
-                            onChange={(e) => setHpp(parseNominal(e.target.value))}
-                            placeholder="4.800"
-                            className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-amber-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
-                          />
-                        </div>
-                      </div>
+                  {/* Selector Model Porsi & Harga Makanan / Serabi */}
+                  <div className="p-2.5 rounded-2xl bg-amber-50/70 border border-amber-200/90 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-amber-950 text-[11px] flex items-center space-x-1">
+                        <span>🏷️ Model Porsi &amp; Variasi Harga:</span>
+                      </span>
+                      <span className="text-[9px] text-amber-800 font-bold px-1.5 py-0.2 bg-amber-100 rounded-full">
+                        {kategoriId === 'kat-sb' ? '🥞 Serabi Bawel' : '🍲 Makanan & Camilan'}
+                      </span>
                     </div>
 
-                    {/* Live Margin Calculation Card */}
-                    <div className="p-2.5 bg-emerald-50/90 rounded-xl border border-emerald-200 text-xs flex items-center justify-between">
-                      <div>
-                        <span className="text-slate-600 text-[10px] block">Laba Kotor per Porsi:</span>
-                        <strong className="font-mono text-xs text-emerald-950 font-black">{formatRupiah(labaKotorPanas)}</strong>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-slate-600 text-[10px] block">Margin Keuntungan:</span>
-                        <span className="inline-block px-2 py-0.2 rounded-full bg-emerald-600 text-white font-mono font-black text-[10px] shadow-2xs">
-                          {grossMarginPanas}% Margin
-                        </span>
-                      </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setHasVariasiHarga(false)}
+                        className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                          !hasVariasiHarga
+                            ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs font-black'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-bold'
+                        }`}
+                      >
+                        <div className="text-[11px] flex items-center space-x-1">
+                          <span>🎯</span>
+                          <span>1 Porsi Standar</span>
+                        </div>
+                        <p className={`text-[9px] mt-0.5 ${!hasVariasiHarga ? 'text-emerald-100' : 'text-slate-400'}`}>
+                          Satu harga untuk semua kasir
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setHasVariasiHarga(true)}
+                        className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                          hasVariasiHarga
+                            ? 'bg-amber-600 text-white border-amber-700 shadow-2xs font-black'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-bold'
+                        }`}
+                      >
+                        <div className="text-[11px] flex items-center space-x-1">
+                          <span>📦</span>
+                          <span>Ada 2 Variasi (Reguler/Jumbo)</span>
+                        </div>
+                        <p className={`text-[9px] mt-0.5 ${hasVariasiHarga ? 'text-amber-100' : 'text-slate-400'}`}>
+                          Owner bebas tentukan nama &amp; harga
+                        </p>
+                      </button>
                     </div>
                   </div>
+
+                  {!hasVariasiHarga ? (
+                    /* Card Harga Standar Tunggal untuk Makanan/Serabi */
+                    <div className="p-3 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-2.5">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="font-bold text-slate-800 block mb-1 text-[10px] flex items-center justify-between">
+                            <span>Harga Jual Resmi:</span>
+                            <span className="text-[9px] text-emerald-700 font-mono font-bold">Pusat</span>
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
+                              Rp
+                            </span>
+                            <input
+                              type="text"
+                              value={harga === 0 ? '' : formatNominal(harga)}
+                              onChange={(e) => setHarga(parseNominal(e.target.value))}
+                              placeholder="15.000"
+                              className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="font-bold text-slate-800 block mb-1 text-[10px] flex items-center justify-between">
+                            <span>HPP Pokok Bahan:</span>
+                            <span className="text-[9px] text-amber-700 font-mono font-bold">Resep</span>
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
+                              Rp
+                            </span>
+                            <input
+                              type="text"
+                              value={hpp === 0 ? '' : formatNominal(hpp)}
+                              onChange={(e) => setHpp(parseNominal(e.target.value))}
+                              placeholder="4.800"
+                              className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-amber-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Live Margin Calculation Card */}
+                      <div className="p-2.5 bg-emerald-50/90 rounded-xl border border-emerald-200 text-xs flex items-center justify-between">
+                        <div>
+                          <span className="text-slate-600 text-[10px] block">Laba Kotor per Porsi:</span>
+                          <strong className="font-mono text-xs text-emerald-950 font-black">{formatRupiah(labaKotorPanas)}</strong>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-slate-600 text-[10px] block">Margin Keuntungan:</span>
+                          <span className="inline-block px-2 py-0.2 rounded-full bg-emerald-600 text-white font-mono font-black text-[10px] shadow-2xs">
+                            {grossMarginPanas}% Margin
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Card 2 Variasi Porsi: Owner Bebas Isi Nama Varian & Harga Jual/HPP */
+                    <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-300/80 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-black text-amber-950 text-[11px] flex items-center space-x-1">
+                          <span>💰 Atur 2 Variasi Porsi &amp; Harga</span>
+                        </span>
+                        <span className="text-[9px] text-amber-800 font-bold px-1.5 py-0.2 bg-amber-100 rounded-full">
+                          Kasir langsung 1-sentuh varian
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {/* Kolom Varian 1 */}
+                        <div className="p-2.5 bg-white rounded-xl border border-amber-200 space-y-2">
+                          <div>
+                            <label className="font-bold text-amber-900 block mb-1 text-[10px]">
+                              Nama Varian 1:
+                            </label>
+                            <input
+                              type="text"
+                              value={varianNama1}
+                              onChange={(e) => setVarianNama1(e.target.value)}
+                              placeholder="Reguler / Satuan"
+                              className="w-full px-2 py-1 bg-amber-50/30 rounded-lg border border-amber-300 font-extrabold text-xs text-slate-900 focus:outline-none focus:border-amber-600"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-0.5 text-[10px]">Harga Jual:</label>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">Rp</span>
+                              <input
+                                type="text"
+                                value={varianHarga1 === 0 ? '' : formatNominal(varianHarga1)}
+                                onChange={(e) => setVarianHarga1(parseNominal(e.target.value))}
+                                placeholder="15.000"
+                                className="w-full pl-8 pr-2 py-1 bg-amber-50/30 rounded-lg border border-amber-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-amber-600"
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-600 block mb-0.5 text-[9px]">HPP Bahan:</label>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-slate-400 text-[10px]">Rp</span>
+                              <input
+                                type="text"
+                                value={varianHpp1 === 0 ? '' : formatNominal(varianHpp1)}
+                                onChange={(e) => setVarianHpp1(parseNominal(e.target.value))}
+                                placeholder="4.800"
+                                className="w-full pl-7 pr-1.5 py-0.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-[10px] text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pt-1 border-t border-slate-100 flex items-center justify-between text-[9px]">
+                            <span className="text-slate-500">Margin:</span>
+                            <strong className="font-mono text-emerald-700 font-bold">{grossMarginVarian1}% ({formatRupiah(labaVarian1)})</strong>
+                          </div>
+                        </div>
+
+                        {/* Kolom Varian 2 */}
+                        <div className="p-2.5 bg-white rounded-xl border border-purple-300 space-y-2">
+                          <div>
+                            <label className="font-bold text-purple-900 block mb-1 text-[10px]">
+                              Nama Varian 2:
+                            </label>
+                            <input
+                              type="text"
+                              value={varianNama2}
+                              onChange={(e) => setVarianNama2(e.target.value)}
+                              placeholder="Jumbo / Box Isi 5"
+                              className="w-full px-2 py-1 bg-purple-50/30 rounded-lg border border-purple-300 font-extrabold text-xs text-purple-950 focus:outline-none focus:border-purple-600"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-0.5 text-[10px]">Harga Jual:</label>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">Rp</span>
+                              <input
+                                type="text"
+                                value={varianHarga2 === 0 ? '' : formatNominal(varianHarga2)}
+                                onChange={(e) => setVarianHarga2(parseNominal(e.target.value))}
+                                placeholder="25.000"
+                                className="w-full pl-8 pr-2 py-1 bg-purple-50/30 rounded-lg border border-purple-300 font-mono font-black text-xs text-purple-950 focus:outline-none focus:border-purple-600"
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-600 block mb-0.5 text-[9px]">HPP Bahan:</label>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-slate-400 text-[10px]">Rp</span>
+                              <input
+                                type="text"
+                                value={varianHpp2 === 0 ? '' : formatNominal(varianHpp2)}
+                                onChange={(e) => setVarianHpp2(parseNominal(e.target.value))}
+                                placeholder="7.500"
+                                className="w-full pl-7 pr-1.5 py-0.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-[10px] text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pt-1 border-t border-slate-100 flex items-center justify-between text-[9px]">
+                            <span className="text-slate-500">Margin:</span>
+                            <strong className="font-mono text-purple-800 font-bold">{grossMarginVarian2}% ({formatRupiah(labaVarian2)})</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <>

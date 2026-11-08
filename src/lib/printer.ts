@@ -301,7 +301,10 @@ class BluetoothPrinterService {
     // Items
     for (const item of transaksi.items) {
       builder.bold(true);
-      builder.text(item.nama_menu);
+      const itemTitle = item.varian_nama 
+        ? `${item.nama_menu} (${item.varian_nama})`
+        : (item.temperature === 'dingin' ? `${item.nama_menu} (ES)` : item.nama_menu);
+      builder.text(itemTitle);
       builder.newLine();
       builder.bold(false);
       if (item.catatan) {
@@ -521,7 +524,10 @@ class BluetoothPrinterService {
     for (const item of stationItems) {
       totalPorsi += item.qty;
       builder.bold(true).size(false, true); // Double height agar jelas
-      builder.text(`${item.qty}x  ${item.nama_menu}`);
+      const itemTitle = item.varian_nama
+        ? `${item.nama_menu} [${item.varian_nama.toUpperCase()}]`
+        : (item.temperature === 'dingin' ? `${item.nama_menu} [ES]` : item.nama_menu);
+      builder.text(`${item.qty}x  ${itemTitle}`);
       builder.newLine();
       builder.size(false, false).bold(false);
       if (item.catatan) {

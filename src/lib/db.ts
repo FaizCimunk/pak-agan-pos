@@ -414,6 +414,13 @@ export class PosDatabase {
           hpp: Number(item.hpp) !== undefined && !isNaN(Number(item.hpp)) ? Number(item.hpp) : (current[index].hpp || Math.round((Number(item.harga) || 15000) * 0.32)),
           hpp_es: item.hpp_es !== undefined ? (item.hpp_es ? Number(item.hpp_es) : undefined) : current[index].hpp_es,
           suhu_mode: item.suhu_mode !== undefined ? item.suhu_mode : current[index].suhu_mode,
+          has_variasi_harga: item.has_variasi_harga !== undefined ? item.has_variasi_harga : current[index].has_variasi_harga,
+          varian_nama_1: item.varian_nama_1 !== undefined ? item.varian_nama_1 : current[index].varian_nama_1,
+          varian_harga_1: item.varian_harga_1 !== undefined ? item.varian_harga_1 : current[index].varian_harga_1,
+          varian_hpp_1: item.varian_hpp_1 !== undefined ? item.varian_hpp_1 : current[index].varian_hpp_1,
+          varian_nama_2: item.varian_nama_2 !== undefined ? item.varian_nama_2 : current[index].varian_nama_2,
+          varian_harga_2: item.varian_harga_2 !== undefined ? item.varian_harga_2 : current[index].varian_harga_2,
+          varian_hpp_2: item.varian_hpp_2 !== undefined ? item.varian_hpp_2 : current[index].varian_hpp_2,
         };
         current[index] = savedItem;
       } else {
@@ -433,6 +440,13 @@ export class PosDatabase {
         hpp: Number(item.hpp) || Math.round((Number(item.harga) || 15000) * 0.32),
         hpp_es: item.hpp_es ? Number(item.hpp_es) : undefined,
         suhu_mode: item.suhu_mode,
+        has_variasi_harga: item.has_variasi_harga,
+        varian_nama_1: item.varian_nama_1,
+        varian_harga_1: item.varian_harga_1,
+        varian_hpp_1: item.varian_hpp_1,
+        varian_nama_2: item.varian_nama_2,
+        varian_harga_2: item.varian_harga_2,
+        varian_hpp_2: item.varian_hpp_2,
         gambar: item.gambar || 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&q=80',
         is_favorite: !!item.is_favorite,
         is_active: item.is_active ?? true,

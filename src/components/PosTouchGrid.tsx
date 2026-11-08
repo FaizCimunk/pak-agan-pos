@@ -21,7 +21,7 @@ import { getItemKitchenStation } from '@/lib/printer';
 interface PosTouchGridProps {
   menuList: MenuItem[];
   kategoriList?: KategoriMenu[];
-  onAddToCart: (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number) => void;
+  onAddToCart: (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number, varianNama?: string) => void;
   cart?: CartItem[];
 }
 
@@ -81,9 +81,9 @@ export default function PosTouchGrid({
     return found.reduce((sum, ci) => sum + ci.qty, 0);
   };
 
-  const handleItemClick = (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number) => {
+  const handleItemClick = (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number, varianNama?: string) => {
     setTappedItemId(item.id);
-    onAddToCart(item, temp, customHarga);
+    onAddToCart(item, temp, customHarga, varianNama);
     setTimeout(() => {
       setTappedItemId(null);
     }, 200);
@@ -229,13 +229,16 @@ export default function PosTouchGrid({
               const hasDiffIce = isDrink && item.suhu_mode === 'beda_harga_es' && !!item.harga_es && item.harga_es > 0;
               const isKhususPanas = isDrink && item.suhu_mode === 'khusus_panas';
               const isKhususEs = isDrink && item.suhu_mode === 'khusus_es';
+              const hasFoodVariations = !isDrink && !!item.has_variasi_harga && !!item.varian_harga_1 && !!item.varian_harga_2;
 
               return (
                 <div
                   key={item.id}
                   onClick={() => {
-                    // Tap on card body: if food or simple drink, add directly
-                    if (!hasDiffIce && !isKhususEs) {
+                    // Tap on card body: if food variation, add varian 1; if simple drink, add directly
+                    if (hasFoodVariations) {
+                      handleItemClick(item, undefined, item.varian_harga_1, item.varian_nama_1 || 'Reguler');
+                    } else if (!hasDiffIce && !isKhususEs) {
                       handleItemClick(item, isKhususPanas ? 'panas' : undefined, item.harga);
                     } else if (isKhususEs) {
                       handleItemClick(item, 'dingin', item.harga_es || item.harga);
@@ -287,10 +290,47 @@ export default function PosTouchGrid({
                     </h3>
                   </div>
 
-                  {/* Footer Row: Sesuai Karakter Suhu (Makanan = Standar; Minuman = Pilihan Cepat Panas/Es) */}
+                  {/* Footer Row: Sesuai Karakter Suhu & Variasi Porsi */}
                   <div className="pt-1.5 mt-1 border-t border-slate-100">
-                    {/* KASUS 1: MINUMAN DENGAN BEDA HARGA ES (2 Tombol Cepat) */}
-                    {hasDiffIce ? (
+                    {/* KASUS 1: MAKANAN / SERABI DENGAN 2 VARIASI PORSI (Owner Bebas Tentukan Nama & Harga) */}
+                    {hasFoodVariations ? (
+                      <div className="grid grid-cols-2 gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleItemClick(item, undefined, item.varian_harga_1, item.varian_nama_1 || 'Reguler');
+                          }}
+                          className="py-1 px-1 rounded-xl bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-950 border border-amber-300 transition-all text-center cursor-pointer shadow-2xs active:scale-95"
+                          title={`Tambah ${item.varian_nama_1 || 'Reguler'}`}
+                        >
+                          <span className="block text-[8px] font-extrabold text-amber-800 group-hover:text-white uppercase leading-none truncate">
+                            🏷️ {item.varian_nama_1 || 'Reguler'}
+                          </span>
+                          <span className="font-mono font-black text-[10px] sm:text-[11px] leading-tight block mt-0.5">
+                            {formatRupiah(item.varian_harga_1!)}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleItemClick(item, undefined, item.varian_harga_2, item.varian_nama_2 || 'Jumbo');
+                          }}
+                          className="py-1 px-1 rounded-xl bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-950 border border-purple-300 transition-all text-center cursor-pointer shadow-2xs active:scale-95"
+                          title={`Tambah ${item.varian_nama_2 || 'Jumbo'}`}
+                        >
+                          <span className="block text-[8px] font-extrabold text-purple-800 group-hover:text-white uppercase leading-none truncate">
+                            ✨ {item.varian_nama_2 || 'Jumbo'}
+                          </span>
+                          <span className="font-mono font-black text-[10px] sm:text-[11px] leading-tight block mt-0.5">
+                            {formatRupiah(item.varian_harga_2!)}
+                          </span>
+                        </button>
+                      </div>
+                    ) : hasDiffIce ? (
+                      /* KASUS 2: MINUMAN DENGAN BEDA HARGA ES (2 Tombol Cepat) */
                       <div className="grid grid-cols-2 gap-1">
                         <button
                           type="button"

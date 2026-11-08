@@ -90,6 +90,14 @@ export interface MenuItem {
   hpp?: number; // Biaya Bahan Baku / HPP per porsi (Tepung, Durian, Rempah, Cup, dll)
   hpp_es?: number; // HPP khusus varian Es jika berbeda
   suhu_mode?: 'bisa_keduanya' | 'beda_harga_es' | 'khusus_panas' | 'khusus_es'; // Karakter Suhu Minuman
+  // Variasi Harga / Porsi Kustom untuk Makanan, Serabi, atau Minuman (misal: Reguler vs Jumbo / Box)
+  has_variasi_harga?: boolean;
+  varian_nama_1?: string; // misal: "Reguler" / "Isi 2" / "Panas"
+  varian_harga_1?: number;
+  varian_hpp_1?: number;
+  varian_nama_2?: string; // misal: "Jumbo" / "Box Isi 5" / "Es Dingin"
+  varian_harga_2?: number;
+  varian_hpp_2?: number;
   gambar: string;
   is_favorite: boolean;
   is_active: boolean;
@@ -134,6 +142,7 @@ export interface TransaksiItem {
   subtotal: number;
   catatan?: string;
   temperature?: 'panas' | 'dingin'; // Varian Panas / Dingin (Es)
+  varian_nama?: string; // Nama varian porsi (misal: "Jumbo", "Box Isi 5", "Es Dingin")
 }
 
 export interface Transaksi {
@@ -166,7 +175,8 @@ export interface CartItem {
   qty: number;
   catatan: string;
   temperature?: 'panas' | 'dingin'; // Varian Panas / Dingin (Es)
-  custom_harga?: number; // Harga varian khusus (misal harga_es)
+  custom_harga?: number; // Harga varian khusus (misal harga_es atau varian_harga_2)
+  varian_nama?: string; // Nama varian porsi (misal: "Jumbo", "Box Isi 5", "Es Dingin")
 }
 
 export type PengeluaranJenis = 'belanja' | 'kasbon';

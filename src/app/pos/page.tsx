@@ -250,7 +250,7 @@ export default function PosPage() {
   };
 
   // Cart Management
-  const handleAddToCart = (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number) => {
+  const handleAddToCart = (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number, varianNama?: string) => {
     const isDrink = getItemKitchenStation(item) === 'wedang';
     const finalTemp = isDrink ? (temp || (item.suhu_mode === 'khusus_es' ? 'dingin' : 'panas')) : undefined;
     const finalUnitPrice = customHarga || (finalTemp === 'dingin' && item.harga_es ? item.harga_es : item.harga);
@@ -259,6 +259,7 @@ export default function PosPage() {
       const existingIndex = prev.findIndex(ci => 
         ci.menu.id === item.id && 
         ci.temperature === finalTemp && 
+        ci.varian_nama === varianNama &&
         getCartItemUnitPrice(ci) === finalUnitPrice &&
         !ci.catatan
       );
@@ -275,6 +276,7 @@ export default function PosPage() {
         catatan: '',
         temperature: finalTemp,
         custom_harga: finalUnitPrice,
+        varian_nama: varianNama,
       }];
     });
   };
@@ -355,6 +357,7 @@ export default function PosPage() {
             subtotal: unitPrice * it.qty,
             catatan: it.catatan,
             temperature: it.temperature,
+            varian_nama: it.varian_nama,
           };
         }),
       };
@@ -414,6 +417,7 @@ export default function PosPage() {
           subtotal: unitPrice * it.qty,
           catatan: it.catatan,
           temperature: it.temperature,
+          varian_nama: it.varian_nama,
         };
       }),
     };
@@ -459,6 +463,7 @@ export default function PosPage() {
         catatan: it.catatan || '',
         temperature: it.temperature,
         custom_harga: it.harga,
+        varian_nama: it.varian_nama,
       };
     });
 
@@ -547,6 +552,7 @@ export default function PosPage() {
             subtotal: unitPrice * it.qty,
             catatan: it.catatan,
             temperature: it.temperature,
+            varian_nama: it.varian_nama,
           };
         }),
       };

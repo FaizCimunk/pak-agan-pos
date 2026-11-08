@@ -276,6 +276,11 @@ export default function PosCartDrawer({
                           {item.temperature === 'dingin' ? '🧊 Es' : '🔥 Panas'}
                         </button>
                       )}
+                      {item.varian_nama && (
+                        <span className="inline-flex items-center px-1.5 py-0.2 rounded-md font-extrabold text-[9px] shrink-0 bg-purple-100 text-purple-900 border border-purple-200">
+                          🏷️ {item.varian_nama}
+                        </span>
+                      )}
                       <h4 className="font-extrabold text-xs text-slate-900 leading-snug">
                         {item.menu.nama}
                       </h4>
