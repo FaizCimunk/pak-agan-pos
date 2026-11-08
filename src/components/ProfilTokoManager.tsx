@@ -232,8 +232,11 @@ export default function ProfilTokoManager({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="space-y-1 sm:col-span-2">
-                <label className="font-extrabold text-slate-700 block">
-                  Nama Resmi Cabang Outlet:
+                <label className="font-extrabold text-slate-700 block flex items-center justify-between">
+                  <span>Nama Resmi Cabang Outlet:</span>
+                  <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    Bebas Diubah Kapan Saja
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -244,22 +247,33 @@ export default function ProfilTokoManager({
                   required
                 />
                 <p className="text-[10px] text-slate-400">
-                  *Nama ini tercetak di struk kasir, header tablet POS, dan slip laporan.
+                  *Nama ini tercetak di struk kasir, header tablet POS, dan slip laporan. Bebas diganti kapan pun tanpa merusak riwayat transaksi/staf.
                 </p>
               </div>
 
               <div className="space-y-1">
-                <label className="font-extrabold text-slate-700 block">
-                  Kode Singkatan Cabang:
+                <label className="font-extrabold text-slate-700 block flex items-center justify-between">
+                  <span>Kode Paten Cabang:</span>
+                  <span className="text-[10px] font-mono font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 flex items-center space-x-1">
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>Kunci Paten Sistem</span>
+                  </span>
                 </label>
-                <input
-                  type="text"
-                  value={kode}
-                  onChange={(e) => setKode(e.target.value.toUpperCase())}
-                  placeholder="CBG-01"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white text-xs uppercase"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={kode}
+                    readOnly
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl font-mono font-black text-slate-700 text-xs uppercase cursor-not-allowed select-none shadow-inner"
+                    title="Kode Paten ini dikunci permanen agar relasi keuangan, mutasi kas, staf, dan struk tidak pernah error/bug."
+                  />
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                    ID #{activeCabang?.nomor || 1}
+                  </div>
+                </div>
+                <p className="text-[10px] text-emerald-800 font-medium">
+                  🔒 Kunci utama database. Relasi keuangan, staf &amp; laporan tetap paten pada cabang ini meskipun namanya diubah.
+                </p>
               </div>
 
               <div className="space-y-1">
