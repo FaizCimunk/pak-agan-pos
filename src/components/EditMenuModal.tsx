@@ -353,25 +353,10 @@ export default function EditMenuModal({
                 </div>
               </div>
 
-              {/* Card 2 & 3: Kondisional - Makanan/Serabi (Tanpa Suhu) vs Minuman (Opsi Panas/Es & Beda Harga) */}
+              {/* Card 2 & 3: Kondisional - Makanan/Serabi (Hanya Harga & HPP Standar) vs Minuman (Opsi Panas/Es & Beda Harga) */}
               {isFoodOrSerabi ? (
                 <>
-                  {/* Banner Makanan & Camilan / Serabi Siap Saji */}
-                  <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/90 flex items-center space-x-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 font-bold text-base shadow-2xs">
-                      {kategoriId === 'kat-sb' ? '🥞' : '🍲'}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h5 className="font-extrabold text-amber-950 text-xs">
-                        {kategoriId === 'kat-sb' ? 'Kategori Serabi Bawel (Tungku Tanah Liat)' : 'Kategori Makanan & Camilan Dapur'}
-                      </h5>
-                      <p className="text-[10px] text-amber-900/80 leading-snug">
-                        Menu makanan disajikan standar hangat langsung dari dapur masak. Pilihan es / panas otomatis <strong>dinonaktifkan</strong> agar kasir tidak bingung.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Card Harga Standar Tunggal untuk Makanan/Serabi */}
+                  {/* Card Harga Standar Tunggal untuk Makanan/Serabi (Tanpa Pengaturan Suhu) */}
                   <div className="p-3 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-2.5">
                     <div className="grid grid-cols-2 gap-2.5">
                       <div>
