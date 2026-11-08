@@ -45,11 +45,7 @@ export default function PayrollSlipModal({
   const [showPayoutModal, setShowPayoutModal] = useState<boolean>(false);
   const [showLoanModal, setShowLoanModal] = useState<boolean>(false);
 
-  const bulanNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
-  const periodeStr = `Bulan ${bulanNames[currentPayroll.periode_bulan - 1] || 'Oktober'} ${currentPayroll.periode_tahun}`;
+  const periodeStr = currentPayroll.periode_tanggal || `Periode Mingguan ${currentPayroll.periode_tahun}`;
 
   // Filter Worker Attendances
   const workerAttendances = absensiList.filter(a => a.karyawan_id === currentPayroll.karyawan_id);
@@ -570,7 +566,7 @@ export default function PayrollSlipModal({
 
                   <div className="text-right space-y-0.5">
                     <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 text-[10px] font-extrabold inline-block">
-                      {currentPayroll.status === 'paid' ? '✓ DITRANSFER / LUNAS' : 'DRAFT BULANAN'}
+                      {currentPayroll.status === 'paid' ? '✓ DITRANSFER / LUNAS' : 'DRAFT MINGGUAN'}
                     </span>
                     <div className="font-mono text-[10px] text-slate-600 font-bold">
                       {currentPayroll.slip_no}

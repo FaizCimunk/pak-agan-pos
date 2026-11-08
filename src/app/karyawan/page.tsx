@@ -127,9 +127,9 @@ export default function KaryawanPortalPage() {
   const tabunganMingguan = currentUser.tabungan_rutin_mingguan !== undefined ? currentUser.tabungan_rutin_mingguan : 200000;
   const totalTabungan = currentUser.total_tabungan || 0;
 
-  // Proyeksi Gaji Mingguan & Sebulan Penuh Tanpa Bon
+  // Proyeksi Gaji Mingguan (6 Hari Kerja)
   const estimasiMingguan6Hari = upahHarian * 6;
-  const akumulasiSebulan26Hari = upahHarian * 26;
+  const estimasiBersihMingguan = Math.max(0, estimasiMingguan6Hari - tabunganMingguan);
   
   // Utang / Kasbon yang disetujui pusat dan belum lunas
   const utangNominal = currentUser.utang_nominal !== undefined 
@@ -248,9 +248,9 @@ export default function KaryawanPortalPage() {
             </div>
 
             <div className="p-1">
-              <span className="text-[9px] text-amber-300 block uppercase font-bold">Sebulan Tanpa Bon:</span>
-              <span className="font-mono font-bold text-amber-300 text-xs">{formatRupiah(akumulasiSebulan26Hari)}</span>
-              <span className="text-[9px] text-slate-400 block">26 hari kerja</span>
+              <span className="text-[9px] text-amber-300 block uppercase font-bold">Bersih Mingguan:</span>
+              <span className="font-mono font-bold text-amber-300 text-xs">{formatRupiah(estimasiBersihMingguan)}</span>
+              <span className="text-[9px] text-slate-400 block">siap ambil per minggu</span>
             </div>
 
             <div className="p-1 bg-emerald-950/60 rounded-xl px-2 border border-emerald-700/50">

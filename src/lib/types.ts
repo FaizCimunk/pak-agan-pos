@@ -216,6 +216,7 @@ export interface Payroll {
   cabang_id: string;
   cabang_nama?: string;
   slip_no: string;
+  periode_tanggal?: string; // Rentang periode mingguan (contoh: 03 Nov 2026 s.d. 09 Nov 2026)
   periode_bulan: number;
   periode_tahun: number;
   tipe_gaji?: 'bulanan' | 'harian';
