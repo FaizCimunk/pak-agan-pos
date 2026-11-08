@@ -380,7 +380,9 @@ export default function DailyBranchReportModal({
                 className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[170px] truncate"
               >
                 {cabangList.map(c => (
-                  <option key={c.id} value={c.id}>{c.nama}</option>
+                  <option key={c.id} value={c.id}>
+                    #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
+                  </option>
                 ))}
               </select>
             </div>

@@ -491,7 +491,7 @@ export default function MutasiPenjualanStatement({
                 <option value="all">Semua Cabang (10 Toko)</option>
                 {cabangList.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
+                    #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
                   </option>
                 ))}
               </select>

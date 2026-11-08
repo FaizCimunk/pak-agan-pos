@@ -700,7 +700,7 @@ export default function BranchPnlStatement({
                 <option value="all">Konsolidasi Seluruh 10 Cabang</option>
                 {cabangList.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.kode} - {c.nama}
+                    #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
                   </option>
                 ))}
               </select>

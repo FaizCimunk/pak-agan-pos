@@ -196,7 +196,7 @@ export default function CreateKirimanBahanModal({
             >
               {cabangList.map(c => (
                 <option key={c.id} value={c.id}>
-                  {c.kode} - {c.nama} ({c.kota})
+                  #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama} ({c.kota})
                 </option>
               ))}
             </select>

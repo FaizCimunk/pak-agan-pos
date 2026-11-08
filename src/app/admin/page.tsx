@@ -1743,9 +1743,11 @@ export default function AdminDashboardPage() {
                     onChange={(e) => setApprovalCabangFilter(e.target.value)}
                     className="bg-slate-50 border border-slate-200 font-bold text-slate-800 px-3 py-1.5 rounded-xl outline-none cursor-pointer max-w-[160px] truncate"
                   >
-                    <option value="all">🏢 Semua Cabang</option>
+                    <option value="all">🏢 Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
                     {cabangList.map(c => (
-                      <option key={c.id} value={c.id}>{c.nama}</option>
+                      <option key={c.id} value={c.id}>
+                        #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
+                      </option>
                     ))}
                   </select>
 
@@ -2076,7 +2078,9 @@ export default function AdminDashboardPage() {
                     >
                       <option value="all">🏢 Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
                       {cabangList.map(c => (
-                        <option key={c.id} value={c.id}>{c.nama}</option>
+                        <option key={c.id} value={c.id}>
+                          #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -3213,7 +3217,9 @@ export default function AdminDashboardPage() {
                   >
                     <option value="all">🏢 Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
                     {cabangList.map(c => (
-                      <option key={c.id} value={c.id}>{c.nama}</option>
+                      <option key={c.id} value={c.id}>
+                        #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
+                      </option>
                     ))}
                   </select>
                 </div>

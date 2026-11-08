@@ -190,7 +190,7 @@ export default function CreateExpenseModal({
               >
                 {cabangList.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.nama} ({c.kode})
+                    #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
                   </option>
                 ))}
               </select>
