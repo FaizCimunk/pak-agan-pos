@@ -25,6 +25,7 @@ interface PosCartDrawerProps {
   isEditingOpenBill?: boolean;
   editingBillInvoice?: string;
   onCancelEditOpenBill?: () => void;
+  onCloseMobile?: () => void;
 }
 
 export const getCartItemUnitPrice = (it: CartItem): number => {
@@ -48,6 +49,7 @@ export default function PosCartDrawer({
   isEditingOpenBill = false,
   editingBillInvoice,
   onCancelEditOpenBill,
+  onCloseMobile,
 }: PosCartDrawerProps) {
   const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
   const [tempNote, setTempNote] = useState<string>('');
@@ -71,7 +73,22 @@ export default function PosCartDrawer({
     const current = items[index]?.catatan?.trim() || '';
     if (!current) {
       onUpdateNotes(index, tag);
-    } else if (!current.toLowerCase().includes(tag.toLowerCase())) {
+      return;
+    }
+
+    // Mutual exclusive pairs: Bungkus vs Makan Sini
+    if (tag === 'Bungkus' && current.toLowerCase().includes('makan sini')) {
+      const replaced = current.replace(/makan sini/gi, 'Bungkus').replace(/,\s*,/g, ', ').trim();
+      onUpdateNotes(index, replaced);
+      return;
+    }
+    if (tag === 'Makan Sini' && current.toLowerCase().includes('bungkus')) {
+      const replaced = current.replace(/bungkus/gi, 'Makan Sini').replace(/,\s*,/g, ', ').trim();
+      onUpdateNotes(index, replaced);
+      return;
+    }
+
+    if (!current.toLowerCase().includes(tag.toLowerCase())) {
       onUpdateNotes(index, `${current}, ${tag}`);
     } else {
       // Toggle off if clicked again
@@ -104,126 +121,77 @@ export default function PosCartDrawer({
       )}
 
       {/* Drawer Header */}
-      <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-600/10 text-emerald-800 flex items-center justify-center">
-            <ShoppingBag className="w-4 h-4" />
+      <div className="p-3 sm:p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
+        <div className="flex items-center space-x-2 min-w-0">
+          <div className="w-7 h-7 rounded-lg bg-emerald-600/10 text-emerald-800 flex items-center justify-center shrink-0">
+            <ShoppingBag className="w-3.5 h-3.5" />
           </div>
-          <div>
-            <h2 className="font-extrabold text-slate-800 text-sm">Pesanan Kasir</h2>
-            <span className="text-[11px] text-slate-500 font-medium">
+          <div className="min-w-0">
+            <h2 className="font-extrabold text-slate-800 text-xs sm:text-sm truncate">Pesanan Kasir</h2>
+            <span className="text-[10px] text-slate-500 font-medium truncate block">
               {totalQty} item pesanan terpilih
             </span>
           </div>
         </div>
 
-        {items.length > 0 && (
-          <button
-            onClick={onClearCart}
-            className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center space-x-1 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors"
-            title="Kosongkan Keranjang"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Reset</span>
-          </button>
-        )}
+        <div className="flex items-center space-x-1.5 shrink-0">
+          {items.length > 0 && (
+            <button
+              onClick={onClearCart}
+              className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center space-x-1 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors"
+              title="Kosongkan Keranjang"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>Reset</span>
+            </button>
+          )}
+
+          {onCloseMobile && (
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="lg:hidden p-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors"
+              title="Tutup Keranjang"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Tipe Layanan (Makan Di Sini vs Bungkus) & Penanda Pesanan */}
-      {(() => {
-        const isBungkus = (penanda || '').toLowerCase().includes('bungkus') || 
-                          (penanda || '').toLowerCase().includes('take away') || 
-                          (penanda || '').toLowerCase().includes('takeaway') || 
-                          (penanda || '').toLowerCase().includes('bawa');
-        return (
-          <div className="px-4 py-2.5 bg-slate-50/90 border-b border-slate-200/80 space-y-2">
-            {/* Toggle 2 Mode Utama: Makan Di Sini vs Bungkus */}
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-200/70 rounded-xl">
-              <button
-                type="button"
-                onClick={() => {
-                  if (isBungkus) {
-                    onPenandaChange('No. 01');
-                  }
-                }}
-                className={`py-1.5 px-2 rounded-lg font-extrabold text-[11px] flex items-center justify-center space-x-1.5 transition-all ${
-                  !isBungkus
-                    ? 'bg-emerald-700 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <span>🍽️</span>
-                <span>Makan Di Sini</span>
-              </button>
+      {/* Sleek Compact Penanda / Nomor Meja Bar (Hemat Tempat, Kasir Leluasa Scroll) */}
+      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200/80 flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center space-x-1 shrink-0 text-slate-500">
+          <Tag className="w-3 h-3 text-amber-600" />
+          <span className="text-[10px] font-black uppercase tracking-tight">Meja:</span>
+        </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isBungkus) {
-                    onPenandaChange('Bungkus #01');
-                  }
-                }}
-                className={`py-1.5 px-2 rounded-lg font-extrabold text-[11px] flex items-center justify-center space-x-1.5 transition-all ${
-                  isBungkus
-                    ? 'bg-amber-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <span>🛍️</span>
-                <span>Bungkus / Take Away</span>
-              </button>
-            </div>
+        <input
+          type="text"
+          value={penanda}
+          onChange={(e) => onPenandaChange(e.target.value)}
+          placeholder="No. 01 / Meja Depan / Nama..."
+          className="flex-1 min-w-0 px-2 py-0.5 bg-white rounded-lg border border-slate-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
+        />
 
-            {/* Input Penanda & Tombol Cepat */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-500 flex items-center space-x-1">
-                  <Tag className="w-3 h-3 text-amber-600" />
-                  <span>{isBungkus ? 'Penanda Bungkus:' : 'Nomor Meja / Nama:'}</span>
-                </span>
-                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
-                  isBungkus ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                }`}>
-                  {isBungkus ? '🛍️ Bawa Pulang' : '🍽️ Santap Di Toko'}
-                </span>
-              </div>
-
-              <input
-                type="text"
-                value={penanda}
-                onChange={(e) => onPenandaChange(e.target.value)}
-                placeholder={isBungkus ? "Contoh: Bungkus #01 / Kak Rina..." : "Contoh: No. 01 / Meja Depan..."}
-                className={`w-full px-3 py-1.5 bg-white rounded-xl border text-xs font-black focus:outline-none focus:ring-2 transition-all font-mono placeholder:font-normal placeholder:text-slate-400 ${
-                  isBungkus 
-                    ? 'text-amber-950 border-amber-300 focus:ring-amber-500/30 focus:border-amber-500' 
-                    : 'text-emerald-950 border-emerald-300 focus:ring-emerald-500/30 focus:border-emerald-600'
-                }`}
-              />
-            </div>
-
-            {/* Quick Tag Pills sesuai mode */}
-            <div className="flex items-center space-x-1.5 overflow-x-auto pb-0.5 no-scrollbar text-[10px]">
-              {(isBungkus 
-                ? ['Bungkus #01', 'Bungkus #02', 'Bungkus #03', 'Bungkus #04', 'Bungkus #05', 'Ambil Nanti'] 
-                : ['No. 01', 'No. 02', 'No. 03', 'No. 04', 'No. 05', 'No. 06', 'No. 07', 'No. 08']
-              ).map(tag => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => onPenandaChange(tag)}
-                  className={`px-2 py-0.5 rounded-lg font-mono font-bold shrink-0 transition-colors ${
-                    penanda === tag 
-                      ? (isBungkus ? 'bg-amber-600 text-white shadow-2xs' : 'bg-emerald-700 text-white shadow-2xs')
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
+        {/* Quick Numbers */}
+        <div className="flex items-center space-x-1 shrink-0 overflow-x-auto no-scrollbar max-w-[130px] sm:max-w-none">
+          {['01', '02', '03', '04', '05', '06', '07', '08'].map(num => (
+            <button
+              key={num}
+              type="button"
+              onClick={() => onPenandaChange(`No. ${num}`)}
+              className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 transition-colors ${
+                penanda === `No. ${num}`
+                  ? 'bg-emerald-700 text-white shadow-2xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {num}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Cart Items List */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2.5">
@@ -244,14 +212,14 @@ export default function PosCartDrawer({
             const unitPrice = getCartItemUnitPrice(item);
             const lineSubtotal = unitPrice * item.qty;
 
-            // Kategori-specific Quick Notes: Makanan & Serabi TIDAK BOLEH ADA 'Es' / 'Panas'
+            // Kategori-specific Quick Notes: Tanpa Es/Panas (sudah di kartu), fokus ke Bungkus, Makan Sini, & Rasa
             let quickTags: string[] = [];
             if (station === 'wedang') {
-              quickTags = ['Es', 'Panas', 'Bungkus', 'Sedikit Manis', 'Tanpa Es', 'Pisah Gula'];
+              quickTags = ['Bungkus', 'Makan Sini', 'Sedikit Manis', 'Tanpa Gula', 'Pisah Gula', 'Tanpa Es'];
             } else if (station === 'serabi') {
-              quickTags = ['Bungkus', 'Gula Sedikit', 'Matang Kering', 'Hangat', 'Kuah Pisah'];
+              quickTags = ['Bungkus', 'Makan Sini', 'Gula Sedikit', 'Matang Kering', 'Hangat', 'Kuah Pisah'];
             } else {
-              quickTags = ['Bungkus', 'Pisah Sambal', 'Goreng Kering', 'Hangat', 'Pedas Sedang'];
+              quickTags = ['Bungkus', 'Makan Sini', 'Pisah Sambal', 'Goreng Kering', 'Hangat', 'Pedas Sedang'];
             }
 
             return (

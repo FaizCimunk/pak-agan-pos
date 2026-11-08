@@ -703,50 +703,37 @@ export default function PosPage() {
 
       {/* Mobile Cart Bottom Sheet Modal */}
       {isMobileCartOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fadeIn p-0 sm:p-4">
-          <div className="w-full max-w-md h-[88vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
-                <ShoppingBag className="w-4 h-4 text-brand-primary" />
-                <span>Keranjang Pesanan Pelanggan</span>
-              </span>
-              <button
-                onClick={() => setIsMobileCartOpen(false)}
-                className="w-7 h-7 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center text-xs font-bold"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden p-2">
-              <PosCartDrawer
-                items={cart}
-                customerName={customerName}
-                onCustomerNameChange={setCustomerName}
-                penanda={penanda}
-                onPenandaChange={setPenanda}
-                onUpdateQty={handleUpdateQty}
-                onUpdateNotes={handleUpdateNotes}
-                onToggleTemperature={handleToggleTemperature}
-                onRemoveItem={handleRemoveItem}
-                onClearCart={handleClearCart}
-                onCheckout={() => {
-                  setIsMobileCartOpen(false);
-                  handleCheckoutClick();
-                }}
-                onSaveOpenBill={() => {
-                  setIsMobileCartOpen(false);
-                  handleSaveOpenBill();
-                }}
-                isShiftOpen={!!activeShift}
-                isEditingOpenBill={!!editingBill}
-                editingBillInvoice={editingBill?.invoice_no}
-                onCancelEditOpenBill={() => {
-                  setEditingBill(null);
-                  setCart([]);
-                  setIsMobileCartOpen(false);
-                }}
-              />
-            </div>
+        <div className="lg:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fadeIn p-0 sm:p-3">
+          <div className="w-full max-w-md h-[95vh] sm:h-[92vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col p-1 sm:p-2">
+            <PosCartDrawer
+              items={cart}
+              customerName={customerName}
+              onCustomerNameChange={setCustomerName}
+              penanda={penanda}
+              onPenandaChange={setPenanda}
+              onUpdateQty={handleUpdateQty}
+              onUpdateNotes={handleUpdateNotes}
+              onToggleTemperature={handleToggleTemperature}
+              onRemoveItem={handleRemoveItem}
+              onClearCart={handleClearCart}
+              onCheckout={() => {
+                setIsMobileCartOpen(false);
+                handleCheckoutClick();
+              }}
+              onSaveOpenBill={() => {
+                setIsMobileCartOpen(false);
+                handleSaveOpenBill();
+              }}
+              isShiftOpen={!!activeShift}
+              isEditingOpenBill={!!editingBill}
+              editingBillInvoice={editingBill?.invoice_no}
+              onCancelEditOpenBill={() => {
+                setEditingBill(null);
+                setCart([]);
+                setIsMobileCartOpen(false);
+              }}
+              onCloseMobile={() => setIsMobileCartOpen(false)}
+            />
           </div>
         </div>
       )}
