@@ -421,12 +421,12 @@ export default function PosHeader({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-black text-amber-950 text-xs sm:text-sm truncate">Belanja Toko</span>
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-200/70 text-amber-900 border border-amber-300 shrink-0">
-                        Approval WA
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-300 shrink-0">
+                        Approval & Riwayat
                       </span>
                     </div>
                     <p className="text-[11px] sm:text-xs text-amber-900/80 font-normal leading-relaxed">
-                      Ajukan beli gas LPG, es batu, atau bahan darurat via kas laci.
+                      Ajukan belanja kebutuhan toko & pantau status (Menunggu / Disetujui / Ditolak).
                     </p>
                   </div>
                 </button>
