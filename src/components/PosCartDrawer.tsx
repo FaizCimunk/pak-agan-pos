@@ -61,6 +61,19 @@ export default function PosCartDrawer({
     setTempNote('');
   };
 
+  const handleQuickAppendNote = (index: number, tag: string) => {
+    const current = items[index]?.catatan?.trim() || '';
+    if (!current) {
+      onUpdateNotes(index, tag);
+    } else if (!current.toLowerCase().includes(tag.toLowerCase())) {
+      onUpdateNotes(index, `${current}, ${tag}`);
+    } else {
+      // Toggle off if clicked again
+      const parts = current.split(',').map(p => p.trim()).filter(p => p.toLowerCase() !== tag.toLowerCase());
+      onUpdateNotes(index, parts.join(', '));
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl border border-slate-200/90 shadow-soft-md overflow-hidden">
       
@@ -230,27 +243,9 @@ export default function PosCartDrawer({
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 pr-2">
-                    <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
-                      <h4 className="font-extrabold text-xs text-slate-900 leading-snug">
-                        {item.menu.nama}
-                      </h4>
-
-                      {/* Tombol Toggle Cepat Panas / Es untuk Minuman */}
-                      {isDrink && onToggleTemperature && (
-                        <button
-                          type="button"
-                          onClick={() => onToggleTemperature(index)}
-                          className={`px-1.5 py-0.2 rounded-md font-black text-[9px] border transition-colors flex items-center space-x-0.5 ${
-                            temp === 'dingin'
-                              ? 'bg-sky-100 text-sky-800 border-sky-300 hover:bg-sky-200'
-                              : 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
-                          }`}
-                          title="Klik untuk mengubah Panas / Es"
-                        >
-                          <span>{temp === 'dingin' ? '🧊 ES' : '🔥 PANAS'}</span>
-                        </button>
-                      )}
-                    </div>
+                    <h4 className="font-extrabold text-xs text-slate-900 leading-snug">
+                      {item.menu.nama}
+                    </h4>
 
                     <span className="text-[11px] font-mono font-medium text-slate-500 tabular-nums block mt-0.5">
                       @ {formatRupiah(item.menu.harga)}
@@ -262,33 +257,90 @@ export default function PosCartDrawer({
                   </span>
                 </div>
 
-                {/* Notes Display or Input */}
+                {/* Notes Display or Input with Quick Note Pills (Es, Panas, Bungkus) */}
                 {editingNoteIndex === index ? (
                   <div className="flex items-center space-x-1.5 pt-1">
                     <input
                       type="text"
                       value={tempNote}
                       onChange={(e) => setTempNote(e.target.value)}
-                      placeholder="Contoh: Manis sedikit, tanpa es..."
+                      placeholder="Contoh: Es bungkus, sedikit gula..."
                       className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-brand-primary"
                       autoFocus
                     />
                     <button
+                      type="button"
                       onClick={() => handleSaveNote(index)}
                       className="px-2.5 py-1 text-xs font-bold bg-brand-primary text-white rounded-lg"
                     >
                       Simpan
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingNoteIndex(null)}
+                      className="px-2 py-1 text-xs text-slate-500 hover:bg-slate-200 rounded-lg"
+                    >
+                      Batal
+                    </button>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between text-[11px] text-slate-500">
-                    <button
-                      onClick={() => handleStartEditNote(index, item.catatan)}
-                      className="flex items-center space-x-1 text-slate-400 hover:text-brand-primary transition-colors italic"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      <span>{item.catatan || 'Tambah catatan...'}</span>
-                    </button>
+                  <div className="space-y-1.5 pt-0.5">
+                    {item.catatan ? (
+                      <div className="flex items-center justify-between bg-amber-50/90 border border-amber-300/80 rounded-lg px-2 py-1">
+                        <span className="text-[11px] font-black text-amber-950 flex items-center space-x-1">
+                          <span>📝</span>
+                          <span className="font-mono uppercase tracking-tight">{item.catatan}</span>
+                        </span>
+                        <div className="flex items-center space-x-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditNote(index, item.catatan)}
+                            className="p-1 text-amber-700 hover:text-amber-900"
+                            title="Ubah catatan"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onUpdateNotes(index, '')}
+                            className="p-1 text-rose-500 hover:text-rose-700 text-xs font-bold"
+                            title="Hapus catatan"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Quick Note Pills: Es, Panas, Bungkus, dll */}
+                    <div className="flex items-center space-x-1 overflow-x-auto no-scrollbar text-[10px]">
+                      {['Es', 'Panas', 'Bungkus', 'Manis Sedikit', 'Pisah Sambal'].map(tag => {
+                        const isSelected = (item.catatan || '').toLowerCase().includes(tag.toLowerCase());
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => handleQuickAppendNote(index, tag)}
+                            className={`px-1.5 py-0.5 rounded-md font-bold shrink-0 transition-colors ${
+                              isSelected
+                                ? 'bg-amber-600 text-white shadow-2xs'
+                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            + {tag}
+                          </button>
+                        );
+                      })}
+                      {!item.catatan && (
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditNote(index, '')}
+                          className="px-1.5 py-0.5 rounded-md font-bold text-slate-400 hover:text-slate-700 shrink-0 italic"
+                        >
+                          + Catatan...
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 

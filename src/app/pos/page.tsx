@@ -250,18 +250,15 @@ export default function PosPage() {
   };
 
   // Cart Management
-  const handleAddToCart = (item: MenuItem, temp?: 'panas' | 'dingin') => {
-    const chosenTemp: 'panas' | 'dingin' | undefined =
-      temp || (item.has_temperature_option ? (item.default_temperature || 'panas') : undefined);
-
+  const handleAddToCart = (item: MenuItem) => {
     setCart(prev => {
-      const existingIndex = prev.findIndex(ci => ci.menu.id === item.id && ci.temperature === chosenTemp);
+      const existingIndex = prev.findIndex(ci => ci.menu.id === item.id && !ci.catatan);
       if (existingIndex !== -1) {
         const next = [...prev];
         next[existingIndex] = { ...next[existingIndex], qty: next[existingIndex].qty + 1 };
         return next;
       }
-      return [...prev, { menu: item, qty: 1, catatan: '', temperature: chosenTemp }];
+      return [...prev, { menu: item, qty: 1, catatan: '' }];
     });
   };
 

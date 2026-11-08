@@ -287,6 +287,11 @@ export default function ReceiptModal({
                     {transaksi.items.map((it, idx) => (
                       <div key={idx} className="space-y-0.5">
                         <div className="font-bold">{it.nama_menu}</div>
+                        {it.catatan && (
+                          <div className="text-[10px] font-black text-amber-950 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-300 inline-block font-mono">
+                            * CATATAN: {it.catatan.toUpperCase()}
+                          </div>
+                        )}
                         <div className="flex justify-between pl-2 text-slate-600">
                           <span>{it.qty}x @{formatRupiah(it.harga).replace('Rp\u00a0', '')}</span>
                           <span className="font-mono text-slate-900">{formatRupiah(it.subtotal).replace('Rp\u00a0', '')}</span>

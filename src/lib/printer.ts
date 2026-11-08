@@ -301,17 +301,18 @@ class BluetoothPrinterService {
     // Items
     for (const item of transaksi.items) {
       builder.bold(true);
-      const tempSuffix = item.temperature === 'dingin' ? ' [ES]' : item.temperature === 'panas' ? ' [PANAS]' : '';
-      builder.text(`${item.nama_menu}${tempSuffix}`);
+      builder.text(item.nama_menu);
       builder.newLine();
       builder.bold(false);
+      if (item.catatan) {
+        builder.bold(true);
+        builder.text(`  * CATATAN: ${item.catatan.toUpperCase()}`);
+        builder.newLine();
+        builder.bold(false);
+      }
       const detailStr = `  ${item.qty}x @${formatRupiah(item.harga).replace('Rp\u00a0', '')}`;
       const subtotalStr = formatRupiah(item.subtotal).replace('Rp\u00a0', '');
       builder.row(detailStr, subtotalStr);
-      if (item.catatan) {
-        builder.text(`  * ${item.catatan}`);
-        builder.newLine();
-      }
     }
 
     builder.line('-', 32);
@@ -520,13 +521,12 @@ class BluetoothPrinterService {
     for (const item of stationItems) {
       totalPorsi += item.qty;
       builder.bold(true).size(false, true); // Double height agar jelas
-      const tempSuffix = item.temperature === 'dingin' ? ' [🧊 ES]' : item.temperature === 'panas' ? ' [🔥 PANAS]' : '';
-      builder.text(`${item.qty}x  ${item.nama_menu}${tempSuffix}`);
+      builder.text(`${item.qty}x  ${item.nama_menu}`);
       builder.newLine();
       builder.size(false, false).bold(false);
       if (item.catatan) {
         builder.bold(true);
-        builder.text(`    >> Catatan: ${item.catatan}`);
+        builder.text(`    >>> ${item.catatan.toUpperCase()} <<<`);
         builder.newLine();
         builder.bold(false);
       }

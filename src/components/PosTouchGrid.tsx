@@ -81,11 +81,9 @@ export default function PosTouchGrid({
     return found.reduce((sum, ci) => sum + ci.qty, 0);
   };
 
-  const handleItemClick = (item: MenuItem, defaultTemp?: 'panas' | 'dingin') => {
+  const handleItemClick = (item: MenuItem) => {
     setTappedItemId(item.id);
-    const isDrink = getItemKitchenStation(item) === 'wedang';
-    const temp = defaultTemp || (isDrink ? (item.nama.toLowerCase().includes('es ') ? 'dingin' : 'panas') : undefined);
-    onAddToCart(item, temp);
+    onAddToCart(item);
     setTimeout(() => {
       setTappedItemId(null);
     }, 250);
@@ -293,50 +291,21 @@ export default function PosTouchGrid({
                       </span>
                     </div>
 
-                    {isDrink ? (
-                      <div className="flex items-center space-x-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleItemClick(item, 'panas');
-                          }}
-                          className="h-8 px-2 rounded-xl font-black text-[11px] bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 transition-all flex items-center space-x-1 shadow-2xs btn-tactile"
-                          title="Tambah varian Panas"
-                        >
-                          <span>🔥</span>
-                          <span className="hidden sm:inline">Panas</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleItemClick(item, 'dingin');
-                          }}
-                          className="h-8 px-2 rounded-xl font-black text-[11px] bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200 transition-all flex items-center space-x-1 shadow-2xs btn-tactile"
-                          title="Tambah varian Es / Dingin"
-                        >
-                          <span>🧊</span>
-                          <span className="hidden sm:inline">Es</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleItemClick(item);
-                        }}
-                        className={`h-8 px-3 rounded-xl font-extrabold text-xs flex items-center space-x-1 transition-all shadow-sm shrink-0 ${
-                          inCartQty > 0
-                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                            : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200/80'
-                        }`}
-                      >
-                        <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span className="text-[11px]">{inCartQty > 0 ? `+${inCartQty}` : 'Tambah'}</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleItemClick(item);
+                      }}
+                      className={`h-8 px-3 rounded-xl font-extrabold text-xs flex items-center space-x-1 transition-all shadow-sm shrink-0 ${
+                        inCartQty > 0
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200/80'
+                      }`}
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span className="text-[11px]">{inCartQty > 0 ? `+${inCartQty}` : 'Tambah'}</span>
+                    </button>
                   </div>
 
                 </div>

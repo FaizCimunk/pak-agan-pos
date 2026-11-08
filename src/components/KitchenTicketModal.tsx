@@ -209,8 +209,8 @@ export default function KitchenTicketModal({
                       </span>
                       <span className="font-bold text-slate-800">{it.nama_menu}</span>
                       {it.catatan && (
-                        <div className="text-[11px] text-amber-600 italic pl-5 font-medium">
-                          Catatan: {it.catatan}
+                        <div className="mt-0.5 ml-5 px-2 py-0.5 rounded-md text-[11px] font-black uppercase tracking-tight bg-amber-100 text-amber-950 border border-amber-300 inline-block font-mono">
+                          👉 CATATAN: {it.catatan}
                         </div>
                       )}
                     </div>
@@ -269,17 +269,10 @@ export default function KitchenTicketModal({
                       <span className="font-extrabold text-slate-900 mr-2 font-mono text-emerald-700">
                         {it.qty}x
                       </span>
-                      {it.temperature && (
-                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-black mr-1.5 ${
-                          it.temperature === 'dingin' ? 'bg-sky-100 text-sky-800 border border-sky-300' : 'bg-rose-100 text-rose-800 border border-rose-300'
-                        }`}>
-                          {it.temperature === 'dingin' ? '🧊 ES' : '🔥 PANAS'}
-                        </span>
-                      )}
                       <span className="font-bold text-slate-800">{it.nama_menu}</span>
                       {it.catatan && (
-                        <div className="text-[11px] text-emerald-600 italic pl-5 font-medium">
-                          Catatan: {it.catatan}
+                        <div className="mt-0.5 ml-5 px-2 py-0.5 rounded-md text-[11px] font-black uppercase tracking-tight bg-emerald-100 text-emerald-950 border border-emerald-300 inline-block font-mono">
+                          👉 CATATAN: {it.catatan}
                         </div>
                       )}
                     </div>
@@ -340,8 +333,8 @@ export default function KitchenTicketModal({
                       </span>
                       <span className="font-bold text-slate-800">{it.nama_menu}</span>
                       {it.catatan && (
-                        <div className="text-[11px] text-blue-600 italic pl-5 font-medium">
-                          Catatan: {it.catatan}
+                        <div className="mt-0.5 ml-5 px-2 py-0.5 rounded-md text-[11px] font-black uppercase tracking-tight bg-blue-100 text-blue-950 border border-blue-300 inline-block font-mono">
+                          👉 CATATAN: {it.catatan}
                         </div>
                       )}
                     </div>
