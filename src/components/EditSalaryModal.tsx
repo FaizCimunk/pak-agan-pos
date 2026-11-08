@@ -20,6 +20,7 @@ export default function EditSalaryModal({
   const [tipeGaji, setTipeGaji] = useState<'bulanan' | 'harian'>(karyawan.tipe_gaji || 'harian');
   const [gajiPokok, setGajiPokok] = useState<number>(karyawan.gaji_pokok || 2600000);
   const [gajiHarian, setGajiHarian] = useState<number>(karyawan.gaji_harian || 100000);
+  const [gajiMingguan, setGajiMingguan] = useState<number>((karyawan.gaji_harian || 100000) * 6);
   const [tabunganMingguan, setTabunganMingguan] = useState<number>(karyawan.tabungan_rutin_mingguan ?? 200000);
   const [plafonKasbon, setPlafonKasbon] = useState<number>(karyawan.plafon_kasbon || 500000);
   const [loading, setLoading] = useState<boolean>(false);
@@ -127,20 +128,77 @@ export default function EditSalaryModal({
             </div>
           ) : (
             <div className="space-y-3">
-              <div>
-                <label className="font-extrabold text-slate-800 block mb-1 flex items-center justify-between">
-                  <span>Upah Harian per Kehadiran Kasir (Rp):</span>
-                  <span className="text-[10px] text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md font-bold">
-                    Dihitung Tiap Masuk Kerja
+              {/* Dual Input: Gaji Mingguan (Total) vs Upah Harian (Bagi 6 Otomatis) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                <div>
+                  <label className="font-extrabold text-slate-800 block mb-1">
+                    <span>Gaji Mingguan Total (6 Hari Kerja):</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={gajiMingguan === 0 ? '' : formatNominal(gajiMingguan)}
+                    onChange={(e) => {
+                      const val = parseNominal(e.target.value);
+                      setGajiMingguan(val);
+                      setGajiHarian(Math.round(val / 6));
+                    }}
+                    placeholder="Contoh: 600.000"
+                    className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    Gaji 1 minggu (staf libur 1 hari)
                   </span>
-                </label>
-                <input
-                  type="text"
-                  value={gajiHarian === 0 ? '' : formatNominal(gajiHarian)}
-                  onChange={(e) => setGajiHarian(parseNominal(e.target.value))}
-                  placeholder="Contoh: 100.000"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-300 font-mono font-black text-sm text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white"
-                />
+                </div>
+
+                <div>
+                  <label className="font-extrabold text-emerald-900 block mb-1 flex items-center justify-between">
+                    <span>Upah Harian (Otomatis ÷ 6):</span>
+                    <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
+                      Beban Toko /Hari
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    value={gajiHarian === 0 ? '' : formatNominal(gajiHarian)}
+                    onChange={(e) => {
+                      const val = parseNominal(e.target.value);
+                      setGajiHarian(val);
+                      setGajiMingguan(val * 6);
+                    }}
+                    placeholder="Contoh: 100.000"
+                    className="w-full px-3 py-2 bg-white rounded-xl border border-emerald-400 font-mono font-black text-sm text-emerald-900 focus:outline-none focus:border-emerald-600 ring-2 ring-emerald-500/20"
+                  />
+                  <span className="text-[10px] text-emerald-700 font-semibold mt-1 block">
+                    = Masuk ke laba rugi toko /hari
+                  </span>
+                </div>
+              </div>
+
+              {/* Pilihan Cepat Gaji Mingguan */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10.5px] font-bold text-slate-600">Pilihan Cepat:</span>
+                {[
+                  { label: '600rb /mgg (100rb/hr)', w: 600000, d: 100000 },
+                  { label: '720rb /mgg (120rb/hr)', w: 720000, d: 120000 },
+                  { label: '750rb /mgg (125rb/hr)', w: 750000, d: 125000 },
+                  { label: '900rb /mgg (150rb/hr)', w: 900000, d: 150000 },
+                ].map((preset) => (
+                  <button
+                    key={preset.w}
+                    type="button"
+                    onClick={() => {
+                      setGajiMingguan(preset.w);
+                      setGajiHarian(preset.d);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer ${
+                      gajiMingguan === preset.w
+                        ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
               </div>
 
               {/* Rincian Siklus Mingguan & Sebulan Tanpa Bon */}

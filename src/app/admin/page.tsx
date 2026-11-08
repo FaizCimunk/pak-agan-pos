@@ -229,6 +229,8 @@ export default function AdminDashboardPage() {
   // Fixed Cost Monthly Payments & Deduction Mode (Kas Riil vs Cadangan Amortisasi /30 Hr)
   const [fixedCostPayments, setFixedCostPayments] = useState<PembayaranFixedCostBulanan[]>([]);
   const [fixedCostDeductionMode, setFixedCostDeductionMode] = useState<'kas_riil' | 'cadangan_amortisasi'>('kas_riil');
+  // Upah Staf Deduction Mode (Beban Standar Toko /Hari vs Presensi Riil Hadir)
+  const [upahDeductionMode, setUpahDeductionMode] = useState<'standar_harian' | 'presensi_riil'>('standar_harian');
 
   // Check auth session (auto-authenticate for direct seamless access)
   useEffect(() => {
@@ -612,9 +614,21 @@ export default function AdminDashboardPage() {
       const iuranHarian = Math.round((cabang.iuran_kebersihan_bulanan || 150000) / 30);
       const biayaLainHarian = Math.round((cabang.biaya_lain_bulanan || 0) / 30);
 
-      // 2. Upah Karyawan Hadir Hari Ini (Absensi Tulis Nama)
+      // 2. Upah Karyawan:
+      // a. Presensi Riil Hari Ini
       const branchAbsensi = absensiList.filter(a => isBranchMatch(a.cabang_id, cabang.id) && a.tanggal === targetDate);
-      const totalGajiKaryawan = branchAbsensi.reduce((sum, a) => sum + (a.upah_harian_terhitung || 0), 0);
+      const actualPresensiGaji = branchAbsensi.reduce((sum, a) => sum + (a.upah_harian_terhitung || 0), 0);
+      const stafHadirCount = branchAbsensi.filter(a => a.status === 'hadir' || a.status === 'setengah_hari').length;
+
+      // b. Beban Standar Harian Toko (Staf terdaftar & aktif di cabang ini)
+      const branchWorkers = karyawanList.filter(k => isBranchMatch(k.cabang_id, cabang.id) && k.role !== 'owner' && !k.is_locked);
+      const standardDailyWage = branchWorkers.reduce((sum, k) => {
+        if (k.gaji_harian && k.gaji_harian > 0) return sum + k.gaji_harian;
+        if (k.tipe_gaji === 'bulanan' && k.gaji_pokok > 0) return sum + Math.round(k.gaji_pokok / 26);
+        return sum + 100000;
+      }, 0);
+
+      const totalGajiKaryawan = upahDeductionMode === 'standar_harian' ? standardDailyWage : actualPresensiGaji;
 
       // 3. Omzet & Total HPP Bahan Baku Terpakai
       const branchTrx = transaksiList.filter(t => isBranchMatch(t.cabang_id, cabang.id) && t.status === 'completed' && t.waktu.startsWith(targetDate));
@@ -653,12 +667,15 @@ export default function AdminDashboardPage() {
         iuranHarian,
         biayaLainHarian,
         totalGajiKaryawan,
+        standardDailyWage,
+        actualPresensiGaji,
         totalHppBahan,
         totalBelanjaLaci,
         totalPotongan,
         omzetKotor,
         uangBersihBoss,
-        stafHadirCount: branchAbsensi.filter(a => a.status === 'hadir' || a.status === 'setengah_hari').length,
+        stafHadirCount,
+        branchWorkersCount: branchWorkers.length,
       };
     });
 
@@ -668,6 +685,8 @@ export default function AdminDashboardPage() {
     const totalIuran10Toko = branchBreakdowns.reduce((sum, b) => sum + b.iuranHarian, 0);
     const totalBiayaLain10Toko = branchBreakdowns.reduce((sum, b) => sum + (b.biayaLainHarian || 0), 0);
     const totalGaji10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalGajiKaryawan, 0);
+    const totalStandarGaji10Toko = branchBreakdowns.reduce((sum, b) => sum + b.standardDailyWage, 0);
+    const totalPresensiGaji10Toko = branchBreakdowns.reduce((sum, b) => sum + b.actualPresensiGaji, 0);
     const totalHpp10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalHppBahan, 0);
     const totalBelanja10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalBelanjaLaci, 0);
     const totalPotongan10Toko = totalSewa10Toko + totalWifiListrik10Toko + totalIuran10Toko + totalBiayaLain10Toko + totalGaji10Toko + totalHpp10Toko + totalBelanja10Toko;
@@ -682,12 +701,14 @@ export default function AdminDashboardPage() {
       totalIuran10Toko,
       totalBiayaLain10Toko,
       totalGaji10Toko,
+      totalStandarGaji10Toko,
+      totalPresensiGaji10Toko,
       totalHpp10Toko,
       totalBelanja10Toko,
       totalPotongan10Toko,
       totalBersihBoss10Toko,
     };
-  }, [cabangList, menuList, absensiList, transaksiList, expenseList, selectedBossSummaryDate]);
+  }, [cabangList, menuList, absensiList, transaksiList, expenseList, selectedBossSummaryDate, karyawanList, upahDeductionMode]);
 
   // --------------------------------------------------------------------------
   // EXECUTIVE SUMMARY HARIAN (KONSOLIDASI 10 CABANG ATAU PER CABANG PILIHAN)
@@ -754,6 +775,7 @@ export default function AdminDashboardPage() {
     const totalPotongan = effectiveFixedCost + hpp + gaji + belanja;
     const uangBersih = omzet - totalPotongan;
     const stafHadir = targetBreakdowns.reduce((sum, b) => sum + b.stafHadirCount, 0);
+    const totalWorkersCount = targetBreakdowns.reduce((sum, b) => sum + b.branchWorkersCount, 0);
 
     return {
       isAll,
@@ -774,8 +796,9 @@ export default function AdminDashboardPage() {
       totalPotongan,
       uangBersih,
       stafHadir,
+      totalWorkersCount,
     };
-  }, [bossDailyProfits, selectedCabangId, cabangList, fixedCostPayments, fixedCostDeductionMode, selectedBossSummaryDate]);
+  }, [bossDailyProfits, selectedCabangId, cabangList, fixedCostPayments, fixedCostDeductionMode, selectedBossSummaryDate, upahDeductionMode]);
 
   // --------------------------------------------------------------------------
   // POSISI UANG KASIR & CHANNEL TRANSAKSI (LACI, QRIS, SHOPEE, GOFOOD, GRAB)
@@ -1163,6 +1186,50 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
 
+              {/* SAKELAR SISTEM UPAH STAF: BEBAN STANDAR TOKO (/HARI) VS PRESENSI RIIL HADIR */}
+              <div className="mt-2 pt-2 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] uppercase font-black tracking-wider text-blue-200">
+                    Sistem Upah Staf Toko:
+                  </span>
+                  <div className="inline-flex bg-black/40 p-1 rounded-xl border border-white/15 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setUpahDeductionMode('standar_harian')}
+                      className={`px-3 py-1 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer ${
+                        upahDeductionMode === 'standar_harian'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                      title="Hitung otomatis dari total gaji mingguan staf dibagi 6 hari kerja operasional"
+                    >
+                      ✓ Beban Standar Toko (/Hari)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUpahDeductionMode('presensi_riil')}
+                      className={`px-3 py-1 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer ${
+                        upahDeductionMode === 'presensi_riil'
+                          ? 'bg-cyan-500 text-slate-950 shadow-xs'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                      title="Hanya hitung staf yang sudah check-in presensi hadir hari ini"
+                    >
+                      Presensi Riil Hadir
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('payroll')}
+                  className="flex items-center space-x-1.5 text-xs text-blue-300 hover:text-blue-200 font-bold self-start sm:self-auto cursor-pointer underline decoration-dotted"
+                >
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>Atur Standar Gaji Staf di Payroll →</span>
+                </button>
+              </div>
+
               {/* Rincian 6 Kartu Pipeline Alur Keuangan Realtime */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-3.5 mt-4">
                 
@@ -1224,18 +1291,25 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
 
-                {/* 4. Upah Hadir */}
+                {/* 4. Upah Hadir / Standar Toko */}
                 <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-blue-500/40 transition">
                   <div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">
-                      4. Upah Staf Hadir
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">
+                        4. Upah Staf Toko
+                      </span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                        {upahDeductionMode === 'standar_harian' ? 'Standar /Hari' : 'Presensi Riil'}
+                      </span>
+                    </div>
                     <div className="text-base sm:text-lg lg:text-xl font-mono font-extrabold text-blue-300 mt-1 whitespace-nowrap">
                       -{formatRupiah(activeExecutiveSummary.gaji)}
                     </div>
                   </div>
                   <span className="text-[10px] text-white/60 block mt-2">
-                    {activeExecutiveSummary.stafHadir} Staf Presensi Masuk
+                    {upahDeductionMode === 'standar_harian'
+                      ? `${activeExecutiveSummary.totalWorkersCount} Staf Terdaftar (/6 Hari Kerja)`
+                      : `${activeExecutiveSummary.stafHadir} Staf Presensi Masuk`}
                   </span>
                 </div>
 
@@ -1538,7 +1612,9 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-3.5 text-right">Omzet Kotor</th>
                       <th className="py-3 px-3.5 text-right text-rose-300">Potongan Fixed Cost</th>
                       <th className="py-3 px-3.5 text-right text-amber-300">HPP Bahan Baku</th>
-                      <th className="py-3 px-3.5 text-right text-blue-300">Upah Staf Hadir</th>
+                      <th className="py-3 px-3.5 text-right text-blue-300">
+                        Upah Staf {upahDeductionMode === 'standar_harian' ? '(/Hari)' : 'Hadir'}
+                      </th>
                       <th className="py-3 px-3.5 text-right text-purple-300">Belanja Toko Laci</th>
                       <th className="py-3 px-3.5 text-right bg-slate-950 text-amber-300">Uang Bersih Toko</th>
                     </tr>
@@ -1584,7 +1660,11 @@ export default function AdminDashboardPage() {
                           </td>
                           <td className="py-3 px-3.5 text-right font-mono font-bold text-blue-700 text-xs whitespace-nowrap">
                             -{formatRupiah(b.totalGajiKaryawan)}
-                            <span className="text-[9px] text-slate-400 block font-normal">{b.stafHadirCount} Staf Hadir</span>
+                            <span className="text-[9px] text-slate-400 block font-normal">
+                              {upahDeductionMode === 'standar_harian' 
+                                ? `${b.branchWorkersCount} Staf Terplot (/6 Hari)` 
+                                : `${b.stafHadirCount} Staf Hadir`}
+                            </span>
                           </td>
                           <td className="py-3 px-3.5 text-right font-mono font-bold text-purple-700 text-xs whitespace-nowrap">
                             {b.totalBelanjaLaci > 0 ? `-${formatRupiah(b.totalBelanjaLaci)}` : 'Rp 0'}
@@ -3315,14 +3395,22 @@ export default function AdminDashboardPage() {
 
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
                 <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                  Beban Upah Harian 10 Toko
+                  {payrollBranchFilter === 'all' ? 'Beban Upah Harian 10 Toko' : 'Beban Upah Harian Cabang'}
                 </span>
                 <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
-                  {formatRupiah(karyawanList.filter(k => k.role !== 'owner').reduce((sum, k) => sum + (k.gaji_harian || 100000), 0))}
+                  {formatRupiah(
+                    karyawanList
+                      .filter(k => k.role !== 'owner' && (payrollBranchFilter === 'all' || isBranchMatch(k.cabang_id, payrollBranchFilter)))
+                      .reduce((sum, k) => sum + (k.gaji_harian || 100000), 0)
+                  )}
                   <span className="text-xs font-normal text-slate-500"> /hari</span>
                 </div>
                 <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
-                  Tarif upah harian operasional
+                  {formatRupiah(
+                    karyawanList
+                      .filter(k => k.role !== 'owner' && (payrollBranchFilter === 'all' || isBranchMatch(k.cabang_id, payrollBranchFilter)))
+                      .reduce((sum, k) => sum + ((k.gaji_harian || 100000) * 6), 0)
+                  )} /minggu (Total 6 Hari Kerja)
                 </span>
               </div>
 
@@ -3389,7 +3477,10 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-semibold text-slate-700 tabular-nums">
-                        {formatRupiah(draft.upah_harian || 100000)} <span className="text-[10px] text-slate-400">/ hari</span>
+                        <div>{formatRupiah(draft.upah_harian || 100000)} <span className="text-[10px] text-slate-400 font-normal">/ hari</span></div>
+                        <span className="text-[9.5px] text-emerald-800 font-medium block">
+                          {formatRupiah((draft.upah_harian || 100000) * 6)} /mgg
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 tabular-nums">
                         {formatRupiah(draft.gaji_pokok)}
