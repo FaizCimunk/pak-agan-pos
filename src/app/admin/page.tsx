@@ -57,7 +57,6 @@ import {
   FileDown,
   FileText,
   Pencil,
-  RotateCcw,
   Trash2,
   Building2,
   ArrowRightLeft,
@@ -143,39 +142,6 @@ export default function AdminDashboardPage() {
     await db.deleteKaryawan(karyawanId);
     await refreshAllData();
     alert(`Karyawan "${nama}" berhasil dihapus.`);
-  };
-
-  const handleResetDatabase = async () => {
-    const confirmReset = confirm(
-      'PERINGATAN: Apakah Anda yakin ingin MENGOSONGKAN SELURUH DATA untuk MULAI DARI 0?\n\n' +
-      '• Seluruh transaksi kasir menjadi Rp 0\n' +
-      '• Seluruh kasir / karyawan demo dihapus (hanya tersisa akun Owner Pak Agan)\n' +
-      '• Seluruh belanja toko, kasbon, absensi & payroll menjadi 0\n' +
-      '• Master 10 cabang resmi & menu katalog tetap aman\n\n' +
-      'Klik OK untuk mengosongkan semua data ke nol.'
-    );
-    if (!confirmReset) return;
-
-    await db.resetDatabaseToZero();
-    await refreshAllData();
-    alert('Database berhasil direset ke 0! Silakan daftarkan karyawan & kasir cabang baru Anda.');
-  };
-
-  const handleLoadDemoWeek = async () => {
-    const confirmLoad = confirm(
-      'MUAT DATA UJI COBA 1 MINGGU (19 - 25 OKTOBER 2026):\n\n' +
-      '• Memuat staf aktif 4 cabang (Siti, Budi, Dewi, Agus, Rian)\n' +
-      '• Presensi kehadiran harian 1 minggu (6-7 hari hadir per staf)\n' +
-      '• Kasbon yang sudah disetujui & otomatis memotong gaji (Siti & Budi)\n' +
-      '• Kasbon & Belanja Toko "PENDING" untuk dicoba disetujui di Approval Center (Dewi)\n' +
-      '• Puluhan transaksi penjualan POS multi-cabang (omzet nyata)\n\n' +
-      'Klik OK untuk memuat data simulasi 1 minggu.'
-    );
-    if (!confirmLoad) return;
-
-    await db.loadOneWeekSimulationData();
-    await refreshAllData();
-    alert('Data simulasi 1 minggu berhasil dimuat! Anda dapat langsung memeriksa modul Approval, Kasbon, dan Payroll.');
   };
 
   // Payroll Period & Branch Filters (Penggajian Murni Mingguan)
@@ -2621,22 +2587,6 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (confirm('ISI 14 MENU BAWAAN SERABI & WEDANG?\n\nFungsi ini memulihkan 14 menu standar Serabi Bawel & Wedang Geprek.\n\n✓ AMAN: Transaksi omzet, data toko cabang, kasir, dan keuangan Anda TIDAK AKAN terhapus.')) {
-                        await db.resetMenuDefault();
-                        await refreshAllData();
-                        alert('Daftar 14 menu standar Serabi Bawel & Wedang Geprek berhasil diisi.');
-                      }
-                    }}
-                    className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-colors"
-                    title="Isi 14 menu standar Serabi Bawel & Wedang Geprek"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Isi 14 Menu Bawaan</span>
-                  </button>
-
                   <button
                     type="button"
                     onClick={() => setIsAddingNewMenu(true)}
