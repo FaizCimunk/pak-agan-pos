@@ -282,8 +282,8 @@ export default function PosHeader({
                 <span className="font-extrabold text-slate-900 text-xs block leading-tight truncate">
                   SERABI BAWEL
                 </span>
-                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md inline-block">
-                  {currentCabang?.kode || 'CBG'}
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md inline-block max-w-[175px] truncate">
+                  {currentCabang?.kode || 'CBG'} • {currentCabang?.nama?.split('-')[1]?.trim() || currentCabang?.nama || 'Cabang'}
                 </span>
               </div>
             </div>

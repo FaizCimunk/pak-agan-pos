@@ -40,18 +40,26 @@ export default function ApprovalActionModal({
 
   useEffect(() => {
     async function loadBranch() {
-      const branches = await db.getCabangList();
+      const [branches, workers] = await Promise.all([
+        db.getCabangList(),
+        db.getAllKaryawan(),
+      ]);
       const b = branches.find(c => isBranchMatch(c.id, item.cabang_id));
+      const kar = workers.find(
+        w => w.id === item.karyawan_id || w.nama.toLowerCase().trim() === (item.pemohon_nama || '').toLowerCase().trim()
+      );
       if (b) {
         setBranchInfo(b);
-        // Default target phone: No. WA PJ Cabang (untuk belanja dan laporan operasional resmi)
-        if (b.pj_telepon) {
-          setTargetPhone(b.pj_telepon);
-          setRecipientName(b.pj_nama || `PJ ${b.nama}`);
-        } else if (item.pemohon_telepon) {
-          setTargetPhone(item.pemohon_telepon);
-          setRecipientName(item.pemohon_nama);
-        }
+      }
+      if (item.jenis === 'kasbon') {
+        setTargetPhone(kar?.telepon || b?.pj_telepon || item.pemohon_telepon || '');
+        setRecipientName(kar?.nama || item.pemohon_nama || b?.pj_nama || 'Penanggung Jawab');
+      } else if (b?.pj_telepon) {
+        setTargetPhone(b.pj_telepon);
+        setRecipientName(b.pj_nama || `PJ ${b.nama}`);
+      } else if (kar?.telepon || item.pemohon_telepon) {
+        setTargetPhone(kar?.telepon || item.pemohon_telepon || '');
+        setRecipientName(kar?.nama || item.pemohon_nama);
       }
     }
     loadBranch();

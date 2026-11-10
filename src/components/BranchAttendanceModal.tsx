@@ -212,7 +212,7 @@ export default function BranchAttendanceModal({
           status: w.status,
           upah_harian: Number(w.gaji_harian) || 100000,
           catatan: w.catatan,
-          recorded_by: activeShift?.karyawan_nama || 'Kasir Outlet',
+          recorded_by: activeShift?.karyawan_nama || cabang.pj_nama?.trim() || 'Kasir Outlet',
           approval_status: preserveApproved ? ('approved' as const) : ('pending' as const),
         };
       });

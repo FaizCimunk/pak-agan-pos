@@ -121,13 +121,13 @@ export default function PosTouchGrid({
       </div>
 
       {/* 2. Baris Kategori Menu Sederhana: 3 Kategori Utama (Serabi, Minuman, Makanan) */}
-      <div className="grid grid-cols-4 gap-1 sm:flex sm:items-center sm:gap-2 select-none">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 select-none">
         
         {/* Semua */}
         <button
           type="button"
           onClick={() => setSelectedKatId('all')}
-          className={`flex items-center justify-center sm:justify-start space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all btn-tactile ${
+          className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
             selectedKatId === 'all'
               ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-600/30'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
@@ -145,14 +145,14 @@ export default function PosTouchGrid({
         <button
           type="button"
           onClick={() => setSelectedKatId('serabi')}
-          className={`flex items-center justify-center sm:justify-start space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all btn-tactile ${
+          className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
             selectedKatId === 'serabi'
               ? 'bg-amber-600 text-white shadow-md shadow-amber-900/20 ring-2 ring-amber-500/30'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
           <span>🥞</span>
-          <span className="truncate">Serabi</span>
+          <span>Serabi</span>
           <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
             selectedKatId === 'serabi' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
           }`}>
@@ -164,14 +164,14 @@ export default function PosTouchGrid({
         <button
           type="button"
           onClick={() => setSelectedKatId('minuman')}
-          className={`flex items-center justify-center sm:justify-start space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all btn-tactile ${
+          className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
             selectedKatId === 'minuman'
               ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-600/30'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
           <span>🍵</span>
-          <span className="truncate">Minuman</span>
+          <span>Minuman</span>
           <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
             selectedKatId === 'minuman' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
           }`}>
@@ -183,14 +183,14 @@ export default function PosTouchGrid({
         <button
           type="button"
           onClick={() => setSelectedKatId('makanan')}
-          className={`flex items-center justify-center sm:justify-start space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all btn-tactile ${
+          className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
             selectedKatId === 'makanan'
               ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20 ring-2 ring-blue-500/30'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
           <span>🍲</span>
-          <span className="truncate">Makanan</span>
+          <span>Makanan</span>
           <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
             selectedKatId === 'makanan' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
           }`}>
@@ -205,19 +205,27 @@ export default function PosTouchGrid({
         {filteredMenu.length === 0 ? (
           <div className="h-48 flex flex-col items-center justify-center text-slate-400 text-center bg-white rounded-3xl border border-slate-200 p-6">
             <span className="text-3xl mb-2">🥞</span>
-            <p className="text-xs font-bold text-slate-700">Tidak ada menu yang sesuai</p>
-            <p className="text-[11px] text-slate-400 mt-0.5 max-w-xs">
-              Kata kunci &ldquo;{searchQuery}&rdquo; tidak cocok.
+            <p className="text-xs font-bold text-slate-700">
+              {menuList.length === 0 ? 'Belum ada menu untuk cabang ini' : 'Tidak ada menu yang sesuai'}
             </p>
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedKatId('all');
-              }}
-              className="mt-3 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors"
-            >
-              Reset Menu
-            </button>
+            <p className="text-[11px] text-slate-400 mt-0.5 max-w-xs">
+              {menuList.length === 0
+                ? 'Silakan isi & aktifkan menu cabang ini dari Dashboard Pusat → Menu Kasir Cabang.'
+                : searchQuery
+                  ? `Kata kunci "${searchQuery}" tidak cocok.`
+                  : 'Coba pilih kategori lain.'}
+            </p>
+            {menuList.length > 0 && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedKatId('all');
+                }}
+                className="mt-3 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors"
+              >
+                Reset Menu
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 pb-4">
@@ -368,18 +376,18 @@ export default function PosTouchGrid({
                       </div>
                     ) : isDrink && !isKhususPanas && !isKhususEs ? (
                       /* KASUS 2: MINUMAN BISA PANAS/ES (Harga Sama, Kasir Bisa Langsung Pilih) */
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="font-mono font-black text-xs text-emerald-950 tabular-nums truncate">
+                      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="font-mono font-black text-xs text-emerald-950 tabular-nums whitespace-nowrap">
                           {formatRupiah(item.harga)}
                         </div>
-                        <div className="flex items-center space-x-1 shrink-0">
+                        <div className="grid grid-cols-2 gap-1 sm:flex sm:items-center sm:space-x-1 shrink-0">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleItemClick(item, 'panas', item.harga);
                             }}
-                            className="px-1.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-900 border border-amber-200 text-[10px] font-black transition-all active:scale-95 cursor-pointer"
+                            className="px-1.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-900 border border-amber-200 text-[10px] font-black transition-all active:scale-95 cursor-pointer whitespace-nowrap text-center"
                             title="Pilih Panas"
                           >
                             🔥 Panas
@@ -390,7 +398,7 @@ export default function PosTouchGrid({
                               e.stopPropagation();
                               handleItemClick(item, 'dingin', item.harga);
                             }}
-                            className="px-1.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-900 border border-sky-200 text-[10px] font-black transition-all active:scale-95 cursor-pointer"
+                            className="px-1.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-900 border border-sky-200 text-[10px] font-black transition-all active:scale-95 cursor-pointer whitespace-nowrap text-center"
                             title="Pilih Es"
                           >
                             🧊 Es
@@ -399,9 +407,9 @@ export default function PosTouchGrid({
                       </div>
                     ) : (
                       /* KASUS 3: MAKANAN / SERABI / MINUMAN KHUSUS (Single Button Sederhana Tanpa Pusing) */
-                      <div className="flex items-center justify-between gap-1">
+                      <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex flex-col min-w-0">
-                          <span className="font-mono font-black text-xs sm:text-sm text-emerald-950 tabular-nums truncate">
+                          <span className="font-mono font-black text-xs sm:text-sm text-emerald-950 tabular-nums whitespace-nowrap">
                             {formatRupiah(isKhususEs && item.harga_es ? item.harga_es : item.harga)}
                           </span>
                         </div>
@@ -418,7 +426,7 @@ export default function PosTouchGrid({
                               handleItemClick(item, undefined, item.harga);
                             }
                           }}
-                          className={`h-6 sm:h-7 px-2 rounded-xl font-extrabold text-[10px] sm:text-[11px] flex items-center space-x-1 transition-all shadow-2xs shrink-0 cursor-pointer active:scale-95 ${
+                          className={`h-7 px-2 rounded-xl font-extrabold text-[10px] sm:text-[11px] flex items-center justify-center space-x-1 transition-all shadow-2xs shrink-0 cursor-pointer active:scale-95 whitespace-nowrap ${
                             inCartQty > 0
                               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                               : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200/80'

@@ -1979,18 +1979,29 @@ export default function AdminDashboardPage() {
                         </td>
                       </tr>
                     ) : (
-                      filteredApprovalExpenses.map(exp => (
+                      filteredApprovalExpenses.map(exp => {
+                        const branch = cabangList.find(c => isBranchMatch(c.id, exp.cabang_id));
+                        const matchedKar = karyawanList.find(
+                          k => k.id === exp.karyawan_id || k.nama.toLowerCase().trim() === (exp.pemohon_nama || '').toLowerCase().trim()
+                        );
+                        const livePemohon = exp.jenis === 'belanja' && branch?.pj_nama ? branch.pj_nama : exp.pemohon_nama;
+                        const livePhone =
+                          exp.jenis === 'belanja'
+                            ? (branch?.pj_telepon || branch?.telepon || matchedKar?.telepon || exp.pemohon_telepon || '')
+                            : (matchedKar?.telepon || branch?.pj_telepon || exp.pemohon_telepon || '');
+
+                        return (
                         <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-3 px-4">
-                            <span className="font-bold text-slate-900 block">{exp.cabang_nama}</span>
+                            <span className="font-bold text-slate-900 block">{branch?.nama || exp.cabang_nama}</span>
                             <span className="text-[10px] text-slate-400 font-mono">
                               {formatWaktu(exp.tanggal)}
                             </span>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="font-bold text-slate-800 block">{exp.pemohon_nama}</span>
-                            {exp.pemohon_telepon && (
-                              <span className="text-[10px] text-slate-400 font-mono">{exp.pemohon_telepon}</span>
+                            <span className="font-bold text-slate-800 block">{livePemohon}</span>
+                            {livePhone && (
+                              <span className="text-[10px] text-slate-400 font-mono">{livePhone}</span>
                             )}
                           </td>
                           <td className="py-3 px-4 text-center">
@@ -2085,14 +2096,13 @@ export default function AdminDashboardPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const branch = cabangList.find(c => isBranchMatch(c.id, exp.cabang_id));
-                                    const phone = exp.pemohon_telepon || '0813-1111-2222';
+                                    const phone = livePhone || '0813-1111-2222';
                                     const cleanPhone = phone.replace(/[^0-9]/g, '');
                                     const intlPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone;
                                     const msg = [
                                       `*BUKTI PERSETUJUAN PENGELUARAN KAS KECIL - SERABI BAWEL & WEDANG GEPREK*`,
                                       `-----------------------------------------`,
-                                      `Halo Sdr/i *${exp.pemohon_nama}*, pengeluaran kas kecil cabang Anda telah *DISETUJUI* oleh Admin Pusat / Pak Agan:`,
+                                      `Halo Sdr/i *${livePemohon}*, pengeluaran kas kecil cabang Anda telah *DISETUJUI* oleh Admin Pusat / Pak Agan:`,
                                       ``,
                                       `🏢 *Cabang:* ${branch?.nama || exp.cabang_nama || 'Outlet'}`,
                                       `🔖 *Kategori:* ${exp.jenis === 'belanja' ? 'BELANJA OPERASIONAL TOKO' : 'KASBON STAF'}`,
@@ -2119,7 +2129,8 @@ export default function AdminDashboardPage() {
                             )}
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -2405,8 +2416,17 @@ export default function AdminDashboardPage() {
                                     </span>
                                     <span className="text-[10px] text-slate-500 flex items-center space-x-1 mt-0.5">
                                       <UserCheck className="w-3 h-3 text-brand-primary shrink-0" />
-                                      <span>{abs.recorded_by || 'Kasir Cabang'}</span>
+                                      <span>
+                                        {(!abs.recorded_by || abs.recorded_by === 'Kasir Cabang' || abs.recorded_by === 'Kasir Outlet')
+                                          ? (branch?.pj_nama || abs.recorded_by || 'Kasir Cabang')
+                                          : abs.recorded_by}
+                                      </span>
                                     </span>
+                                    {branch?.pj_telepon && (
+                                      <span className="text-[10px] text-slate-400 font-mono block">
+                                        WA: {branch.pj_telepon}
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="py-3 px-4 font-mono text-[11px] text-slate-700 whitespace-nowrap">
                                     <span className="font-bold block">{abs.tanggal}</span>

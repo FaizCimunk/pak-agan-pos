@@ -474,18 +474,23 @@ export class PosDatabase {
   async getMenuList(): Promise<MenuItem[]> {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase.from('menu').select('*, kategori:kategori_menu(nama)').order('created_at', { ascending: true });
-        if (!error && data && data.length > 0) {
-          return data.map(item => ({
+        const { data, error } = await supabase
+          .from('menu')
+          .select('*, kategori:kategori_menu(nama)')
+          .order('created_at', { ascending: true });
+        if (!error && Array.isArray(data)) {
+          const mapped: MenuItem[] = data.map(item => ({
             ...item,
             kategori_nama: item.kategori?.nama,
           }));
+          saveLocal(STORAGE_KEYS.MENU, mapped);
+          return mapped;
         }
       } catch (e) {
         console.warn('Fallback to local menu data:', e);
       }
     }
-    return loadLocal<MenuItem[]>(STORAGE_KEYS.MENU, INITIAL_MENU);
+    return loadLocal<MenuItem[]>(STORAGE_KEYS.MENU, isSupabaseConfigured ? [] : INITIAL_MENU);
   }
 
   async saveMenu(item: Partial<MenuItem>): Promise<MenuItem> {
@@ -517,9 +522,10 @@ export class PosDatabase {
         throw new Error(`Menu dengan ID ${item.id} tidak ditemukan.`);
       }
     } else {
-      // Create new menu
+      // Create new menu (pakai UUID agar konsisten antara lokal & Supabase saat edit/hapus)
+      const newMenuId = generateUUID();
       savedItem = {
-        id: 'm-' + Date.now(),
+        id: newMenuId,
         kategori_id: item.kategori_id || 'kat-wg',
         kategori_nama: item.kategori_nama || 'Wedang Geprek Rempah',
         kode: item.kode || `MN-${Math.floor(10 + Math.random() * 90)}`,
@@ -581,6 +587,7 @@ export class PosDatabase {
 
   async deleteMenu(id: string): Promise<boolean> {
     let current = await this.getMenuList();
+    const targetItem = current.find(m => m.id === id);
     current = current.filter(m => m.id !== id);
     saveLocal(STORAGE_KEYS.MENU, current);
     if (typeof window !== 'undefined') {
@@ -592,6 +599,8 @@ export class PosDatabase {
         const uuid = getMenuUuid(id) || (isValidUuid(id) ? id : null);
         if (uuid) {
           await supabase.from('menu').delete().eq('id', uuid);
+        } else if (targetItem?.kode) {
+          await supabase.from('menu').delete().eq('kode', targetItem.kode);
         }
       } catch (e) {
         console.warn('Supabase deleteMenu fallback local:', e);
@@ -3143,7 +3152,7 @@ export class PosDatabase {
         console.warn('Gagal reset storage:', e);
       }
       saveLocal(STORAGE_KEYS.CABANG, INITIAL_CABANG);
-      saveLocal(STORAGE_KEYS.MENU, INITIAL_MENU);
+      saveLocal(STORAGE_KEYS.MENU, []);
       saveLocal(STORAGE_KEYS.BAHAN_BAKU, INITIAL_BAHAN_BAKU);
       saveLocal(STORAGE_KEYS.KIRIMAN_BAHAN, []);
       saveLocal(STORAGE_KEYS.ABSENSI_BAHAN, []);
