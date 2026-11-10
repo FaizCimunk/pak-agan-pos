@@ -331,9 +331,10 @@ export default function PosHeader({
             <button
               type="button"
               onClick={onOpenShiftClick}
-              className="w-full py-1.5 bg-accent-gold text-white text-xs font-black rounded-xl hover:bg-amber-600 text-center shadow-xs"
+              className="w-full flex items-center justify-between px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-xl shadow-xs"
             >
-              + Buka Shift Kasir Hari Ini
+              <span>+ Buka Shift &amp; Isi Kas Awal</span>
+              <span className="font-mono bg-black/15 px-2 py-0.5 rounded-lg">Kas: Rp 0</span>
             </button>
           )}
 
@@ -501,7 +502,7 @@ export default function PosHeader({
                         </span>
                       </div>
                       <p className="text-[11px] sm:text-xs text-emerald-900 font-semibold leading-relaxed">
-                        Buka laci kasir, masukkan modal awal Rp 200.000 &amp; sinkronkan kas laci.
+                        Buka laci kasir, isi modal kas awal secara manual &amp; sinkronkan transaksi.
                       </p>
                     </div>
                   </button>
@@ -575,7 +576,7 @@ export default function PosHeader({
                     className="px-4 py-2 rounded-xl text-xs font-black bg-emerald-700 text-white hover:bg-emerald-800 shadow-md shadow-emerald-900/20 transition-all btn-tactile flex items-center space-x-1.5"
                   >
                     <KeyRound className="w-3.5 h-3.5" />
-                    <span>+ Buka Kasir (Modal Rp 200.000)</span>
+                    <span>+ Buka Shift &amp; Isi Kas Awal</span>
                   </button>
                 ) : (
                   <button

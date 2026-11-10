@@ -102,21 +102,33 @@ export default function PosCartDrawer({
       
       {/* Top Banner jika sedang Edit Pesanan Belum Bayar */}
       {isEditingOpenBill && (
-        <div className="bg-amber-500 text-white px-3.5 py-2 flex items-center justify-between text-xs animate-fadeIn shrink-0">
-          <div className="flex items-center space-x-1.5 font-bold truncate">
+        <div className="bg-amber-500 text-white px-3.5 py-2 flex items-center justify-between gap-2 text-xs animate-fadeIn shrink-0">
+          <div className="flex items-center space-x-1.5 font-bold truncate min-w-0">
             <span>✏️</span>
             <span className="truncate">Mengubah: <strong>{penanda || 'Belum Bayar'}</strong> {editingBillInvoice ? `(${editingBillInvoice})` : ''}</span>
           </div>
-          {onCancelEditOpenBill && (
-            <button
-              type="button"
-              onClick={onCancelEditOpenBill}
-              className="text-[10px] font-black bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-lg transition-colors shrink-0"
-              title="Batal mengubah dan kembalikan keranjang"
-            >
-              Batal Edit
-            </button>
-          )}
+          <div className="flex items-center space-x-1.5 shrink-0">
+            {onCloseMobile && (
+              <button
+                type="button"
+                onClick={onCloseMobile}
+                className="lg:hidden text-[10px] font-black bg-emerald-700 hover:bg-emerald-800 text-white px-2.5 py-1 rounded-lg transition-colors shadow-xs"
+                title="Kembali ke daftar menu untuk tambah pesanan"
+              >
+                + Tambah Menu
+              </button>
+            )}
+            {onCancelEditOpenBill && (
+              <button
+                type="button"
+                onClick={onCancelEditOpenBill}
+                className="text-[10px] font-black bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg transition-colors"
+                title="Batal mengubah dan kembalikan keranjang"
+              >
+                Batal Edit
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -135,6 +147,18 @@ export default function PosCartDrawer({
         </div>
 
         <div className="flex items-center space-x-1.5 shrink-0">
+          {onCloseMobile && !isEditingOpenBill && (
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="lg:hidden text-[11px] text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 font-extrabold flex items-center space-x-1 px-2.5 py-1 rounded-lg transition-colors"
+              title="Kembali pilih menu lain"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Tambah Menu</span>
+            </button>
+          )}
+
           {items.length > 0 && (
             <button
               onClick={onClearCart}
@@ -336,10 +360,11 @@ export default function PosCartDrawer({
                       <button
                         type="button"
                         onClick={() => handleStartEditNote(index, item.catatan || '')}
-                        className="px-2 py-0.5 rounded-lg font-bold text-slate-500 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-100 shrink-0 cursor-pointer flex items-center space-x-1"
+                        className="px-2 py-0.5 rounded-lg font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-100 shrink-0 cursor-pointer flex items-center space-x-1"
+                        title="Tambah atau lengkapi catatan pesanan"
                       >
-                        <Edit3 className="w-2.5 h-2.5" />
-                        <span>{item.catatan ? 'Ubah' : 'Tulis Catatan...'}</span>
+                        <Plus className="w-2.5 h-2.5 text-emerald-700" />
+                        <span>Tambah Catatan</span>
                       </button>
                     </div>
                   </div>

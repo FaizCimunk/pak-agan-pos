@@ -437,7 +437,7 @@ export default function PosPage() {
     setIsKitchenModalOpen(true);
   };
 
-  const handleEditOpenBill = (bill: Transaksi) => {
+  const handleEditOpenBill = (bill: Transaksi, openCartSheet: boolean = false) => {
     setEditingBill(bill);
     setPenanda(bill.penanda || bill.meja || 'No. 01');
     setCustomerName(bill.nama_pelanggan || 'Pelanggan Walk-in');
@@ -469,7 +469,7 @@ export default function PosPage() {
 
     setCart(reconstructedCart);
     setIsOpenBillsModalOpen(false);
-    setIsMobileCartOpen(true);
+    setIsMobileCartOpen(openCartSheet);
   };
 
   const handleStartPayOpenBill = (bill: Transaksi) => {
@@ -637,6 +637,39 @@ export default function PosPage() {
         
         {/* Left Side: POS Touch Grid */}
         <section className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {editingBill && (
+            <div className="mb-2.5 px-3 py-2 rounded-2xl bg-amber-500 text-white shadow-md flex items-center justify-between gap-2 text-xs shrink-0 animate-fadeIn">
+              <div className="min-w-0">
+                <div className="font-black truncate flex items-center space-x-1.5">
+                  <span>✏️</span>
+                  <span className="truncate">Tambah Pesanan: {penanda || 'Belum Bayar'}</span>
+                </div>
+                <div className="text-[10px] text-amber-100 truncate">
+                  Ketuk menu di bawah untuk menambah, lalu buka keranjang untuk Simpan / Bayar.
+                </div>
+              </div>
+              <div className="flex items-center space-x-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileCartOpen(true)}
+                  className="lg:hidden px-2.5 py-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-[11px] shadow-xs"
+                >
+                  Lihat ({cart.reduce((sum, it) => sum + it.qty, 0)})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingBill(null);
+                    setCart([]);
+                  }}
+                  className="px-2 py-1 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-[10px]"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          )}
+
           <PosTouchGrid
             menuList={branchMenuList}
             kategoriList={kategoriList}
@@ -685,7 +718,7 @@ export default function PosPage() {
               </div>
               <div className="text-left">
                 <span className="text-[10px] text-emerald-200 uppercase font-bold tracking-wider block leading-none">
-                  Total Pesanan
+                  {editingBill ? `Edit ${penanda || 'Tagihan'}` : 'Total Pesanan'}
                 </span>
                 <span className="text-base font-mono font-extrabold tabular-nums tracking-tight">
                   {formatRupiah(cart.reduce((sum, it) => sum + (getCartItemUnitPrice(it) * it.qty), 0))}
@@ -694,7 +727,7 @@ export default function PosPage() {
             </div>
 
             <div className="flex items-center space-x-1.5 font-extrabold text-xs bg-white/15 px-3 py-1.5 rounded-xl border border-white/20 shadow-xs">
-              <span>Buka Keranjang</span>
+              <span>{editingBill ? 'Simpan / Bayar' : 'Buka Keranjang'}</span>
               <ArrowRight className="w-4 h-4" />
             </div>
           </button>
@@ -786,7 +819,7 @@ export default function PosPage() {
 
       {isPaymentOpen && (
         <PaymentModal
-          total={selectedBillForPayment ? selectedBillForPayment.total : cart.reduce((sum, it) => sum + (it.menu.harga * it.qty), 0)}
+          total={selectedBillForPayment ? selectedBillForPayment.total : cart.reduce((sum, it) => sum + (getCartItemUnitPrice(it) * it.qty), 0)}
           cabang={currentCabang}
           onClose={() => {
             setIsPaymentOpen(false);

@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { X, Lock, KeyRound, DollarSign, UserCheck, AlertCircle } from 'lucide-react';
 import { Karyawan, Cabang } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatRupiah, formatNominal, parseNominal, formatWaktu } from '@/lib/utils';
+import { formatRupiah, formatNominal, formatWaktu } from '@/lib/utils';
 
 interface ShiftOpenModalProps {
   cabang: Cabang;
@@ -22,7 +22,7 @@ export default function ShiftOpenModal({
   const defaultCashierId = karyawanList[0]?.id || `kasir-${cabang.id}`;
   const [selectedKaryawanId, setSelectedKaryawanId] = useState<string>(defaultCashierId);
   const [pin, setPin] = useState<string>('');
-  const [modalAwal, setModalAwal] = useState<number>(200000);
+  const [modalAwalInput, setModalAwalInput] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [existingShift, setExistingShift] = useState<any>(null);
@@ -37,7 +37,8 @@ export default function ShiftOpenModal({
     checkActive();
   }, [cabang.id]);
 
-  const quickModalOptions = [100000, 150000, 200000, 300000, 500000];
+  const quickModalOptions = [0, 50000, 100000, 150000, 200000, 300000, 500000];
+  const parsedModalAwal = modalAwalInput.trim() === '' ? 0 : Number(modalAwalInput) || 0;
   const isSubmittingRef = useRef<boolean>(false);
 
   const handleOpenShift = async () => {
@@ -45,6 +46,10 @@ export default function ShiftOpenModal({
     setErrorMsg('');
     if (!pin) {
       setErrorMsg('Masukkan PIN staf / PIN kasir');
+      return;
+    }
+    if (modalAwalInput.trim() === '') {
+      setErrorMsg('Isi nominal modal kas awal laci terlebih dahulu (tulis 0 jika laci kosong).');
       return;
     }
 
@@ -83,7 +88,7 @@ export default function ShiftOpenModal({
         cabang_id: cabang.id,
         karyawan_id: finalKaryawanId,
         karyawan_nama: finalKaryawanNama,
-        modal_awal: modalAwal,
+        modal_awal: parsedModalAwal,
       });
 
       onSuccess(shift);
@@ -219,9 +224,13 @@ export default function ShiftOpenModal({
               </span>
               <input
                 type="text"
-                value={modalAwal === 0 ? '' : formatNominal(modalAwal)}
-                onChange={(e) => setModalAwal(parseNominal(e.target.value))}
-                placeholder="0"
+                inputMode="numeric"
+                value={modalAwalInput === '' ? '' : formatNominal(parsedModalAwal)}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '');
+                  setModalAwalInput(digits);
+                }}
+                placeholder="Isi kas awal (mis. 0 atau 200.000)"
                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 font-mono font-bold text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
               />
             </div>
@@ -232,14 +241,14 @@ export default function ShiftOpenModal({
                 <button
                   key={opt}
                   type="button"
-                  onClick={() => setModalAwal(opt)}
+                  onClick={() => setModalAwalInput(String(opt))}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold border transition-colors ${
-                    modalAwal === opt
+                    modalAwalInput !== '' && parsedModalAwal === opt
                       ? 'bg-brand-primary text-white border-brand-primary'
                       : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  {formatRupiah(opt).replace('Rp\u00a0', '')}
+                  {opt === 0 ? 'Rp 0 (Kosong)' : formatRupiah(opt).replace('Rp\u00a0', '')}
                 </button>
               ))}
             </div>

@@ -51,6 +51,41 @@ export function getItemKitchenStation(item: {
   return 'wedang';
 }
 
+export type OrderServiceMode = 'bungkus' | 'mixed' | 'makan_sini';
+
+/** Menentukan layanan pesanan (Bungkus / Campur / Makan Di Sini) dari penanda maupun catatan per item. */
+export function getOrderServiceMode(
+  penandaOrName: string,
+  items: Array<{ catatan?: string }> = []
+): OrderServiceMode {
+  const penandaLower = (penandaOrName || '').toLowerCase();
+  if (
+    penandaLower.includes('bungkus') ||
+    penandaLower.includes('take away') ||
+    penandaLower.includes('takeaway') ||
+    penandaLower.includes('bawa')
+  ) {
+    return 'bungkus';
+  }
+
+  if (items.length === 0) return 'makan_sini';
+
+  const isNoteBungkus = (c?: string) => {
+    const low = (c || '').toLowerCase();
+    return (
+      low.includes('bungkus') ||
+      low.includes('take away') ||
+      low.includes('takeaway') ||
+      low.includes('bawa')
+    );
+  };
+
+  const bungkusCount = items.filter(it => isNoteBungkus(it.catatan)).length;
+  if (bungkusCount === items.length) return 'bungkus';
+  if (bungkusCount > 0) return 'mixed';
+  return 'makan_sini';
+}
+
 export interface BluetoothPrinterState {
   isConnected: boolean;
   deviceName: string | null;
@@ -483,24 +518,26 @@ class BluetoothPrinterService {
     builder.newLine();
     builder.line('=', 32);
 
-    // Identitas Penanda & Tipe Layanan (Bungkus vs Makan Di Sini)
+    // Identitas Penanda & Tipe Layanan (Bungkus vs Campur vs Makan Di Sini)
     builder.alignLeft();
     builder.bold(true).size(true, true);
     const penandaDisplay = (transaksi as any).penanda || (transaksi as any).meja || (transaksi.nama_pelanggan.toLowerCase().includes('meja') ? transaksi.nama_pelanggan : `Pesanan: ${transaksi.nama_pelanggan}`);
-    const isBungkus = penandaDisplay.toLowerCase().includes('bungkus') ||
-                      penandaDisplay.toLowerCase().includes('take away') ||
-                      penandaDisplay.toLowerCase().includes('takeaway') ||
-                      penandaDisplay.toLowerCase().includes('bawa');
+    const serviceMode = getOrderServiceMode(penandaDisplay, stationItems);
 
     builder.text(penandaDisplay.toUpperCase());
     builder.newLine();
     builder.size(false, false);
     builder.bold(true);
-    if (isBungkus) {
+    if (serviceMode === 'bungkus') {
       builder.text('>> BUNGKUS / TAKE AWAY <<');
       builder.newLine();
       builder.bold(false);
       builder.text('*(Kemas Pakai Dus / Cup / Plastik)*');
+    } else if (serviceMode === 'mixed') {
+      builder.text('>> CAMPUR: BUNGKUS & MAKAN SINI <<');
+      builder.newLine();
+      builder.bold(false);
+      builder.text('*(Cek catatan BUNGKUS/MAKAN SINI tiap item)*');
     } else {
       builder.text('>> MAKAN DI SINI (DINE IN) <<');
       builder.newLine();
@@ -524,9 +561,9 @@ class BluetoothPrinterService {
     for (const item of stationItems) {
       totalPorsi += item.qty;
       builder.bold(true).size(false, true); // Double height agar jelas
-      const itemTitle = item.varian_nama
-        ? `${item.nama_menu} [${item.varian_nama.toUpperCase()}]`
-        : (item.temperature === 'dingin' ? `${item.nama_menu} [ES]` : item.nama_menu);
+      const tempTag = item.temperature === 'dingin' ? ' [ES]' : item.temperature === 'panas' ? ' [PANAS]' : '';
+      const varianTag = item.varian_nama ? ` [${item.varian_nama.toUpperCase()}]` : '';
+      const itemTitle = `${item.nama_menu}${varianTag}${tempTag}`;
       builder.text(`${item.qty}x  ${itemTitle}`);
       builder.newLine();
       builder.size(false, false).bold(false);
