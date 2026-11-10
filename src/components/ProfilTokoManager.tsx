@@ -18,11 +18,12 @@ import {
   MapPin, 
   Tag, 
   Lock, 
-  Unlock 
+  Unlock,
+  UserCheck
 } from 'lucide-react';
-import { Cabang } from '@/lib/types';
-import { db } from '@/lib/db';
-import { generateStrongPassword, formatRupiah } from '@/lib/utils';
+import { Cabang, Karyawan } from '@/lib/types';
+import { db, isBranchMatch } from '@/lib/db';
+import { generateStrongPassword, formatRupiah, formatKaryawanRole } from '@/lib/utils';
 
 interface ProfilTokoManagerProps {
   cabangList: Cabang[];
@@ -34,6 +35,7 @@ export default function ProfilTokoManager({
   onRefreshData,
 }: ProfilTokoManagerProps) {
   const [selectedCabangId, setSelectedCabangId] = useState<string>(cabangList[0]?.id || 'cbg-1');
+  const [allKaryawan, setAllKaryawan] = useState<Karyawan[]>([]);
   
   // Form States
   const [nama, setNama] = useState<string>('');
@@ -42,10 +44,9 @@ export default function ProfilTokoManager({
   const [alamat, setAlamat] = useState<string>('');
   const [telepon, setTelepon] = useState<string>('');
   
-  // Kasir Credentials
+  // Kasir Credentials (Hanya Username & Password)
   const [kasirUsername, setKasirUsername] = useState<string>('');
   const [kasirPassword, setKasirPassword] = useState<string>('');
-  const [kasirPin, setKasirPin] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isKasirLocked, setIsKasirLocked] = useState<boolean>(false);
   
@@ -65,6 +66,14 @@ export default function ProfilTokoManager({
 
   const activeCabang = cabangList.find(c => c.id === selectedCabangId) || cabangList[0];
 
+  useEffect(() => {
+    db.getAllKaryawan()
+      .then(list => setAllKaryawan(list.filter(k => k.role !== 'owner')))
+      .catch(e => console.warn('Gagal memuat daftar karyawan untuk pilihan PJ:', e));
+  }, []);
+
+  const branchWorkers = allKaryawan.filter(k => activeCabang && isBranchMatch(k.cabang_id, activeCabang.id));
+
   // Load selected cabang into form
   useEffect(() => {
     if (activeCabang) {
@@ -76,7 +85,6 @@ export default function ProfilTokoManager({
       
       setKasirUsername(activeCabang.kasir_username || `kasir_${activeCabang.kode?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'toko'}`);
       setKasirPassword(activeCabang.kasir_password_plain || 'Kasir#Bawel2026!');
-      setKasirPin(activeCabang.kasir_pin || `88800${activeCabang.nomor || 1}`);
       setIsKasirLocked(activeCabang.is_kasir_locked || false);
       
       setPjNama(activeCabang.pj_nama || '');
@@ -98,6 +106,16 @@ export default function ProfilTokoManager({
     setShowPassword(true);
   };
 
+  const handleSelectPjWorker = (karyawanId: string) => {
+    if (!karyawanId || karyawanId === '__manual__') return;
+    const picked = allKaryawan.find(k => k.id === karyawanId);
+    if (!picked) return;
+    setPjNama(picked.nama);
+    if (picked.telepon) {
+      setPjTelepon(picked.telepon);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeCabang) return;
@@ -112,9 +130,9 @@ export default function ProfilTokoManager({
         kota: kota.trim(),
         alamat: alamat.trim(),
         telepon: telepon.trim(),
-        kasir_username: kasirUsername.trim(),
+        kasir_username: kasirUsername.trim().toLowerCase(),
         kasir_password_plain: kasirPassword.trim(),
-        kasir_pin: kasirPin.trim(),
+        kasir_pin: '',
         is_kasir_locked: isKasirLocked,
         pj_nama: pjNama.trim(),
         pj_telepon: pjTelepon.trim(),
@@ -124,7 +142,7 @@ export default function ProfilTokoManager({
         qris_merchant_name: qrisMerchantName.trim(),
       });
 
-      setSuccessMsg(`Pengaturan dan struk untuk ${nama} berhasil disimpan!`);
+      setSuccessMsg(`Pengaturan, password kasir & PJ untuk ${nama} berhasil disimpan!`);
       await onRefreshData();
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err: any) {
@@ -357,27 +375,15 @@ export default function ProfilTokoManager({
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white text-xs lowercase"
                   required
                 />
+                <p className="text-[10px] text-slate-400">
+                  *Hanya Username &amp; Password ini yang bisa dipakai masuk kasir.
+                </p>
               </div>
 
               <div className="space-y-1">
-                <label className="font-extrabold text-slate-700 block">
-                  PIN Cepat Tablet Kasir (6 Angka):
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={kasirPin}
-                  onChange={(e) => setKasirPin(e.target.value.replace(/\D/g, ''))}
-                  placeholder="888001"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white text-xs tracking-widest"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1 sm:col-span-2">
                 <div className="flex items-center justify-between">
                   <label className="font-extrabold text-slate-700">
-                    Sandi Kuat Tablet Kasir (Password):
+                    Password Masuk Tablet Kasir:
                   </label>
                   <button
                     type="button"
@@ -385,7 +391,7 @@ export default function ProfilTokoManager({
                     className="text-[10px] font-bold text-amber-700 hover:text-amber-900 inline-flex items-center space-x-1 cursor-pointer bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200"
                   >
                     <Sparkles className="w-3 h-3 text-amber-600" />
-                    <span>Generate Sandi Kuat</span>
+                    <span>Generate</span>
                   </button>
                 </div>
                 <div className="relative">
@@ -406,7 +412,7 @@ export default function ProfilTokoManager({
                   </button>
                 </div>
                 <p className="text-[10px] text-slate-400">
-                  *Sandi ini digunakan saat staf kasir membuka aplikasi di tablet outlet ini.
+                  *Digunakan untuk login &amp; buka shift kasir di cabang ini (tanpa PIN).
                 </p>
               </div>
             </div>
@@ -414,11 +420,56 @@ export default function ProfilTokoManager({
 
           {/* 3. PENANGGUNG JAWAB (PJ) & WHATSAPP */}
           <div className="space-y-4 pt-2">
-            <div className="flex items-center space-x-2 border-b border-slate-100 pb-2">
-              <MessageCircle className="w-4 h-4 text-emerald-700" />
-              <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                3. Penanggung Jawab (PJ) &amp; No. WhatsApp Laporan
-              </h4>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div className="flex items-center space-x-2">
+                <MessageCircle className="w-4 h-4 text-emerald-700" />
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                  3. Penanggung Jawab (PJ) &amp; No. WhatsApp Laporan
+                </h4>
+              </div>
+              <span className="text-[10px] text-emerald-700 font-bold">
+                Otomatis sinkron ke Kasir &amp; WA
+              </span>
+            </div>
+
+            <div className="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-2 text-xs">
+              <label className="font-extrabold text-emerald-950 flex items-center space-x-1.5">
+                <UserCheck className="w-4 h-4 text-emerald-700" />
+                <span>Pilih PJ dari Pekerja Cabang Ini (No. WA Otomatis Berubah):</span>
+              </label>
+              <select
+                value={
+                  allKaryawan.find(
+                    k => k.nama.toLowerCase().trim() === pjNama.toLowerCase().trim()
+                  )?.id || '__manual__'
+                }
+                onChange={(e) => handleSelectPjWorker(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 cursor-pointer"
+              >
+                <option value="__manual__">
+                  -- Pilih Pekerja Cabang ({branchWorkers.length} staf) atau isi manual di bawah --
+                </option>
+                {branchWorkers.length > 0 && (
+                  <optgroup label={`Pekerja di ${nama || activeCabang?.nama || 'Cabang Ini'}`}>
+                    {branchWorkers.map(w => (
+                      <option key={w.id} value={w.id}>
+                        👤 {w.nama} ({formatKaryawanRole(w.role).toUpperCase()} • WA: {w.telepon || '-'})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {allKaryawan.filter(k => !branchWorkers.some(bw => bw.id === k.id)).length > 0 && (
+                  <optgroup label="Pekerja Cabang Lainnya">
+                    {allKaryawan
+                      .filter(k => !branchWorkers.some(bw => bw.id === k.id))
+                      .map(w => (
+                        <option key={w.id} value={w.id}>
+                          👤 {w.nama} ({formatKaryawanRole(w.role).toUpperCase()} • WA: {w.telepon || '-'})
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+              </select>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -430,7 +481,7 @@ export default function ProfilTokoManager({
                   type="text"
                   value={pjNama}
                   onChange={(e) => setPjNama(e.target.value)}
-                  placeholder="Misal: Siti Rahmawati (PJ)"
+                  placeholder="Otomatis terisi saat pilih pekerja atau ketik manual"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white text-xs"
                   required
                 />
@@ -438,7 +489,7 @@ export default function ProfilTokoManager({
 
               <div className="space-y-1">
                 <label className="font-extrabold text-slate-700 block">
-                  Nomor WhatsApp PJ (Penerima Laporan):
+                  Nomor WhatsApp PJ (Otomatis Data Karyawan):
                 </label>
                 <input
                   type="text"

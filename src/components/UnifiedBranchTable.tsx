@@ -189,7 +189,7 @@ export default function UnifiedBranchTable({
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <input
               type="text"
-              placeholder="Cari cabang, kota, alamat, PJ, PIN..."
+              placeholder="Cari cabang, kota, alamat, PJ, username..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 shadow-2xs"
@@ -329,7 +329,7 @@ export default function UnifiedBranchTable({
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-500 font-mono">
-                          PIN: <strong className="text-slate-800">{cbg.kasir_pin || `88800${cbg.nomor}`}</strong>
+                          Pass: <strong className="text-slate-800">{cbg.kasir_password_plain || '-'}</strong>
                         </div>
                       </div>
                     </td>
@@ -706,7 +706,7 @@ export default function UnifiedBranchTable({
                 </div>
 
                 <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                  <span className="text-slate-400">User: {cbg.kasir_username || 'kasir'} • PIN: {cbg.kasir_pin || '888001'}</span>
+                  <span className="text-slate-400">User: {cbg.kasir_username || 'kasir'} • Pass: {cbg.kasir_password_plain || '-'}</span>
                   <span className="text-brand-primary font-bold">{isSelected ? '✓ Terpilih' : 'Klik Filter'}</span>
                 </div>
               </div>

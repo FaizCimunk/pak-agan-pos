@@ -30,10 +30,8 @@ export default function PinResetModal({
   onClose,
   onSuccess,
 }: PinResetModalProps) {
-  const [activeTab, setActiveTab] = useState<'password' | 'pin'>('password');
   const [username, setUsername] = useState<string>(karyawan.username || karyawan.nama.toLowerCase().replace(/\s+/g, ''));
   const [password, setPassword] = useState<string>(karyawan.password_plain || 'Serabi@2026#Bawel');
-  const [pin, setPin] = useState<string>('1234');
   const [isLocked, setIsLocked] = useState<boolean>(!!karyawan.is_locked);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -81,28 +79,20 @@ export default function PinResetModal({
       return;
     }
 
-    if (activeTab === 'password') {
-      if (!isPasswordValid) {
-        setErrorMsg('Password belum memenuhi seluruh kriteria keamanan (Huruf Besar, Huruf Kecil, Angka, & Tanda Baca)');
-        return;
-      }
-    } else {
-      if (!pin || pin.length < 4) {
-        setErrorMsg('PIN minimal 4 digit angka');
-        return;
-      }
+    if (!isPasswordValid) {
+      setErrorMsg('Password belum memenuhi seluruh kriteria keamanan (Huruf Besar, Huruf Kecil, Angka, & Tanda Baca)');
+      return;
     }
 
     setLoading(true);
     try {
       await db.updateKaryawanCredentials(karyawan.id, {
         username: username.trim(),
-        pin: pin,
-        password_plain: password,
+        password_plain: password.trim(),
         is_locked: isLocked,
       });
 
-      alert(`Kredensial & Sandi untuk ${karyawan.nama} berhasil diperbarui!`);
+      alert(`Username & Password untuk ${karyawan.nama} berhasil diperbarui!`);
       onSuccess();
     } catch (e: any) {
       setErrorMsg('Gagal memperbarui: ' + e.message);
@@ -187,43 +177,11 @@ export default function PinResetModal({
             </div>
           </div>
 
-          {/* Mode Selector Tabs */}
-          <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1.5">
-              Pilih Jenis Kredensial yang Diubah:
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab('password')}
-                className={`py-2 px-3 rounded-xl font-bold border text-center transition-all ${
-                  activeTab === 'password'
-                    ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                🔐 Password Kuat
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('pin')}
-                className={`py-2 px-3 rounded-xl font-bold border text-center transition-all ${
-                  activeTab === 'pin'
-                    ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-xs'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                🔢 PIN Cepat Tablet (4-6 Digit)
-              </button>
-            </div>
-          </div>
-
-          {/* Mode 1: Password Kuat (Huruf besar, angka, tanda baca) */}
-          {activeTab === 'password' ? (
-            <div className="space-y-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-200">
+          {/* Password Kuat (Huruf besar, angka, tanda baca) */}
+          <div className="space-y-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-200">
               <div className="flex items-center justify-between">
                 <label className="font-bold text-slate-700 block">
-                  Password Sandi Rahasia:
+                  Password Masuk:
                 </label>
                 <button
                   type="button"
@@ -294,27 +252,7 @@ export default function PinResetModal({
                   <span>Mengandung Tanda Baca / Simbol (!@#$%^&*)</span>
                 </div>
               </div>
-            </div>
-          ) : (
-            /* Mode 2: PIN Cepat Tablet (4-6 digit angka) */
-            <div className="space-y-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-200">
-              <label className="font-bold text-slate-700 block">
-                PIN Cepat Tablet (4 - 6 Digit Angka):
-              </label>
-              <input
-                type="text"
-                maxLength={6}
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="1234"
-                className="w-full px-4 py-3 bg-white rounded-xl border border-slate-200 font-mono text-center text-2xl font-black tracking-[0.4em] text-slate-900 focus:outline-none focus:border-amber-500 shadow-inner"
-                required
-              />
-              <p className="text-[10px] text-slate-500 text-center">
-                PIN ini digunakan kasir untuk buka/tutup shift laci kas dan otorisasi cepat di tablet cabang.
-              </p>
-            </div>
-          )}
+          </div>
 
           {/* Security Notice */}
           <div className="flex items-start space-x-2 text-[11px] text-amber-900 bg-amber-50/90 p-3 rounded-2xl border border-amber-200">

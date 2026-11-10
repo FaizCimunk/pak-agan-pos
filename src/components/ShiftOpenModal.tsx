@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { X, Lock, KeyRound, DollarSign, UserCheck, AlertCircle } from 'lucide-react';
+import { X, Lock, KeyRound, DollarSign, UserCheck, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Karyawan, Cabang } from '@/lib/types';
 import { db } from '@/lib/db';
 import { formatRupiah, formatNominal, formatWaktu } from '@/lib/utils';
@@ -19,9 +19,10 @@ export default function ShiftOpenModal({
   onClose,
   onSuccess,
 }: ShiftOpenModalProps) {
-  const defaultCashierId = karyawanList[0]?.id || `kasir-${cabang.id}`;
-  const [selectedKaryawanId, setSelectedKaryawanId] = useState<string>(defaultCashierId);
-  const [pin, setPin] = useState<string>('');
+  const defaultPjOptionId = `pj-${cabang.id}`;
+  const [selectedKaryawanId, setSelectedKaryawanId] = useState<string>(defaultPjOptionId);
+  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [modalAwalInput, setModalAwalInput] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -41,11 +42,14 @@ export default function ShiftOpenModal({
   const parsedModalAwal = modalAwalInput.trim() === '' ? 0 : Number(modalAwalInput) || 0;
   const isSubmittingRef = useRef<boolean>(false);
 
+  const pjNamaPusat = cabang.pj_nama?.trim() || cabang.kasir_username || `PJ ${cabang.nama}`;
+
   const handleOpenShift = async () => {
     if (isSubmittingRef.current || loading) return;
     setErrorMsg('');
-    if (!pin) {
-      setErrorMsg('Masukkan PIN staf / PIN kasir');
+    const cleanPass = passwordInput.trim();
+    if (!cleanPass) {
+      setErrorMsg('Masukkan Password Kasir Toko dari Dashboard Pusat.');
       return;
     }
     if (modalAwalInput.trim() === '') {
@@ -56,32 +60,35 @@ export default function ShiftOpenModal({
     isSubmittingRef.current = true;
     setLoading(true);
     try {
-      let finalKaryawanId = selectedKaryawanId;
+      const branchPass = (cabang.kasir_password_plain || '').trim();
+      let finalKaryawanId = '';
       let finalKaryawanNama = '';
 
-      if (selectedKaryawanId.startsWith('kasir-') || !selectedKaryawanId) {
-        const branchPin = (cabang.kasir_pin || '').trim();
-        const branchPass = (cabang.kasir_password_plain || '').trim();
-        const cleanPin = pin.trim();
-
-        if (cleanPin === branchPin || cleanPin === branchPass || cleanPin === '1234' || !branchPin) {
-          finalKaryawanId = `kasir-${cabang.id}`;
-          finalKaryawanNama = cabang.pj_nama || `Kasir ${cabang.nama}`;
-        } else {
-          setErrorMsg('PIN / Sandi Kasir Toko salah! Gunakan PIN resmi cabang atau 1234.');
+      if (selectedKaryawanId === defaultPjOptionId || selectedKaryawanId.startsWith('kasir-')) {
+        if (!branchPass || cleanPass !== branchPass) {
+          setErrorMsg('Password Kasir Toko salah! Gunakan password resmi cabang yang diatur dari Dashboard Pusat.');
           setLoading(false);
           isSubmittingRef.current = false;
           return;
         }
+        // Cocokkan ID pekerja jika nama PJ dari Pusat berasal dari pekerja cabang
+        const matchedWorker = karyawanList.find(
+          k => k.nama.toLowerCase().trim() === pjNamaPusat.toLowerCase().trim()
+        );
+        finalKaryawanId = matchedWorker?.id || `kasir-${cabang.id}`;
+        finalKaryawanNama = matchedWorker?.nama || pjNamaPusat;
       } else {
-        const verify = await db.verifyKaryawanPin(selectedKaryawanId, pin);
-        if (!verify.valid && pin.trim() !== '1234' && pin.trim() !== (cabang.kasir_pin || '').trim()) {
-          setErrorMsg('PIN salah! Silakan gunakan PIN terdaftar staf atau PIN demo 1234.');
+        const pickedKar = karyawanList.find(k => k.id === selectedKaryawanId);
+        const verify = await db.verifyKaryawanPin(selectedKaryawanId, cleanPass);
+        const isBranchPassMatched = Boolean(branchPass && cleanPass === branchPass);
+        if (!verify.valid && !isBranchPassMatched) {
+          setErrorMsg('Password salah! Masukkan Password Kasir Toko atau Password pribadi staf dari Pusat.');
           setLoading(false);
           isSubmittingRef.current = false;
           return;
         }
-        finalKaryawanNama = verify.karyawan?.nama || karyawanList.find(k => k.id === selectedKaryawanId)?.nama || cabang.pj_nama || 'Kasir Outlet';
+        finalKaryawanId = selectedKaryawanId;
+        finalKaryawanNama = verify.karyawan?.nama || pickedKar?.nama || pjNamaPusat;
       }
 
       const shift = await db.openShift({
@@ -171,44 +178,59 @@ export default function ShiftOpenModal({
             </div>
           )}
 
-          {/* Staf Selector */}
+          {/* PJ Selector (Utama diatur dari Dashboard Pusat) */}
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center space-x-1">
               <UserCheck className="w-3.5 h-3.5 text-brand-primary" />
-              <span>Pilih Staf Penanggung Jawab (PJ)</span>
+              <span>Penanggung Jawab (PJ) Toko (Diatur Pusat)</span>
             </label>
             <select
               value={selectedKaryawanId}
               onChange={(e) => setSelectedKaryawanId(e.target.value)}
               className="w-full px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary cursor-pointer"
             >
-              <option value={`kasir-${cabang.id}`}>
-                🏢 Kasir Outlet - {cabang.pj_nama || cabang.kasir_username || cabang.nama} (PJ RESMI)
+              <option value={defaultPjOptionId}>
+                🏢 {pjNamaPusat} (PJ Resmi Pusat)
               </option>
-              {karyawanList.filter(k => k.id !== `kasir-${cabang.id}`).map(kar => (
-                <option key={kar.id} value={kar.id}>
-                  👤 {kar.nama} ({kar.role.toUpperCase()})
-                </option>
-              ))}
+              {karyawanList
+                .filter(k => k.id !== `kasir-${cabang.id}` && k.nama.toLowerCase().trim() !== pjNamaPusat.toLowerCase().trim())
+                .map(kar => (
+                  <option key={kar.id} value={kar.id}>
+                    👤 {kar.nama} ({kar.role.toUpperCase()})
+                  </option>
+                ))}
             </select>
+            <p className="text-[10.5px] text-slate-400 mt-1">
+              *Nama PJ default mengikuti pengaturan cabang dari Dashboard Pusat.
+            </p>
           </div>
 
-          {/* PIN Input */}
+          {/* Password Masuk Kasir */}
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center space-x-1">
-              <KeyRound className="w-3.5 h-3.5 text-brand-primary" />
-              <span>PIN Pribadi Staf (4-6 Digit)</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-bold text-slate-700 flex items-center space-x-1">
+                <KeyRound className="w-3.5 h-3.5 text-brand-primary" />
+                <span>Password Masuk Kasir</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[11px] font-bold text-emerald-700 hover:underline flex items-center space-x-1"
+              >
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                <span>{showPassword ? 'Tutup' : 'Lihat'}</span>
+              </button>
+            </div>
             <input
-              type="password"
-              maxLength={6}
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              placeholder="••••"
-              className="w-full px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-center font-mono text-xl tracking-[0.5em] font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+              type={showPassword ? 'text' : 'password'}
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder="Masukkan password kasir toko..."
+              autoComplete="current-password"
+              className="w-full px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 font-mono text-sm font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
             />
             <p className="text-[11px] text-slate-400 mt-1">
-              *PIN bawaan demo adalah <strong>1234</strong>
+              *Sesuai password kasir cabang yang diatur dari Dashboard Pusat.
             </p>
           </div>
 

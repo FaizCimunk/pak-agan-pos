@@ -605,40 +605,34 @@ export class PosDatabase {
     return updated;
   }
 
-  async verifyKaryawanPin(karyawanId: string, inputPin: string): Promise<{ valid: boolean; karyawan?: Karyawan }> {
+  async verifyKaryawanPin(karyawanId: string, inputPassword: string): Promise<{ valid: boolean; karyawan?: Karyawan }> {
     const list = await this.getAllKaryawan();
     const kar = list.find(k => k.id === karyawanId);
-    if (!kar) return { valid: false };
+    if (!kar || kar.is_locked) return { valid: false };
 
-    if (kar.is_locked) return { valid: false };
+    const cleanInput = inputPassword.trim();
+    if (!cleanInput) return { valid: false };
 
-    const cleanInput = inputPin.trim();
+    if (kar.password_plain) {
+      return { valid: kar.password_plain.trim() === cleanInput, karyawan: kar };
+    }
     const hashed = await hashPin(cleanInput);
-    const hasConfiguredPin = Boolean(kar.pin_hash || kar.password_plain);
-
-    // Keamanan Ketat: jika sudah diset PIN atau sandi kustom, bypass demo '1234' otomatis ditolak
-    const isMatched = 
-      (kar.pin_hash && kar.pin_hash === hashed) || 
-      (kar.password_plain && kar.password_plain === cleanInput) ||
-      (!hasConfiguredPin && cleanInput === '1234');
-
-    return { valid: isMatched, karyawan: kar };
+    return { valid: Boolean(kar.pin_hash && kar.pin_hash === hashed), karyawan: kar };
   }
 
-  async authenticateUser(identifier: string, inputPin: string): Promise<{ success: boolean; user?: Karyawan; message?: string }> {
+  async authenticateUser(identifier: string, inputPassword: string): Promise<{ success: boolean; user?: Karyawan; message?: string }> {
     const cleanId = identifier.trim().toLowerCase();
-    const cleanPin = inputPin.trim();
-    const cleanDigits = cleanId.replace(/[^0-9]/g, '');
+    const cleanPassword = inputPassword.trim();
 
-    // 1. CEK KREDENSIAL KASIR TOKO CABANG (TERPISAH DARI PEKERJA)
+    if (!cleanId || !cleanPassword) {
+      return { success: false, message: 'Harap masukkan Username dan Password.' };
+    }
+
+    // 1. CEK KREDENSIAL KASIR TOKO CABANG (WAJIB SAMA PERSIS DENGAN USERNAME & PASSWORD DARI PUSAT)
     const cabangList = await this.getAllCabang();
     const matchedBranch = cabangList.find(c => {
       const uKasir = (c.kasir_username || '').toLowerCase().trim();
-      const cKode = (c.kode || '').toLowerCase().trim();
-      if (uKasir && uKasir === cleanId) return true;
-      if (cKode && cKode === cleanId) return true;
-      if (cleanId === `cabang${c.nomor}` || cleanId === `cbg${c.nomor}` || cleanId === `cbg-${c.nomor}`) return true;
-      return false;
+      return Boolean(uKasir && uKasir === cleanId);
     });
 
     if (matchedBranch) {
@@ -649,21 +643,11 @@ export class PosDatabase {
         };
       }
 
-      const validPin = (matchedBranch.kasir_pin || '').trim();
       const validPass = (matchedBranch.kasir_password_plain || '').trim();
-      const hasConfigured = Boolean(validPin || validPass);
-
-      // Keamanan Ketat: Hanya terima PIN atau Password aktif cabang terkini.
-      // Sandi kemarin/lama dan bypass demo '1234' otomatis ditolak begitu sandi/PIN disimpan!
-      const isBranchPinValid = 
-        (validPin && cleanPin === validPin) || 
-        (validPass && cleanPin === validPass) ||
-        (!hasConfigured && cleanPin === '1234');
-
-      if (!isBranchPinValid) {
+      if (!validPass || cleanPassword !== validPass) {
         return { 
           success: false, 
-          message: `PIN / Sandi Kasir Toko untuk ${matchedBranch.nama} salah! Gunakan kredensial resmi cabang terkini.` 
+          message: `Username atau Password Kasir ${matchedBranch.nama} salah! Gunakan password terbaru yang diatur dari Dashboard Pusat.` 
         };
       }
 
@@ -675,7 +659,7 @@ export class PosDatabase {
         role: 'kasir',
         telepon: matchedBranch.pj_telepon || matchedBranch.telepon,
         pin_hash: '',
-        password_plain: matchedBranch.kasir_password_plain || matchedBranch.kasir_pin || '',
+        password_plain: validPass,
         tipe_gaji: 'bulanan',
         gaji_pokok: 0,
         tunjangan: 0,
@@ -686,26 +670,15 @@ export class PosDatabase {
       return { success: true, user: kasirUser };
     }
 
-    // 2. CEK KREDENSIAL PEKERJA / STAF PERSONAL ATAU OWNER PUSAT
+    // 2. CEK KREDENSIAL OWNER / KARYAWAN (KHUSUS USERNAME + PASSWORD SAJA)
     const list = await this.getAllKaryawan();
     const user = list.find(k => {
       const uName = (k.username || '').toLowerCase().trim();
-      const kNama = k.nama.toLowerCase().trim();
-      const kPhoneDigits = (k.telepon || '').replace(/[^0-9]/g, '');
-
-      if (uName && uName === cleanId) return true;
-      if (cleanDigits && kPhoneDigits && (kPhoneDigits === cleanDigits || kPhoneDigits.endsWith(cleanDigits))) return true;
-      if (kNama === cleanId) return true;
-
-      // Shortcut aliases for Owner
-      if (cleanId === 'owner' || cleanId === 'pakagan' || cleanId === 'admin') {
-        return k.role === 'owner';
-      }
-      return false;
+      return Boolean(uName && uName === cleanId);
     });
 
     if (!user) {
-      return { success: false, message: 'Nomor HP atau ID Pengguna tidak ditemukan.' };
+      return { success: false, message: 'Username tidak ditemukan. Periksa kembali Username dari Dashboard Pusat.' };
     }
 
     if (user.is_locked) {
@@ -715,17 +688,13 @@ export class PosDatabase {
       };
     }
 
-    const hashed = await hashPin(cleanPin);
-    const hasConfiguredUserCreds = Boolean(user.pin_hash || user.password_plain);
+    const hashed = await hashPin(cleanPassword);
+    const isPasswordValid = user.password_plain
+      ? user.password_plain.trim() === cleanPassword
+      : Boolean(user.pin_hash && user.pin_hash === hashed);
 
-    // Keamanan Ketat Pekerja: Tolak sandi kemarin / lama dan bypass demo '1234'
-    const isPinValid = 
-      (user.pin_hash && user.pin_hash === hashed) || 
-      (user.password_plain && user.password_plain === cleanPin) ||
-      (!hasConfiguredUserCreds && cleanPin === '1234');
-
-    if (!isPinValid) {
-      return { success: false, message: 'PIN / Sandi rahasia salah.' };
+    if (!isPasswordValid) {
+      return { success: false, message: 'Username atau Password salah.' };
     }
 
     return { success: true, user };
@@ -740,17 +709,28 @@ export class PosDatabase {
     const list = await this.getAllKaryawan();
     const hashed = await hashPin(newPin);
     const targetKarUuid = getKaryawanUuid(karyawanId);
+    let targetRecord: Karyawan | undefined;
     const updated = list.map(k => {
       const isMatch = k.id === karyawanId || k.username === karyawanId || (targetKarUuid && getKaryawanUuid(k.id) === targetKarUuid);
-      return isMatch ? { ...k, pin_hash: hashed, password_plain: newPin } : k;
+      if (isMatch) {
+        targetRecord = { ...k, pin_hash: hashed, password_plain: newPin };
+        return targetRecord;
+      }
+      return k;
     });
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && targetRecord) {
       try {
         const karUuid = getKaryawanUuid(karyawanId);
         if (karUuid) {
-          await supabase.from('karyawan').update({ pin_hash: hashed, password_plain: newPin }).eq('id', karUuid);
+          const encodedPass = encodeKaryawanBankMarker(
+            newPin,
+            targetRecord.bank_nama,
+            targetRecord.no_rekening,
+            targetRecord.atas_nama_rekening
+          );
+          await supabase.from('karyawan').update({ pin_hash: hashed, password_plain: encodedPass }).eq('id', karUuid);
         }
       } catch (e) {
         console.warn('Supabase resetKaryawanPin error:', e);
@@ -764,34 +744,44 @@ export class PosDatabase {
     data: { username?: string; pin?: string; password_plain?: string; is_locked?: boolean }
   ): Promise<boolean> {
     const list = await this.getAllKaryawan();
+    const activeSecret = data.password_plain || data.pin;
     let newHash: string | undefined = undefined;
-    if (data.pin) {
-      newHash = await hashPin(data.pin);
+    if (activeSecret) {
+      newHash = await hashPin(activeSecret);
     }
     const targetKarUuid = getKaryawanUuid(karyawanId);
+    let updatedTarget: Karyawan | undefined;
     const updated = list.map(k => {
       const isMatch = k.id === karyawanId || k.username === karyawanId || (targetKarUuid && getKaryawanUuid(k.id) === targetKarUuid);
       if (isMatch) {
-        return {
+        updatedTarget = {
           ...k,
           ...(data.username ? { username: data.username.toLowerCase().trim() } : {}),
           ...(newHash ? { pin_hash: newHash } : {}),
-          ...(data.password_plain ? { password_plain: data.password_plain } : {}),
+          ...(activeSecret ? { password_plain: activeSecret } : {}),
           ...(typeof data.is_locked === 'boolean' ? { is_locked: data.is_locked } : {}),
         };
+        return updatedTarget;
       }
       return k;
     });
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
 
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && updatedTarget) {
       try {
         const karUuid = getKaryawanUuid(karyawanId);
         if (karUuid) {
           const payload: any = {};
           if (data.username) payload.username = data.username.toLowerCase().trim();
           if (newHash) payload.pin_hash = newHash;
-          if (data.password_plain) payload.password_plain = data.password_plain;
+          if (activeSecret) {
+            payload.password_plain = encodeKaryawanBankMarker(
+              activeSecret,
+              updatedTarget.bank_nama,
+              updatedTarget.no_rekening,
+              updatedTarget.atas_nama_rekening
+            );
+          }
           if (typeof data.is_locked === 'boolean') payload.is_locked = data.is_locked;
           await supabase.from('karyawan').update(payload).eq('id', karUuid);
         }

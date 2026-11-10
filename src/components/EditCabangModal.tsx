@@ -22,9 +22,9 @@ import {
   Laptop,
   Lock
 } from 'lucide-react';
-import { Cabang } from '@/lib/types';
-import { db } from '@/lib/db';
-import { formatNominal, parseNominal, formatRupiah } from '@/lib/utils';
+import { Cabang, Karyawan } from '@/lib/types';
+import { db, isBranchMatch } from '@/lib/db';
+import { formatNominal, parseNominal, formatRupiah, formatKaryawanRole } from '@/lib/utils';
 
 interface EditCabangModalProps {
   cabang: Cabang | null;
@@ -51,17 +51,36 @@ export default function EditCabangModal({
   const [qrisMerchantName, setQrisMerchantName] = useState<string>('');
   const [isActive, setIsActive] = useState<boolean>(true);
 
-  // Kredensial Kasir Toko Terpisah dari Pekerja
+  // Kredensial Kasir Toko (Username & Password saja)
   const [kasirUsername, setKasirUsername] = useState<string>('');
-  const [kasirPin, setKasirPin] = useState<string>('');
-  const [showKasirPin, setShowKasirPin] = useState<boolean>(false);
+  const [kasirPassword, setKasirPassword] = useState<string>('');
+  const [showKasirPassword, setShowKasirPassword] = useState<boolean>(false);
   // Kontak Penanggung Jawab Khusus Penerima Laporan Belanja & Approval
+  const [allKaryawan, setAllKaryawan] = useState<Karyawan[]>([]);
   const [pjNama, setPjNama] = useState<string>('');
   const [pjTelepon, setPjTelepon] = useState<string>('');
 
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
+
+  useEffect(() => {
+    db.getAllKaryawan()
+      .then(list => setAllKaryawan(list.filter(k => k.role !== 'owner')))
+      .catch(e => console.warn('Gagal memuat karyawan cabang:', e));
+  }, []);
+
+  const branchWorkers = cabang ? allKaryawan.filter(k => isBranchMatch(k.cabang_id, cabang.id)) : [];
+
+  const handleSelectPjWorker = (karyawanId: string) => {
+    if (!karyawanId || karyawanId === '__manual__') return;
+    const picked = allKaryawan.find(k => k.id === karyawanId);
+    if (!picked) return;
+    setPjNama(picked.nama);
+    if (picked.telepon) {
+      setPjTelepon(picked.telepon);
+    }
+  };
 
   useEffect(() => {
     if (cabang) {
@@ -77,7 +96,7 @@ export default function EditCabangModal({
       setQrisMerchantName(cabang.qris_merchant_name || cabang.nama || '');
       setIsActive(cabang.is_active ?? true);
       setKasirUsername(cabang.kasir_username || `kasir_cbg${cabang.nomor}`);
-      setKasirPin(cabang.kasir_pin || `88800${cabang.nomor}`);
+      setKasirPassword(cabang.kasir_password_plain || `Kasir@Cbg${cabang.nomor}!`);
       setPjNama(cabang.pj_nama || '');
       setPjTelepon(cabang.pj_telepon || cabang.telepon || '');
     } else {
@@ -93,7 +112,7 @@ export default function EditCabangModal({
       setQrisMerchantName('');
       setIsActive(true);
       setKasirUsername('kasir_new');
-      setKasirPin('888001');
+      setKasirPassword('Kasir@Baru2026!');
       setPjNama('');
       setPjTelepon('0812-');
     }
@@ -110,6 +129,11 @@ export default function EditCabangModal({
 
     if (!kode.trim()) {
       setErrorMsg('Kode cabang wajib diisi!');
+      return;
+    }
+
+    if (!kasirUsername.trim() || !kasirPassword.trim()) {
+      setErrorMsg('Username dan Password Kasir Toko wajib diisi!');
       return;
     }
 
@@ -131,8 +155,8 @@ export default function EditCabangModal({
           qris_merchant_name: qrisMerchantName.trim() || nama.trim(),
           is_active: isActive,
           kasir_username: kasirUsername.trim().toLowerCase(),
-          kasir_pin: kasirPin.trim(),
-          kasir_password_plain: kasirPin.trim(),
+          kasir_pin: '',
+          kasir_password_plain: kasirPassword.trim(),
           pj_nama: pjNama.trim(),
           pj_telepon: pjTelepon.trim(),
         });
@@ -150,8 +174,8 @@ export default function EditCabangModal({
           qris_merchant_name: qrisMerchantName.trim() || nama.trim(),
           is_active: isActive,
           kasir_username: kasirUsername.trim().toLowerCase(),
-          kasir_pin: kasirPin.trim(),
-          kasir_password_plain: kasirPin.trim(),
+          kasir_pin: '',
+          kasir_password_plain: kasirPassword.trim(),
           pj_nama: pjNama.trim(),
           pj_telepon: pjTelepon.trim(),
         });
@@ -190,7 +214,7 @@ export default function EditCabangModal({
                 )}
               </div>
               <p className="text-[11px] text-slate-500 font-medium">
-                Sesuaikan nama cabang, sewa ruko, Wi-Fi &amp; listrik, PIN kasir, dan penanggung jawab
+                Sesuaikan nama cabang, sewa ruko, Wi-Fi &amp; listrik, password kasir, dan penanggung jawab
               </p>
             </div>
           </div>
@@ -331,19 +355,19 @@ export default function EditCabangModal({
             </div>
           </div>
 
-          {/* KOTAK 1: KREDENSIAL AKSES KASIR TOKO (TERPISAH DARI PEKERJA) */}
+          {/* KOTAK 1: KREDENSIAL AKSES KASIR TOKO */}
           <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 space-y-2.5">
             <div className="flex items-center justify-between">
               <label className="font-extrabold text-blue-950 flex items-center space-x-1.5 text-xs">
                 <Laptop className="w-4 h-4 text-blue-700" />
-                <span>Kredensial Akses Kasir Toko (Mesin POS Tablet)</span>
+                <span>Kredensial Akses Kasir Toko (Username &amp; Password)</span>
               </label>
               <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-white text-blue-800 border border-blue-300">
                 Khusus Kasir Toko
               </span>
             </div>
             <p className="text-[10px] text-blue-700 leading-snug">
-              Username &amp; PIN ini khusus untuk operasional buka/tutup kasir dan transaksi penjualan di cabang ini. <strong>Dibedakan dari password pekerja pribadi</strong>.
+              Hanya Username &amp; Password ini yang bisa dipakai membuka kasir cabang ini (tanpa PIN).
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
@@ -358,38 +382,37 @@ export default function EditCabangModal({
                     onChange={(e) => setKasirUsername(e.target.value.toLowerCase())}
                     placeholder="Contoh: kasir_cbg1"
                     className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-mono font-bold text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                    required
                   />
                 </div>
-                <span className="text-[9px] text-slate-400 mt-0.5 block">
-                  Alias: cabang{cabang?.nomor || '1'}
-                </span>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-[10px] font-bold text-slate-700">
-                    PIN Masuk Kasir (Angka):
+                    Password Masuk Kasir:
                   </label>
                   <button
                     type="button"
-                    onClick={() => setShowKasirPin(!showKasirPin)}
+                    onClick={() => setShowKasirPassword(!showKasirPassword)}
                     className="text-[9px] text-blue-700 hover:text-blue-900 font-bold flex items-center gap-0.5"
                   >
-                    {showKasirPin ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                    <span>{showKasirPin ? 'Tutup' : 'Intip'}</span>
+                    {showKasirPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    <span>{showKasirPassword ? 'Tutup' : 'Intip'}</span>
                   </button>
                 </div>
                 <div className="relative">
                   <input
-                    type={showKasirPin ? 'text' : 'password'}
-                    value={kasirPin}
-                    onChange={(e) => setKasirPin(e.target.value)}
-                    placeholder="Contoh: 888001"
+                    type={showKasirPassword ? 'text' : 'password'}
+                    value={kasirPassword}
+                    onChange={(e) => setKasirPassword(e.target.value)}
+                    placeholder="Contoh: Kasir@Cbg1!"
                     className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-mono font-bold text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                    required
                   />
                 </div>
                 <span className="text-[9px] text-slate-400 mt-0.5 block">
-                  PIN masuk mesin kasir outlet
+                  Password resmi login &amp; buka shift kasir
                 </span>
               </div>
             </div>
@@ -400,15 +423,54 @@ export default function EditCabangModal({
             <div className="flex items-center justify-between">
               <label className="font-extrabold text-emerald-950 flex items-center space-x-1.5 text-xs">
                 <MessageCircle className="w-4 h-4 text-emerald-700" />
-                <span>Penanggung Jawab (PJ) &amp; No. WhatsApp Laporan Belanja</span>
+                <span>Penanggung Jawab (PJ) &amp; No. WhatsApp Laporan</span>
               </label>
               <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-white text-emerald-800 border border-emerald-300">
                 Tujuan WA Belanja
               </span>
             </div>
-            <p className="text-[10px] text-emerald-800 leading-snug">
-              Nomor WhatsApp resmi penanggung jawab outlet untuk menerima <strong>bukti persetujuan approval belanja/kasbon</strong> dan <strong>laporan harian kasir</strong>. Tidak dicampur dengan nomor pekerja sembarangan.
-            </p>
+
+            {!isNew && (
+              <div>
+                <label className="text-[10px] font-bold text-emerald-950 block mb-1 flex items-center space-x-1">
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Pilih PJ dari Pekerja Cabang (Otomatis Ubah No. WA):</span>
+                </label>
+                <select
+                  value={
+                    allKaryawan.find(
+                      k => k.nama.toLowerCase().trim() === pjNama.toLowerCase().trim()
+                    )?.id || '__manual__'
+                  }
+                  onChange={(e) => handleSelectPjWorker(e.target.value)}
+                  className="w-full px-3 py-2 bg-white rounded-xl border border-emerald-300 font-bold text-xs text-slate-900 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="__manual__">
+                    -- Pilih Pekerja Cabang ({branchWorkers.length} staf) atau isi manual di bawah --
+                  </option>
+                  {branchWorkers.length > 0 && (
+                    <optgroup label={`Pekerja ${nama || cabang?.nama || 'Cabang Ini'}`}>
+                      {branchWorkers.map(w => (
+                        <option key={w.id} value={w.id}>
+                          👤 {w.nama} ({formatKaryawanRole(w.role).toUpperCase()} • WA: {w.telepon || '-'})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {allKaryawan.filter(k => !branchWorkers.some(bw => bw.id === k.id)).length > 0 && (
+                    <optgroup label="Pekerja Cabang Lainnya">
+                      {allKaryawan
+                        .filter(k => !branchWorkers.some(bw => bw.id === k.id))
+                        .map(w => (
+                          <option key={w.id} value={w.id}>
+                            👤 {w.nama} ({formatKaryawanRole(w.role).toUpperCase()} • WA: {w.telepon || '-'})
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
               <div>
@@ -420,7 +482,7 @@ export default function EditCabangModal({
                     type="text"
                     value={pjNama}
                     onChange={(e) => setPjNama(e.target.value)}
-                    placeholder="Contoh: Siti Rahmawati (PJ Toko)"
+                    placeholder="Otomatis dari pilihan pekerja atau ketik manual"
                     className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-bold text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
@@ -431,7 +493,7 @@ export default function EditCabangModal({
 
               <div>
                 <label className="text-[10px] font-bold text-slate-700 block mb-1 flex items-center justify-between">
-                  <span>No. WhatsApp PJ (Penerima Laporan):</span>
+                  <span>No. WhatsApp PJ (Otomatis Data Karyawan):</span>
                   <span className="text-emerald-700 font-bold text-[9px]">Otomatis Kirim WA</span>
                 </label>
                 <div className="relative">

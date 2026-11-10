@@ -57,23 +57,23 @@ export default function LoginPage() {
     setErrorMsg(null);
 
     const targetIdentifier = identifier.trim();
-    const targetPin = pin.trim();
+    const targetPassword = pin.trim();
 
     if (!targetIdentifier) {
-      setErrorMsg('Harap masukkan Username, ID Akun, atau Nomor WhatsApp.');
+      setErrorMsg('Harap masukkan Username.');
       return;
     }
-    if (!targetPin) {
-      setErrorMsg('Harap masukkan Sandi Keamanan atau PIN.');
+    if (!targetPassword) {
+      setErrorMsg('Harap masukkan Password.');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await db.authenticateUser(targetIdentifier, targetPin);
+      const res = await db.authenticateUser(targetIdentifier, targetPassword);
 
       if (!res.success || !res.user) {
-        setErrorMsg(res.message || 'Kredensial tidak valid. Periksa kembali akun Anda.');
+        setErrorMsg(res.message || 'Username atau Password tidak valid.');
         setLoading(false);
         return;
       }
@@ -82,7 +82,7 @@ export default function LoginPage() {
       const cleanId = targetIdentifier.toLowerCase();
 
       // 1. Tablet Kasir Toko Cabang -> Otomatis diarahkan ke Layar POS Kasir Cabang
-      if (user.id.startsWith('kasir-') || user.role === 'kasir' || cleanId.startsWith('kasir') || cleanId.startsWith('cabang') || cleanId.startsWith('cbg')) {
+      if (user.id.startsWith('kasir-') || user.role === 'kasir') {
         const targetCabangId = user.cabang_id;
         if (typeof window !== 'undefined') {
           localStorage.setItem('pakagan_device_cabang_id', targetCabangId);
@@ -96,7 +96,7 @@ export default function LoginPage() {
       }
 
       // 2. Admin Pusat (Owner Pak Agan) -> Otomatis diarahkan ke Executive Backoffice
-      if (user.role === 'owner' || cleanId === 'pakagan' || cleanId === 'owner' || cleanId === 'admin') {
+      if (user.role === 'owner' || cleanId === 'pakagan') {
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('pakagan_user', JSON.stringify(user));
           sessionStorage.setItem('pakagan_owner_authenticated', 'true');
@@ -105,7 +105,7 @@ export default function LoginPage() {
         return;
       }
 
-      // 3. Staf Pekerja Personal (Siti, Budi, Dewi, dll) -> Otomatis diarahkan ke Portal Karyawan
+      // 3. Staf Pekerja Personal -> Portal Karyawan
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('pakagan_user', JSON.stringify(user));
       }
@@ -173,17 +173,17 @@ export default function LoginPage() {
           {/* MAIN SECURE UNIFIED LOGIN FORM */}
           <form onSubmit={handleLogin} className="space-y-4 relative z-10">
             
-            {/* INPUT IDENTIFIER (USERNAME / NO HP / ID AKUN) */}
+            {/* INPUT USERNAME */}
             <div>
               <label className="block text-xs font-extrabold text-slate-800 mb-1.5">
-                Username / ID Akun / No. WhatsApp:
+                Username:
               </label>
               <div className="relative">
                 <input
                   type="text"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="Masukkan Username atau No. WhatsApp"
+                  placeholder="Masukkan Username"
                   required
                   autoCapitalize="none"
                   autoComplete="username"
@@ -195,11 +195,11 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* INPUT PASSWORD / PIN */}
+            {/* INPUT PASSWORD */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-extrabold text-slate-800">
-                  Sandi Rahasia / PIN:
+                  Password:
                 </label>
                 <button
                   type="button"
@@ -216,7 +216,7 @@ export default function LoginPage() {
                   type={showPin ? 'text' : 'password'}
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  placeholder="Masukkan Sandi Keamanan atau PIN"
+                  placeholder="Masukkan Password"
                   required
                   autoComplete="current-password"
                   className="w-full pl-10 pr-10 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 text-slate-900 bg-slate-50 text-xs font-bold transition-all shadow-inner"
