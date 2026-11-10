@@ -232,6 +232,11 @@ export function isBranchMatch(idA?: string | null, idB?: string | null): boolean
   return false;
 }
 
+export function isAbsensiApproved(a?: Absensi | null): boolean {
+  if (!a) return false;
+  return !a.approval_status || a.approval_status === 'approved';
+}
+
 export function getKaryawanUuid(idOrUsername?: string | null): string | null {
   if (!idOrUsername) return null;
   const clean = idOrUsername.trim().toLowerCase();
@@ -797,7 +802,7 @@ export class PosDatabase {
       password_plain: data.password_plain || data.pin || '1234',
       tipe_gaji: data.tipe_gaji || 'harian',
       gaji_harian: data.gaji_harian || 100000,
-      gaji_pokok: data.gaji_pokok || 2600000,
+      gaji_pokok: data.gaji_pokok || ((data.gaji_harian || 100000) * 6),
       tunjangan: data.tunjangan || 0,
       plafon_kasbon: data.plafon_kasbon || 500000,
       tabungan_rutin_mingguan: data.tabungan_rutin_mingguan ?? 200000,
@@ -896,8 +901,49 @@ export class PosDatabase {
   }
 
   // --------------------------------------------------------------------------
-  // ABSENSI & PRESENSI HARIAN (DICATAT OLEH KEPALA CABANG / ADMIN OUTLET)
+  // ABSENSI & PRESENSI HARIAN (DIAJUKAN KASIR, DI-ACC OWNER PUSAT)
   // --------------------------------------------------------------------------
+  private decodeAbsensiRecord(raw: any): Absensi {
+    let cleanNote = raw.catatan || '';
+    let parsedStatus: 'pending' | 'approved' | 'rejected' | undefined = raw.approval_status;
+    let parsedApprovedBy: string | undefined = raw.approved_by;
+    let parsedReason: string | undefined = raw.alasan_penolakan;
+
+    const match = cleanNote.match(/\s*\[\[ACC:(pending|approved|rejected)(?:\|([^\]]*))?\]\]\s*/);
+    if (match) {
+      const markerStatus = match[1] as 'pending' | 'approved' | 'rejected';
+      const markerExtra = (match[2] || '').trim();
+      if (!parsedStatus) parsedStatus = markerStatus;
+      if (markerStatus === 'approved' && !parsedApprovedBy && markerExtra) {
+        parsedApprovedBy = markerExtra;
+      }
+      if (markerStatus === 'rejected' && !parsedReason && markerExtra) {
+        parsedReason = markerExtra;
+      }
+      cleanNote = cleanNote.replace(match[0], ' ').trim();
+    }
+
+    return {
+      ...raw,
+      catatan: cleanNote,
+      approval_status: parsedStatus,
+      approved_by: parsedApprovedBy,
+      alasan_penolakan: parsedReason,
+      cabang_nama: raw.cabang_nama || getBranchName(raw.cabang_id),
+    };
+  }
+
+  private encodeAbsensiNote(
+    cleanNote: string | undefined,
+    status: 'pending' | 'approved' | 'rejected',
+    extra?: string
+  ): string {
+    const stripped = (cleanNote || '').replace(/\s*\[\[ACC:[^\]]*\]\]\s*/g, '').trim();
+    const safeExtra = (extra || '').replace(/[\[\]|]/g, ' ').trim();
+    const marker = safeExtra ? `[[ACC:${status}|${safeExtra}]]` : `[[ACC:${status}]]`;
+    return stripped ? `${stripped} ${marker}` : marker;
+  }
+
   async getAbsensiList(karyawanId?: string, cabangId?: string, tanggal?: string): Promise<Absensi[]> {
     let cloudList: Absensi[] = [];
     if (isSupabaseConfigured && supabase) {
@@ -914,16 +960,15 @@ export class PosDatabase {
         if (tanggal) query = query.eq('tanggal', tanggal);
         const { data, error } = await query;
         if (!error && data) {
-          cloudList = data.map((d: any) => ({
-            ...d,
-            cabang_nama: d.cabang_nama || getBranchName(d.cabang_id)
-          }));
+          cloudList = data.map((d: any) => this.decodeAbsensiRecord(d));
         }
       } catch (e) {
         console.warn('Fallback to local absensi:', e);
       }
     }
-    const all = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
+    const all = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI).map(a =>
+      this.decodeAbsensiRecord(a)
+    );
 
     // Auto-migrasi jadwal shift jam operasional sore-malam Serabi & Wedang (16:00 - 23:30)
     let hasOutdated = false;
@@ -962,16 +1007,28 @@ export class PosDatabase {
       saveLocal(STORAGE_KEYS.ABSENSI, all);
     }
 
+    const getKey = (a: Absensi) => {
+      const normKar = getKaryawanUuid(a.karyawan_id) || (a.karyawan_nama ? a.karyawan_nama.toLowerCase().trim() : a.karyawan_id);
+      return `${normKar}-${a.tanggal}`;
+    };
+
     const combinedMap = new Map<string, Absensi>();
     for (const a of cloudList) {
-      combinedMap.set(`${a.karyawan_id}-${a.tanggal}`, a);
+      combinedMap.set(getKey(a), a);
     }
     for (const a of all) {
-      const key = `${a.karyawan_id}-${a.tanggal}`;
-      if (!combinedMap.has(key)) {
+      const key = getKey(a);
+      const existingCloud = combinedMap.get(key);
+      if (!existingCloud) {
+        combinedMap.set(key, a);
+      } else if (a.approved_at && (!existingCloud.approved_at || a.approved_at > existingCloud.approved_at)) {
+        // Pertahankan keputusan ACC/Tolak lokal jika cloud belum memiliki kolom/update terbaru
         combinedMap.set(key, {
-          ...a,
-          cabang_nama: a.cabang_nama || getBranchName(a.cabang_id)
+          ...existingCloud,
+          approval_status: a.approval_status,
+          approved_by: a.approved_by,
+          approved_at: a.approved_at,
+          alasan_penolakan: a.alasan_penolakan,
         });
       }
     }
@@ -1000,6 +1057,7 @@ export class PosDatabase {
 
     const filtered = list.filter(a => {
       if (a.status !== 'hadir' && a.status !== 'setengah_hari') return false;
+      if (a.approval_status === 'pending' || a.approval_status === 'rejected') return false;
       if (a.tanggal) {
         const parts = a.tanggal.split('-');
         if (parts.length >= 2) {
@@ -1011,7 +1069,7 @@ export class PosDatabase {
       return true;
     });
 
-    return filtered.length > 0 ? filtered.length : 22;
+    return filtered.length;
   }
 
   async saveBranchAttendance(
@@ -1027,6 +1085,9 @@ export class PosDatabase {
       upah_harian: number;
       catatan?: string;
       recorded_by: string;
+      approval_status?: 'pending' | 'approved' | 'rejected';
+      approved_by?: string;
+      approved_at?: string;
     }[]
   ): Promise<boolean> {
     const all = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
@@ -1034,9 +1095,13 @@ export class PosDatabase {
     for (const item of entries) {
       const upahMultiplier = item.status === 'hadir' ? 1 : item.status === 'setengah_hari' ? 0.5 : 0;
       const upahTerhitung = item.upah_harian * upahMultiplier;
+      const appStatus = item.approval_status || 'pending';
 
       const existingIndex = all.findIndex(
-        a => a.karyawan_id === item.karyawan_id && a.tanggal === item.tanggal
+        a =>
+          (a.karyawan_id === item.karyawan_id ||
+            (getKaryawanUuid(a.karyawan_id) && getKaryawanUuid(a.karyawan_id) === getKaryawanUuid(item.karyawan_id))) &&
+          a.tanggal === item.tanggal
       );
 
       const record: Absensi = {
@@ -1050,8 +1115,11 @@ export class PosDatabase {
         jam_pulang: item.jam_pulang || null,
         status: item.status,
         upah_harian_terhitung: upahTerhitung,
-        catatan: item.catatan || '',
+        catatan: (item.catatan || '').replace(/\s*\[\[ACC:[^\]]*\]\]\s*/g, '').trim(),
         recorded_by: item.recorded_by,
+        approval_status: appStatus,
+        approved_by: appStatus === 'approved' ? (item.approved_by || all[existingIndex]?.approved_by || 'Pak Agan (Owner)') : undefined,
+        approved_at: appStatus === 'approved' ? (item.approved_at || all[existingIndex]?.approved_at) : undefined,
       };
 
       if (existingIndex >= 0) {
@@ -1065,26 +1133,48 @@ export class PosDatabase {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const payload = entries.map(item => {
+        for (const item of entries) {
           const branchUuid = getBranchUuid(item.cabang_id) || CABANG_MAP_INFO[0].uuid;
-          const karUuid = getKaryawanUuid(item.karyawan_id) || KARYAWAN_UUID_MAP['kar-1'];
+          const karUuid = getKaryawanUuid(item.karyawan_id) || (isValidUuid(item.karyawan_id) ? item.karyawan_id : null);
           const upahMultiplier = item.status === 'hadir' ? 1 : item.status === 'setengah_hari' ? 0.5 : 0;
-          return {
+          const appStatus = item.approval_status || 'pending';
+          if (!karUuid) continue;
+
+          // Bersihkan baris lama untuk (karyawan_id, tanggal) agar tidak duplikat di Supabase
+          await supabase.from('absensi').delete().eq('karyawan_id', karUuid).eq('tanggal', item.tanggal);
+
+          const baseRow = {
             id: generateUUID(),
             karyawan_id: karUuid,
             karyawan_nama: item.karyawan_nama,
             cabang_id: branchUuid,
             cabang_nama: item.cabang_nama,
             tanggal: item.tanggal,
+            jam_masuk: item.jam_masuk || '16:00',
+            jam_pulang: item.jam_pulang || null,
             status: item.status,
             upah_harian_terhitung: item.upah_harian * upahMultiplier,
-            catatan: item.catatan || '',
-            recorded_by: item.recorded_by
+            catatan: (item.catatan || '').replace(/\s*\[\[ACC:[^\]]*\]\]\s*/g, '').trim(),
+            recorded_by: item.recorded_by,
           };
-        });
-        await supabase.from('absensi').insert(payload);
+
+          const { error: richErr } = await supabase.from('absensi').insert({
+            ...baseRow,
+            approval_status: appStatus,
+            approved_by: appStatus === 'approved' ? (item.approved_by || 'Pak Agan (Owner)') : null,
+            approved_at: appStatus === 'approved' ? (item.approved_at || new Date().toISOString()) : null,
+          });
+
+          if (richErr) {
+            // Fallback bila kolom approval_status belum dijalankan di Supabase live
+            await supabase.from('absensi').insert({
+              ...baseRow,
+              catatan: this.encodeAbsensiNote(baseRow.catatan, appStatus, item.approved_by),
+            });
+          }
+        }
       } catch (e) {
-        console.warn('Failed inserting absensi to supabase:', e);
+        console.warn('Failed syncing absensi to supabase:', e);
       }
     }
 
@@ -1093,6 +1183,100 @@ export class PosDatabase {
     }
 
     return true;
+  }
+
+  private async updateAbsensiApprovalBatch(
+    records: Absensi[],
+    targetStatus: 'approved' | 'rejected',
+    meta: { approvedBy?: string; alasan?: string }
+  ): Promise<boolean> {
+    const nowIso = new Date().toISOString();
+    const approver = meta.approvedBy || 'Pak Agan (Owner)';
+    const all = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
+
+    for (const rec of records) {
+      const idx = all.findIndex(
+        a =>
+          a.id === rec.id ||
+          ((a.karyawan_id === rec.karyawan_id ||
+            (getKaryawanUuid(a.karyawan_id) && getKaryawanUuid(a.karyawan_id) === getKaryawanUuid(rec.karyawan_id))) &&
+            a.tanggal === rec.tanggal)
+      );
+
+      const updatedRec: Absensi = {
+        ...rec,
+        catatan: (rec.catatan || '').replace(/\s*\[\[ACC:[^\]]*\]\]\s*/g, '').trim(),
+        approval_status: targetStatus,
+        approved_by: approver,
+        approved_at: nowIso,
+        alasan_penolakan: targetStatus === 'rejected' ? (meta.alasan || 'Kehadiran ditolak Owner') : undefined,
+      };
+
+      if (idx >= 0) {
+        all[idx] = updatedRec;
+      } else {
+        all.unshift(updatedRec);
+      }
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const karUuid = getKaryawanUuid(rec.karyawan_id) || (isValidUuid(rec.karyawan_id) ? rec.karyawan_id : null);
+          const filterBuilder = isValidUuid(rec.id)
+            ? supabase.from('absensi').update({
+                approval_status: targetStatus,
+                approved_by: approver,
+                approved_at: nowIso,
+                ...(targetStatus === 'rejected' ? { alasan_penolakan: meta.alasan || 'Kehadiran ditolak Owner' } : {}),
+              }).eq('id', rec.id)
+            : karUuid
+            ? supabase.from('absensi').update({
+                approval_status: targetStatus,
+                approved_by: approver,
+                approved_at: nowIso,
+                ...(targetStatus === 'rejected' ? { alasan_penolakan: meta.alasan || 'Kehadiran ditolak Owner' } : {}),
+              }).eq('karyawan_id', karUuid).eq('tanggal', rec.tanggal)
+            : null;
+
+          if (filterBuilder) {
+            const { error } = await filterBuilder;
+            if (error) {
+              // Fallback aman melalui kolom catatan yang selalu ada
+              const encodedNote = this.encodeAbsensiNote(
+                updatedRec.catatan,
+                targetStatus,
+                targetStatus === 'approved' ? approver : (meta.alasan || 'Ditolak Owner')
+              );
+              if (isValidUuid(rec.id)) {
+                await supabase.from('absensi').update({ catatan: encodedNote }).eq('id', rec.id);
+              } else if (karUuid) {
+                await supabase.from('absensi').update({ catatan: encodedNote }).eq('karyawan_id', karUuid).eq('tanggal', rec.tanggal);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Supabase updateAbsensiApproval error:', e);
+        }
+      }
+    }
+
+    saveLocal(STORAGE_KEYS.ABSENSI, all);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+    return true;
+  }
+
+  async approveAbsensi(absensi: Absensi, approverName = 'Pak Agan (Owner)'): Promise<boolean> {
+    return this.updateAbsensiApprovalBatch([absensi], 'approved', { approvedBy: approverName });
+  }
+
+  async approveAllAbsensi(records: Absensi[], approverName = 'Pak Agan (Owner)'): Promise<boolean> {
+    if (records.length === 0) return true;
+    return this.updateAbsensiApprovalBatch(records, 'approved', { approvedBy: approverName });
+  }
+
+  async rejectAbsensi(absensi: Absensi, alasan = 'Data kehadiran tidak sesuai', approverName = 'Pak Agan (Owner)'): Promise<boolean> {
+    return this.updateAbsensiApprovalBatch([absensi], 'rejected', { approvedBy: approverName, alasan });
   }
 
   // --------------------------------------------------------------------------

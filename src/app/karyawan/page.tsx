@@ -30,7 +30,7 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import { Karyawan, Cabang, Payroll, Absensi, PengeluaranKasbon, TabunganKaryawanItem } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, isAbsensiApproved } from '@/lib/db';
 import { formatRupiah, formatWaktu, formatKaryawanRole } from '@/lib/utils';
 import PayrollSlipModal from '@/components/PayrollSlipModal';
 import AiBadgeFooter from '@/components/AiBadgeFooter';
@@ -118,10 +118,15 @@ export default function KaryawanPortalPage() {
     );
   }
 
-  // Perhitungan Upah Harian & Kehadiran Siklus Berjalan
-  const hadirCount = absensiList.filter(a => a.status === 'hadir' || a.status === 'setengah_hari').length;
+  // Perhitungan Upah Harian & Kehadiran Siklus Berjalan (Hanya Presensi Yang Sudah Di-ACC Owner)
+  const approvedAbsensi = absensiList.filter(a => isAbsensiApproved(a) && (a.status === 'hadir' || a.status === 'setengah_hari'));
+  const pendingAbsensiList = absensiList.filter(a => a.approval_status === 'pending');
+  const hadirCount = approvedAbsensi.reduce((sum, a) => sum + (a.status === 'setengah_hari' ? 0.5 : 1), 0);
   const upahHarian = currentUser.gaji_harian || 100000;
-  const upahKotor = hadirCount * upahHarian;
+  const upahKotor = approvedAbsensi.reduce((sum, a) => {
+    const fallbackRate = a.status === 'setengah_hari' ? upahHarian * 0.5 : upahHarian;
+    return sum + (a.upah_harian_terhitung > 0 ? a.upah_harian_terhitung : fallbackRate);
+  }, 0);
 
   // Skema Tabungan Rutin Mingguan & Total Celengan
   const tabunganMingguan = currentUser.tabungan_rutin_mingguan !== undefined ? currentUser.tabungan_rutin_mingguan : 200000;
@@ -208,6 +213,29 @@ export default function KaryawanPortalPage() {
             ✓ Aktif
           </span>
         </div>
+
+        {/* NOTIFIKASI PRESENSI MENUNGGU ACC / DISETUJUI BOSS */}
+        {pendingAbsensiList.length > 0 && (
+          <div
+            onClick={() => setActiveTab('presensi')}
+            className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 shadow-2xs flex items-start space-x-3 cursor-pointer hover:bg-amber-100/70 transition"
+          >
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div className="flex-1 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-black text-amber-950">
+                  ⏳ {pendingAbsensiList.length} Presensi Baru Menunggu ACC Boss
+                </span>
+                <span className="text-[10px] font-bold text-amber-800 underline">Lihat Log →</span>
+              </div>
+              <p className="text-[11px] text-amber-900 mt-0.5 leading-snug">
+                Kasir cabang sudah mencatat kehadiran Anda ({pendingAbsensiList[0].tanggal}). Saldo gaji otomatis bertambah setelah di-ACC oleh Pak Agan di Pusat Persetujuan.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* HERO CARD: ESTIMASI TRANSFER GAJI MINGGUAN & CELENGAN TABUNGAN */}
         <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 border-2 border-emerald-500/30 p-5 text-white shadow-xl space-y-4">
@@ -431,33 +459,67 @@ export default function KaryawanPortalPage() {
                     <tr>
                       <th className="py-2.5 px-3">Tanggal</th>
                       <th className="py-2.5 px-3">Jam Masuk</th>
-                      <th className="py-2.5 px-3">Status</th>
-                      <th className="py-2.5 px-3 text-right">Upah Terhitung</th>
+                      <th className="py-2.5 px-3">Kehadiran &amp; ACC Boss</th>
+                      <th className="py-2.5 px-3 text-right">Masuk Gaji</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {absensiList.map(a => (
-                      <tr key={a.id} className="hover:bg-slate-50/70">
-                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
-                          {a.tanggal}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-600">
-                          {a.jam_masuk || '08:00'} - {a.jam_pulang || 'Selesai'}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                            a.status === 'hadir' ? 'bg-emerald-100 text-emerald-800' :
-                            a.status === 'setengah_hari' ? 'bg-amber-100 text-amber-800' :
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                            {a.status === 'hadir' ? '✓ Hadir Penuh' : a.status}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-800">
-                          {formatRupiah(a.upah_harian_terhitung || upahHarian)}
-                        </td>
-                      </tr>
-                    ))}
+                    {absensiList.map(a => {
+                      const approved = isAbsensiApproved(a);
+                      const isPending = a.approval_status === 'pending';
+                      const isRejected = a.approval_status === 'rejected';
+                      const wageNominal = (a.status === 'hadir' || a.status === 'setengah_hari')
+                        ? (a.upah_harian_terhitung > 0 ? a.upah_harian_terhitung : (a.status === 'setengah_hari' ? upahHarian * 0.5 : upahHarian))
+                        : 0;
+                      return (
+                        <tr key={a.id} className="hover:bg-slate-50/70">
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                            {a.tanggal}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-slate-600">
+                            {a.jam_masuk || '16:00'} - {a.jam_pulang || '23:30'}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                                a.status === 'hadir' ? 'bg-emerald-100 text-emerald-800' :
+                                a.status === 'setengah_hari' ? 'bg-amber-100 text-amber-800' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>
+                                {a.status === 'hadir' ? 'Hadir Penuh' : a.status === 'setengah_hari' ? '1/2 Hari' : a.status}
+                              </span>
+                              {approved ? (
+                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  ✓ Di-ACC
+                                </span>
+                              ) : isPending ? (
+                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-amber-50 text-amber-800 border border-amber-300">
+                                  ⏳ Menunggu ACC
+                                </span>
+                              ) : (
+                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
+                                  ✕ Ditolak
+                                </span>
+                              )}
+                            </div>
+                            {isRejected && a.alasan_penolakan && (
+                              <span className="text-[9.5px] text-rose-600 block mt-0.5 italic">
+                                {a.alasan_penolakan}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold">
+                            {approved ? (
+                              <span className="text-emerald-800">+{formatRupiah(wageNominal)}</span>
+                            ) : isPending ? (
+                              <span className="text-amber-700 text-[10px] font-sans">Menunggu ACC</span>
+                            ) : (
+                              <span className="text-rose-600 line-through text-[10px]">Rp 0</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

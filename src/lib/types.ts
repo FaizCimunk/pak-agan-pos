@@ -68,6 +68,10 @@ export interface Absensi {
   upah_harian_terhitung: number;
   catatan?: string;
   recorded_by?: string; // Dicatat oleh Kepala Cabang / Admin
+  approval_status?: 'pending' | 'approved' | 'rejected'; // Status ACC Owner sebelum masuk gaji & laporan
+  approved_by?: string;
+  approved_at?: string;
+  alasan_penolakan?: string;
   created_at?: string;
 }
 

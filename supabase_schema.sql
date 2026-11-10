@@ -99,8 +99,18 @@ CREATE TABLE IF NOT EXISTS absensi (
     upah_harian_terhitung NUMERIC(12, 2) NOT NULL DEFAULT 0,
     catatan TEXT,
     recorded_by VARCHAR(100) DEFAULT 'Kepala Cabang / Boss',
+    approval_status VARCHAR(20) DEFAULT 'approved' CHECK (approval_status IN ('pending', 'approved', 'rejected')),
+    approved_by VARCHAR(100),
+    approved_at TIMESTAMPTZ,
+    alasan_penolakan TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migrasi aman untuk tabel absensi yang sudah berjalan di Supabase:
+ALTER TABLE absensi ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) DEFAULT 'approved';
+ALTER TABLE absensi ADD COLUMN IF NOT EXISTS approved_by VARCHAR(100);
+ALTER TABLE absensi ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+ALTER TABLE absensi ADD COLUMN IF NOT EXISTS alasan_penolakan TEXT;
 
 -- ------------------------------------------------------------------------------
 -- TABEL: kategori_menu

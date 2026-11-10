@@ -6,24 +6,18 @@ import {
   Clock, 
   Coffee, 
   Users, 
-  FileText, 
   LogOut, 
   ShieldCheck,
   ChevronRight,
-  CalendarCheck,
-  DollarSign,
-  UserCheck,
-  ShoppingBag,
   Coins,
-  PackageCheck,
-  Building2,
-  Store,
   X
 } from 'lucide-react';
 
+export type AdminTabId = 'ringkasan' | 'mutasi' | 'approval' | 'modal_hpp' | 'outlet_pekerja';
+
 interface AdminSidebarProps {
-  activeTab: 'ringkasan' | 'mutasi' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko';
-  onTabChange: (tab: 'ringkasan' | 'mutasi' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko') => void;
+  activeTab: AdminTabId;
+  onTabChange: (tab: AdminTabId) => void;
   pendingCount: number;
   onLogout: () => void;
   isMobileOpen?: boolean;
@@ -38,82 +32,48 @@ export default function AdminSidebar({
   isMobileOpen = false,
   onCloseMobile,
 }: AdminSidebarProps) {
-  
-  const operasionalItems = [
+
+  const menuItems: {
+    id: AdminTabId;
+    label: string;
+    sub: string;
+    icon: any;
+    badge?: number | null;
+  }[] = [
     {
       id: 'ringkasan',
-      label: 'Ringkasan & 10 Cabang',
-      sub: 'Hub rinci 10 toko & uang Boss',
+      label: '1. Ringkasan & 10 Cabang',
+      sub: 'Laporan kasir, laba bersih & toko',
       icon: Coins,
     },
     {
       id: 'mutasi',
-      label: 'Buku Mutasi Penjualan',
-      sub: 'Struk kasir, omzet & filter tanggal',
+      label: '2. Buku Mutasi Transaksi',
+      sub: 'Aliran kas keluar-masuk & struk',
       icon: Receipt,
     },
     {
-      id: 'absensi',
-      label: 'Monitor Presensi Cabang',
-      sub: 'Presensi tulis nama 10 cabang',
-      icon: CalendarCheck,
-    },
-    {
-      id: 'bahan',
-      label: 'Absensi Bahan 10 Toko',
-      sub: 'Rekap stok & kirim pasokan',
-      icon: PackageCheck,
-    },
-    {
-      id: 'menu',
-      label: 'Master Menu & Resep',
-      sub: 'Kunci harga & HPP porsi',
-      icon: Coffee,
-    },
-  ];
-
-  // GRUP 2: SDM & KEUANGAN
-  const sdmKeuanganItems = [
-    {
-      id: 'karyawan',
-      label: 'Data Pekerja',
-      sub: 'Profil, tarif upah, PIN & ploting',
-      icon: UserCheck,
-    },
-    {
-      id: 'profiltoko',
-      label: 'Identitas Toko & Struk',
-      sub: 'Nama toko, sandi kasir, WA & promo',
-      icon: Store,
-    },
-    {
       id: 'approval',
-      label: 'Pusat Persetujuan',
-      sub: 'Approval kasbon & belanja toko',
+      label: '3. Pusat Persetujuan',
+      sub: 'ACC Presensi & Nota Belanja/Kasbon',
       icon: Clock,
       badge: pendingCount > 0 ? pendingCount : null,
     },
     {
-      id: 'gaji',
-      label: 'Belanja & Kas Kecil',
-      sub: 'Uang kas kasir & belanja kebutuhan',
-      icon: ShoppingBag,
+      id: 'modal_hpp',
+      label: '4. Resep, HPP & Fixed Cost',
+      sub: 'Menu/HPP, Stok Bahan & Sewa Toko',
+      icon: Coffee,
     },
     {
-      id: 'payroll',
-      label: 'Rekap Gaji & Saldo',
-      sub: 'Rekap gaji per tanggal & cetak PDF',
-      icon: FileText,
-    },
-    {
-      id: 'fixedcost',
-      label: 'Kelola Biaya Tetap (Fixed Cost)',
-      sub: 'Atur sewa, wifi, sampah & listrik',
-      icon: Building2,
+      id: 'outlet_pekerja',
+      label: '5. Outlet & Pekerja',
+      sub: 'Tim & PIN, Gaji PDF & Profil Toko',
+      icon: Users,
     },
   ];
 
-  const handleSelectTab = (tab: any) => {
+  const handleSelectTab = (tab: AdminTabId) => {
     onTabChange(tab);
     if (onCloseMobile) {
       onCloseMobile();
@@ -161,79 +121,38 @@ export default function AdminSidebar({
         )}
       </div>
 
-      {/* Navigation List */}
-      <nav className="p-3 sm:p-4 space-y-4 flex-1 overflow-y-auto">
-        
-        {/* GRUP 1: OPERASIONAL CABANG */}
-        <div className="space-y-1">
-          <div className="text-[10px] uppercase font-black tracking-widest text-slate-400 px-3 py-1">
-            Operasional Outlet
-          </div>
-          {operasionalItems.map(item => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleSelectTab(item.id)}
-                className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-left transition-all btn-tactile ${
-                  isActive
-                    ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                }`}
-              >
-                <div className="flex items-center space-x-2.5">
-                  <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
-                    isActive ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    <Icon className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <div className={`text-xs font-bold leading-tight ${isActive ? 'text-white' : 'text-slate-800'}`}>
-                      {item.label}
-                    </div>
-                    <div className={`text-[10px] mt-0.5 ${isActive ? 'text-emerald-200' : 'text-slate-400'}`}>
-                      {item.sub}
-                    </div>
-                  </div>
-                </div>
-
-                {isActive && <ChevronRight className="w-3.5 h-3.5 text-emerald-300 shrink-0" />}
-              </button>
-            );
-          })}
+      {/* Navigation List: 5 Menu Terpusat */}
+      <nav className="p-3 sm:p-4 space-y-2 flex-1 overflow-y-auto">
+        <div className="text-[10px] uppercase font-black tracking-widest text-emerald-800 px-3 py-1 flex items-center justify-between">
+          <span>Menu Kendali Pusat (5)</span>
+          <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">Ringkas</span>
         </div>
 
-        {/* GRUP 2: SDM & KEUANGAN */}
-        <div className="space-y-1 pt-1">
-          <div className="text-[10px] uppercase font-black tracking-widest text-emerald-800 px-3 py-1 flex items-center justify-between">
-            <span>SDM &amp; Keuangan</span>
-            <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">Bank-Grade</span>
-          </div>
-          {sdmKeuanganItems.map(item => {
+        <div className="space-y-1.5">
+          {menuItems.map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => handleSelectTab(item.id)}
-                className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-left transition-all btn-tactile ${
+                className={`w-full flex items-center justify-between p-3 rounded-2xl text-left transition-all btn-tactile ${
                   isActive
                     ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
                     : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                 }`}
               >
-                <div className="flex items-center space-x-2.5">
-                  <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
-                    isActive ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'
+                <div className="flex items-center space-x-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    isActive ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'
                   }`}>
-                    <Icon className="w-3.5 h-3.5" />
+                    <Icon className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className={`text-xs font-bold leading-tight ${isActive ? 'text-white' : 'text-slate-800'}`}>
+                    <div className={`text-xs font-extrabold leading-tight ${isActive ? 'text-white' : 'text-slate-900'}`}>
                       {item.label}
                     </div>
-                    <div className={`text-[10px] mt-0.5 ${isActive ? 'text-emerald-200' : 'text-slate-400'}`}>
+                    <div className={`text-[10px] mt-0.5 leading-snug ${isActive ? 'text-emerald-200' : 'text-slate-400'}`}>
                       {item.sub}
                     </div>
                   </div>
@@ -250,7 +169,6 @@ export default function AdminSidebar({
             );
           })}
         </div>
-
       </nav>
 
       {/* Footer Profile & Security */}

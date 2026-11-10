@@ -35,6 +35,9 @@ interface WorkerAttendanceState {
   jam_masuk: string;
   jam_pulang: string;
   catatan: string;
+  approval_status?: 'pending' | 'approved' | 'rejected';
+  alasan_penolakan?: string;
+  initialSnapshot?: string;
 }
 
 export default function BranchAttendanceModal({
@@ -69,22 +72,27 @@ export default function BranchAttendanceModal({
 
       const branchStaff = allStaff.filter(k => isBranchMatch(k.cabang_id, cabang.id) && k.role !== 'owner');
 
-      // Ambil seluruh nama dari existing records (termasuk staf yang ditulis manual sebelumnya)
       const list: WorkerAttendanceState[] = [];
 
       // 1. Masukkan staf yang sudah punya catatan absensi di tanggal ini
       existingRecords.forEach(rec => {
         const staffObj = allStaff.find(s => s.id === rec.karyawan_id);
+        const jamMasuk = rec.jam_masuk || '16:00';
+        const jamPulang = rec.jam_pulang || '23:30';
+        const status = rec.status || 'hadir';
         list.push({
           karyawan_id: rec.karyawan_id,
           karyawan_nama: rec.karyawan_nama || staffObj?.nama || 'Staf Harian',
           role: staffObj?.role || 'helper',
           tipe_gaji: 'harian',
           gaji_harian: rec.upah_harian_terhitung || staffObj?.gaji_harian || 100000,
-          status: rec.status || 'hadir',
-          jam_masuk: rec.jam_masuk || '16:00',
-          jam_pulang: rec.jam_pulang || '23:30',
+          status,
+          jam_masuk: jamMasuk,
+          jam_pulang: jamPulang,
           catatan: rec.catatan || '',
+          approval_status: rec.approval_status || 'approved',
+          alasan_penolakan: rec.alasan_penolakan,
+          initialSnapshot: `${status}|${jamMasuk}|${jamPulang}`,
         });
       });
 
@@ -96,7 +104,7 @@ export default function BranchAttendanceModal({
             karyawan_nama: st.nama,
             role: st.role,
             tipe_gaji: 'harian',
-            gaji_harian: st.gaji_harian || (st.tipe_gaji === 'harian' ? 100000 : Math.round(st.gaji_pokok / 26)),
+            gaji_harian: st.gaji_harian || (st.gaji_pokok ? Math.round(st.gaji_pokok / 6) : 100000),
             status: 'hadir',
             jam_masuk: '16:00',
             jam_pulang: '23:30',
@@ -122,9 +130,27 @@ export default function BranchAttendanceModal({
       return;
     }
 
-    const tempId = 'staf-' + Date.now();
+    let resolvedId = 'staf-' + Date.now();
+    // Buat juga master profil karyawan baru agar tercatat permanen di sistem & payroll mingguan
+    try {
+      const created = await db.createKaryawan({
+        cabang_id: cabang.id,
+        nama: newNama.trim(),
+        role: (newRole.toLowerCase().includes('kasir') ? 'kasir' : newRole.toLowerCase().includes('dapur') || newRole.toLowerCase().includes('serabi') ? 'kitchen' : 'helper') as any,
+        telepon: '0812-0000-0000',
+        tipe_gaji: 'harian',
+        gaji_harian: Number(newUpah) || 100000,
+        gaji_pokok: (Number(newUpah) || 100000) * 6,
+        tunjangan: 0,
+        plafon_kasbon: 300000,
+      });
+      if (created?.id) resolvedId = created.id;
+    } catch (e) {
+      console.warn('Simpan master staf:', e);
+    }
+
     const newWorkerEntry: WorkerAttendanceState = {
-      karyawan_id: tempId,
+      karyawan_id: resolvedId,
       karyawan_nama: newNama.trim(),
       role: newRole,
       tipe_gaji: 'harian',
@@ -134,23 +160,6 @@ export default function BranchAttendanceModal({
       jam_pulang: newJamPulang || '23:30',
       catatan: 'Shift Sore-Malam (Staf Tambahan)',
     };
-
-    // Buat juga master profil karyawan baru agar tercatat permanen di sistem & payroll
-    try {
-      await db.createKaryawan({
-        cabang_id: cabang.id,
-        nama: newNama.trim(),
-        role: (newRole.toLowerCase().includes('kasir') ? 'kasir' : newRole.toLowerCase().includes('dapur') || newRole.toLowerCase().includes('serabi') ? 'kitchen' : 'helper') as any,
-        telepon: '0812-0000-0000',
-        tipe_gaji: 'harian',
-        gaji_harian: Number(newUpah) || 100000,
-        gaji_pokok: (Number(newUpah) || 100000) * 26,
-        tunjangan: 0,
-        plafon_kasbon: 300000,
-      });
-    } catch (e) {
-      console.warn('Simpan master staf:', e);
-    }
 
     setWorkersList(prev => [...prev, newWorkerEntry]);
     setNewNama('');
@@ -187,22 +196,27 @@ export default function BranchAttendanceModal({
     isSubmittingRef.current = true;
     setSaving(true);
     try {
-      const entries = workersList.map(w => ({
-        karyawan_id: w.karyawan_id,
-        karyawan_nama: w.karyawan_nama,
-        cabang_id: cabang.id,
-        cabang_nama: cabang.nama,
-        tanggal: selectedDate,
-        jam_masuk: w.jam_masuk || '16:00',
-        jam_pulang: w.jam_pulang || '23:30',
-        status: w.status,
-        upah_harian: Number(w.gaji_harian) || 100000,
-        catatan: w.catatan,
-        recorded_by: activeShift?.karyawan_nama || 'Kasir Outlet',
-      }));
+      const entries = workersList.map(w => {
+        const currentSnapshot = `${w.status}|${w.jam_masuk || '16:00'}|${w.jam_pulang || '23:30'}`;
+        const preserveApproved = w.approval_status === 'approved' && w.initialSnapshot === currentSnapshot;
+        return {
+          karyawan_id: w.karyawan_id,
+          karyawan_nama: w.karyawan_nama,
+          cabang_id: cabang.id,
+          cabang_nama: cabang.nama,
+          tanggal: selectedDate,
+          jam_masuk: w.jam_masuk || '16:00',
+          jam_pulang: w.jam_pulang || '23:30',
+          status: w.status,
+          upah_harian: Number(w.gaji_harian) || 100000,
+          catatan: w.catatan,
+          recorded_by: activeShift?.karyawan_nama || 'Kasir Outlet',
+          approval_status: preserveApproved ? ('approved' as const) : ('pending' as const),
+        };
+      });
 
       await db.saveBranchAttendance(entries);
-      alert(`Presensi ${entries.length} staf ${cabang.nama} untuk tanggal ${selectedDate} berhasil disimpan!\nData kehadiran otomatis terhubung ke Modul Payroll Dashboard Pusat.`);
+      alert(`Pengajuan presensi ${entries.length} staf ${cabang.nama} (${selectedDate}) berhasil dikirim!\n\nMasuk ke Dashboard Pusat → Pusat Persetujuan (Tab ACC Presensi). Upah akan otomatis menambah gaji staf setelah di-ACC Pak Agan.`);
       onSuccess();
     } catch (err: any) {
       alert('Gagal menyimpan presensi: ' + err.message);
@@ -401,13 +415,28 @@ export default function BranchAttendanceModal({
                         {worker.karyawan_nama.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <span className="font-extrabold text-slate-900 text-sm">
                             {worker.karyawan_nama}
                           </span>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
                             {worker.role}
                           </span>
+                          {worker.approval_status === 'approved' && (
+                            <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              ✓ Di-ACC Pusat
+                            </span>
+                          )}
+                          {worker.approval_status === 'pending' && (
+                            <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
+                              ⏳ Menunggu ACC
+                            </span>
+                          )}
+                          {worker.approval_status === 'rejected' && (
+                            <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                              ✕ Ditolak Pusat
+                            </span>
+                          )}
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5 font-mono">
                           <span>🕒 Shift: {worker.jam_masuk} - {worker.jam_pulang}</span>
@@ -529,7 +558,7 @@ export default function BranchAttendanceModal({
               className="px-5 py-2.5 rounded-xl bg-brand-primary hover:bg-emerald-800 text-white font-black text-xs shadow-md shadow-emerald-900/20 transition-all btn-tactile flex items-center space-x-1.5 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              <span>{saving ? 'Menyimpan...' : 'Simpan Presensi Hari Ini'}</span>
+              <span>{saving ? 'Mengirim...' : 'Ajukan Presensi (ACC Pusat)'}</span>
             </button>
           </div>
         </div>

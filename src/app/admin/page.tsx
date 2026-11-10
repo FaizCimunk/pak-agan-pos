@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import AdminSidebar from '@/components/AdminSidebar';
+import AdminSidebar, { AdminTabId } from '@/components/AdminSidebar';
 import ApprovalActionModal from '@/components/ApprovalActionModal';
 import PayrollSlipModal from '@/components/PayrollSlipModal';
 import PinResetModal from '@/components/PinResetModal';
@@ -37,7 +37,7 @@ import {
   FixedCostHarianCabang,
   PembayaranFixedCostBulanan
 } from '@/lib/types';
-import { db, isBranchMatch } from '@/lib/db';
+import { db, isBranchMatch, isAbsensiApproved } from '@/lib/db';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole, getTodayDateString } from '@/lib/utils';
 
@@ -82,7 +82,10 @@ import {
   Sparkles,
   PackageCheck,
   Menu,
-  CreditCard
+  CreditCard,
+  ChevronDown,
+  Users,
+  Coffee
 } from 'lucide-react';
 
 const OWNER_AUTH_KEY = 'pakagan_owner_authenticated';
@@ -93,11 +96,17 @@ export default function AdminDashboardPage() {
   const [authError, setAuthError] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  const [activeTab, setActiveTab] = useState<'ringkasan' | 'mutasi' | 'approval' | 'gaji' | 'absensi' | 'bahan' | 'payroll' | 'menu' | 'karyawan' | 'fixedcost' | 'profiltoko'>('ringkasan');
+  const [activeTab, setActiveTab] = useState<AdminTabId>('ringkasan');
+  const [approvalSubTab, setApprovalSubTab] = useState<'presensi' | 'belanja'>('presensi');
+  const [modalSubTab, setModalSubTab] = useState<'menu' | 'bahan' | 'fixedcost'>('menu');
+  const [outletSubTab, setOutletSubTab] = useState<'karyawan' | 'payroll' | 'profiltoko'>('karyawan');
+  const [showFormulaGuide, setShowFormulaGuide] = useState<boolean>(false);
+
   const [cabangList, setCabangList] = useState<Cabang[]>([]);
   const [selectedCabangId, setSelectedCabangId] = useState<string>('all');
   const [selectedAbsensiDate, setSelectedAbsensiDate] = useState<string>(getTodayDateString());
-  const [absensiDateFilterMode, setAbsensiDateFilterMode] = useState<'selected' | 'all'>('selected');
+  const [absensiDateFilterMode, setAbsensiDateFilterMode] = useState<'selected' | 'all'>('all');
+  const [absensiApprovalFilter, setAbsensiApprovalFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [menuList, setMenuList] = useState<MenuItem[]>([]);
   const [karyawanList, setKaryawanList] = useState<Karyawan[]>([]);
   const [transaksiList, setTransaksiList] = useState<Transaksi[]>([]);
@@ -143,11 +152,6 @@ export default function AdminDashboardPage() {
   const [approvalSearch, setApprovalSearch] = useState<string>('');
   const [showApprovalReportModal, setShowApprovalReportModal] = useState<boolean>(false);
 
-  // Belanja & Kas Kecil 10 Cabang Filters & State
-  const [belanjaCabangFilter, setBelanjaCabangFilter] = useState<string>('all');
-  const [belanjaJenisFilter, setBelanjaJenisFilter] = useState<'all' | 'belanja' | 'kasbon'>('all');
-  const [belanjaStatusFilter, setBelanjaStatusFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
-  const [belanjaSearch, setBelanjaSearch] = useState<string>('');
   const [showCreateExpenseModal, setShowCreateExpenseModal] = useState<boolean>(false);
 
   // User Search & Credentials Visibility
@@ -367,6 +371,25 @@ export default function AdminDashboardPage() {
     return expenseList.filter(e => e.status === 'pending');
   }, [expenseList]);
 
+  const pendingAbsensi = useMemo(() => {
+    return absensiList.filter(a => a.approval_status === 'pending');
+  }, [absensiList]);
+
+  const totalPendingApprovals = pendingExpenses.length + pendingAbsensi.length;
+
+  const navigateToApproval = (sub: 'presensi' | 'belanja' = 'presensi') => {
+    setActiveTab('approval');
+    setApprovalSubTab(sub);
+  };
+  const navigateToFixedCost = () => {
+    setActiveTab('modal_hpp');
+    setModalSubTab('fixedcost');
+  };
+  const navigateToPayroll = () => {
+    setActiveTab('outlet_pekerja');
+    setOutletSubTab('payroll');
+  };
+
   const totalUnsettledKasbon = useMemo(() => {
     return expenseList
       .filter(e => e.jenis === 'kasbon' && e.status === 'approved' && !e.is_settled)
@@ -387,16 +410,18 @@ export default function AdminDashboardPage() {
     });
   }, [karyawanList, karyawanBranchFilter, userSearch]);
 
-  // Filtered Absensi List berdasarkan Cabang & Tanggal Terpilih / Semua Tanggal
+  // Filtered Absensi List berdasarkan Cabang, Tanggal Terpilih, & Status ACC Boss
   const filteredAbsensiList = useMemo(() => {
     return absensiList
       .filter(a => {
         const matchBranch = selectedCabangId === 'all' || isBranchMatch(a.cabang_id, selectedCabangId);
         const matchDate = absensiDateFilterMode === 'all' || a.tanggal === selectedAbsensiDate;
-        return matchBranch && matchDate;
+        const appStatus = a.approval_status || 'approved';
+        const matchApproval = absensiApprovalFilter === 'all' || appStatus === absensiApprovalFilter;
+        return matchBranch && matchDate && matchApproval;
       })
       .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
-  }, [absensiList, selectedCabangId, absensiDateFilterMode, selectedAbsensiDate]);
+  }, [absensiList, selectedCabangId, absensiDateFilterMode, selectedAbsensiDate, absensiApprovalFilter]);
 
   // Filtered Approval Expenses dengan Jejak Audit Tanggal & Filter Status
   const filteredApprovalExpenses = useMemo(() => {
@@ -421,26 +446,6 @@ export default function AdminDashboardPage() {
       return true;
     }).sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
   }, [expenseList, approvalCabangFilter, approvalJenisFilter, approvalStatusFilter, approvalDateMode, approvalDateFilter, approvalSearch, cabangList]);
-
-  // Belanja & Kas Kecil Filtered List
-  const filteredBelanjaList = useMemo(() => {
-    return expenseList.filter(exp => {
-      if (belanjaCabangFilter !== 'all' && !isBranchMatch(exp.cabang_id, belanjaCabangFilter)) return false;
-      if (belanjaJenisFilter !== 'all' && exp.jenis !== belanjaJenisFilter) return false;
-      if (belanjaStatusFilter !== 'all' && exp.status !== belanjaStatusFilter) return false;
-      if (belanjaSearch.trim()) {
-        const q = belanjaSearch.toLowerCase();
-        const branchName = cabangList.find(c => isBranchMatch(c.id, exp.cabang_id))?.nama.toLowerCase() || '';
-        return (
-          exp.keperluan.toLowerCase().includes(q) ||
-          exp.pemohon_nama.toLowerCase().includes(q) ||
-          branchName.includes(q) ||
-          exp.id.toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [expenseList, belanjaCabangFilter, belanjaJenisFilter, belanjaStatusFilter, belanjaSearch, cabangList]);
 
   // Handle Delete Menu Item (Khusus Admin Pusat)
   const handleDeleteMenu = async (item: MenuItem) => {
@@ -526,11 +531,12 @@ export default function AdminDashboardPage() {
         });
         const totalKasbon = unsettled.reduce((sum, e) => sum + e.nominal, 0);
 
-        // Kehadiran Staf per Tanggal Terpilih (Mendukung ID, UUID, nama, dan 1/2 hari)
+        // Kehadiran Staf per Tanggal Terpilih (Hanya Yang Sudah Di-ACC Owner)
         const match = absensiList.filter(a => {
           const isMatchId = a.karyawan_id === kar.id || 
                             (a.karyawan_nama && a.karyawan_nama.toLowerCase() === kar.nama.toLowerCase());
           if (!isMatchId) return false;
+          if (!isAbsensiApproved(a)) return false;
           if (payrollMode === 'harian') {
             return !payrollSingleDate || a.tanggal === payrollSingleDate;
           } else {
@@ -586,7 +592,7 @@ export default function AdminDashboardPage() {
 
         return draft;
       });
-  }, [karyawanList, cabangList, expenseList, absensiList, payrollMode, payrollSingleDate, payrollStartDate, payrollEndDate, payrollMonth, payrollYear, payrollBranchFilter]);
+  }, [karyawanList, cabangList, expenseList, absensiList, payrollMode, payrollSingleDate, payrollStartDate, payrollEndDate, payrollMonth, payrollYear, payrollBranchFilter, payrollDateLabel]);
 
   const handleLockPayroll = async () => {
     const confirmLock = confirm(
@@ -631,8 +637,8 @@ export default function AdminDashboardPage() {
       const biayaLainHarian = Math.round((cabang.biaya_lain_bulanan || 0) / 30);
 
       // 2. Upah Karyawan:
-      // a. Presensi Riil Hari Ini
-      const branchAbsensi = absensiList.filter(a => isBranchMatch(a.cabang_id, cabang.id) && a.tanggal === targetDate);
+      // a. Presensi Riil Hari Ini (Hanya Yang Sudah Di-ACC Owner)
+      const branchAbsensi = absensiList.filter(a => isBranchMatch(a.cabang_id, cabang.id) && a.tanggal === targetDate && isAbsensiApproved(a));
       const actualPresensiGaji = branchAbsensi.reduce((sum, a) => sum + (a.upah_harian_terhitung || 0), 0);
       const stafHadirCount = branchAbsensi.filter(a => a.status === 'hadir' || a.status === 'setengah_hari').length;
 
@@ -954,11 +960,11 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row text-slate-800">
       
-      {/* 1. DEDICATED FINTECH LEFT SIDEBAR (SERABI BAWEL & WEDANG GEPREK) */}
+      {/* 1. DEDICATED FINTECH LEFT SIDEBAR (5 MENU RINGKAS PAK AGAN) */}
       <AdminSidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        pendingCount={pendingExpenses.length}
+        pendingCount={totalPendingApprovals}
         onLogout={handleLogoutOwner}
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
@@ -977,16 +983,12 @@ export default function AdminDashboardPage() {
               <span className="font-extrabold text-slate-900 text-xs block leading-tight truncate">
                 SERABI BAWEL PUSAT
               </span>
-              <span className="text-[10px] text-emerald-700 font-bold capitalize truncate block">
-                {activeTab === 'absensi' ? 'Monitor Presensi Cabang' :
-                 activeTab === 'menu' ? 'Master Menu & HPP' :
-                 activeTab === 'karyawan' ? 'Data Pekerja' :
-                 activeTab === 'profiltoko' ? 'Identitas Toko & Struk' :
-                 activeTab === 'fixedcost' ? 'Biaya Tetap (Fixed Cost)' :
-                 activeTab === 'approval' ? 'Pusat Persetujuan' :
-                 activeTab === 'bahan' ? 'Audit Pasokan Bahan' :
-                 activeTab === 'payroll' ? 'Rekap Gaji & Payroll' :
-                 activeTab === 'gaji' ? 'Belanja & Kas Kecil' : 'Ringkasan & 10 Toko'}
+              <span className="text-[10px] text-emerald-700 font-bold truncate block">
+                {activeTab === 'mutasi' ? '2. Buku Mutasi Transaksi' :
+                 activeTab === 'approval' ? '3. Pusat Persetujuan' :
+                 activeTab === 'modal_hpp' ? '4. Resep, HPP & Fixed Cost' :
+                 activeTab === 'outlet_pekerja' ? '5. Outlet & Pekerja' :
+                 '1. Ringkasan & 10 Cabang'}
               </span>
             </div>
           </div>
@@ -998,18 +1000,20 @@ export default function AdminDashboardPage() {
           >
             <Menu className="w-3.5 h-3.5" />
             <span>Menu Admin</span>
-            {pendingExpenses.length > 0 && (
+            {totalPendingApprovals > 0 && (
               <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
             )}
           </button>
         </div>
 
-        {/* TAB 1: RINGKASAN EKSEKUTIF, LABA BERSIH & POSISI UANG BOSS */}
+        {/* ===================================================================== */}
+        {/* MENU 1: RINGKASAN & 10 CABANG (ATAS: LAPORAN KASIR -> BAWAH: BERSIH) */}
+        {/* ===================================================================== */}
         {activeTab === 'ringkasan' && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             
-            {/* Desktop Top Header Bar (Hanya Tampil di Menu Ringkasan) */}
-            <div className="hidden md:flex flex-row items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
+            {/* Header + Filter Outlet & Tanggal (Tersinkronisasi ke Seluruh Kartu) */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
               <div className="flex items-center space-x-3">
                 <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 border border-emerald-600/30 flex items-center justify-center text-white text-2xl shadow-md shrink-0">
                   🥞
@@ -1021,23 +1025,23 @@ export default function AdminDashboardPage() {
                       Pusat Kendali Eksekutif 10 Cabang • Pak Agan
                     </span>
                   </div>
-                  <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+                  <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight mt-0.5">
                     Serabi Bawel &amp; Wedang Geprek POS
                   </h1>
                 </div>
               </div>
 
-              {/* Controls: Branch Filter & Cetak Laporan PDF */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
-                  <Store className="w-4 h-4 text-emerald-700 shrink-0" />
-                  <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Filter Outlet:</span>
+              {/* Controls: Filter Outlet, Tanggal Sinkron, & Cetak PDF */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
+                  <Store className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                  <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Outlet:</span>
                   <select
                     value={selectedCabangId}
                     onChange={(e) => setSelectedCabangId(e.target.value)}
-                    className="bg-transparent text-xs font-extrabold text-slate-800 outline-none cursor-pointer"
+                    className="bg-transparent text-xs font-extrabold text-slate-800 outline-none cursor-pointer max-w-[165px]"
                   >
-                    <option value="all">Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
+                    <option value="all">Semua Cabang ({cabangList.length || 10} Resmi)</option>
                     {cabangList.map(c => (
                       <option key={c.id} value={c.id}>
                         {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
@@ -1046,41 +1050,67 @@ export default function AdminDashboardPage() {
                   </select>
                 </div>
 
+                <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                  <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Tanggal:</span>
+                  <input
+                    type="date"
+                    value={selectedBossSummaryDate}
+                    onChange={(e) => setSelectedBossSummaryDate(e.target.value)}
+                    className="bg-transparent font-mono text-xs font-extrabold text-slate-800 outline-none cursor-pointer"
+                  />
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setShowDailyReportModal(true)}
                   className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-sm text-xs font-bold transition-all btn-tactile cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Laporan Harian PDF &amp; Bank</span>
+                  <span>Laporan PDF</span>
                 </button>
               </div>
             </div>
 
-            {/* 4 FINTECH METRIC STAT CARDS (Hanya Tampil di Menu Ringkasan) */}
+            {/* BAGIAN 1 (SS 1): 4 KARTU KPI LAPORAN KASIR TERKINI (SINKRON DENGAN TANGGAL TERPILIH) */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="p-4 sm:p-5 rounded-2xl bg-white border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Omzet Penjualan</span>
-                <div className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-800 tabular-nums tracking-tight mt-1.5">
-                  {formatRupiah(totalOmzetGlobal)}
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Omzet Tanggal Ini</span>
+                  <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                    {selectedBossSummaryDate}
+                  </span>
                 </div>
-                <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">{selectedCabangId === 'all' ? '10 Cabang Resmi' : cabangList.find(c => c.id === selectedCabangId)?.kode || 'Cabang Terpilih'}</span>
+                <div className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-800 tabular-nums tracking-tight mt-1.5">
+                  {formatRupiah(activeExecutiveSummary.omzet)}
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">
+                  {selectedCabangId === 'all' ? '10 Cabang' : cabangList.find(c => c.id === selectedCabangId)?.kode || 'Cabang'} • Riwayat total: {formatRupiah(totalOmzetGlobal)}
+                </span>
               </div>
 
               <div className="p-4 sm:p-5 rounded-2xl bg-white border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Volume Transaksi</span>
                 <div className="text-xl sm:text-2xl font-mono font-extrabold text-slate-900 tabular-nums tracking-tight mt-1.5">
-                  {totalTransaksiCount} Pesanan
+                  {channelBreakdown.count} Pesanan
                 </div>
-                <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">Struk kasir POS &amp; Ojol</span>
+                <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">
+                  Tanggal {selectedBossSummaryDate} (Total semua: {totalTransaksiCount})
+                </span>
               </div>
 
-              <div className="p-4 sm:p-5 rounded-2xl bg-white border-t-[4px] border-amber-500 border-x border-b border-slate-200/80 shadow-soft-sm">
+              <div
+                onClick={() => navigateToApproval(pendingAbsensi.length > 0 ? 'presensi' : 'belanja')}
+                className="p-4 sm:p-5 rounded-2xl bg-white border-t-[4px] border-amber-500 border-x border-b border-slate-200/80 shadow-soft-sm cursor-pointer hover:bg-amber-50/30 transition"
+                title="Klik untuk membuka Pusat Persetujuan"
+              >
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Approval Menunggu</span>
                 <div className="text-xl sm:text-2xl font-mono font-extrabold text-amber-600 tabular-nums tracking-tight mt-1.5">
-                  {pendingExpenses.length} Pengajuan
+                  {totalPendingApprovals} Pengajuan
                 </div>
-                <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">Kasbon &amp; Belanja Toko</span>
+                <span className="text-[10px] text-slate-500 font-semibold mt-0.5 block">
+                  {pendingAbsensi.length} Presensi • {pendingExpenses.length} Belanja/Kasbon →
+                </span>
               </div>
 
               <div className="p-4 sm:p-5 rounded-2xl bg-white border-t-[4px] border-blue-600 border-x border-b border-slate-200/80 shadow-soft-sm">
@@ -1088,80 +1118,171 @@ export default function AdminDashboardPage() {
                 <div className="text-xl sm:text-2xl font-mono font-extrabold text-blue-800 tabular-nums tracking-tight mt-1.5">
                   {formatRupiah(totalUnsettledKasbon)}
                 </div>
-                <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">Dipotong saat payroll</span>
+                <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">Dipotong saat kunci gaji mingguan</span>
               </div>
             </div>
 
-            {/* PAPAN 1: REKAPITULASI LABA BERSIH HARIAN BOSS */}
+            {/* BAGIAN 2 (SS 2 - TEPAT DI BAWAH 4 KARTU): LAPORAN POSISI UANG KASIR & OJOL REALTIME */}
+            <div className="bg-white rounded-3xl p-5 sm:p-6 border-t-[5px] border-emerald-600 border-x border-b border-slate-200/90 shadow-soft-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                    <Wallet className="w-5 h-5 text-emerald-700" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      Posisi Saldo Realtime: Uang Hari Ini Ada di Mana Saja?
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Laporan uang masuk kasir tanggal <strong>{selectedBossSummaryDate}</strong>: uang fisik di laci vs QRIS/transfer pusat vs dompet ShopeeFood, GoFood &amp; GrabFood.
+                    </p>
+                  </div>
+                </div>
+
+                <span className="text-xs font-mono font-bold text-slate-600 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl self-start sm:self-auto">
+                  Total Realisasi: <strong className="text-emerald-900">{formatRupiah(channelBreakdown.totalChannel)}</strong>
+                </span>
+              </div>
+
+              {/* 6 Kartu Saldo Terpisah: Fisik Laci, QRIS, Transfer Bank, ShopeePay, GoBiz, GrabMerchant */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                
+                {/* 1. Laci Kasir */}
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">💵</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 uppercase">Uang Fisik</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">
+                    {selectedCabangId === 'all' 
+                      ? 'Kas Laci Kasir (10 Toko)' 
+                      : `Kas Laci Kasir (${cabangList.find(c => c.id === selectedCabangId)?.kode || 'Toko'})`}
+                  </span>
+                  <div className="text-base sm:text-lg font-mono font-black text-emerald-800 mt-1 tabular-nums">
+                    {formatRupiah(channelBreakdown.tunaiTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Uang kertas &amp; koin di laci kasir toko
+                  </span>
+                </div>
+
+                {/* 2. QRIS */}
+                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">📱</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-200 text-blue-900 uppercase">QRIS</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">QRIS Rekening Pusat</span>
+                  <div className="text-base sm:text-lg font-mono font-black text-blue-800 mt-1 tabular-nums">
+                    {formatRupiah(channelBreakdown.qrisTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Scan QR langsung masuk rekening pusat
+                  </span>
+                </div>
+
+                {/* 3. Transfer Bank Rekening Pusat */}
+                <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">🏦</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-200 text-indigo-900 uppercase">Transfer</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">Transfer Rekening Pusat</span>
+                  <div className="text-base sm:text-lg font-mono font-black text-indigo-800 mt-1 tabular-nums">
+                    {formatRupiah(channelBreakdown.transferTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Transfer bank (BCA/Mandiri) masuk rekening pusat
+                  </span>
+                </div>
+
+                {/* 4. ShopeeFood */}
+                <div className="p-4 rounded-2xl bg-orange-50/70 border border-orange-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">🟠</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-orange-200 text-orange-900 uppercase">ShopeePay</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">ShopeeFood Merchant</span>
+                  <div className="text-base sm:text-lg font-mono font-black text-orange-700 mt-1 tabular-nums">
+                    {formatRupiah(channelBreakdown.shopeeTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Saldo dompet merchant ShopeePay Partner
+                  </span>
+                </div>
+
+                {/* 5. GoFood */}
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-300">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">🛵</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 uppercase">GoBiz</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">GoFood Merchant</span>
+                  <div className="text-base sm:text-lg font-mono font-black text-emerald-700 mt-1 tabular-nums">
+                    {formatRupiah(channelBreakdown.gofoodTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Saldo dompet merchant GoBiz resto
+                  </span>
+                </div>
+
+                {/* 6. GrabFood */}
+                <div className="p-4 rounded-2xl bg-teal-50/70 border border-teal-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">🟢</span>
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-teal-200 text-teal-900 uppercase">Grab / OVO</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 block mt-2">GrabFood Merchant</span>
+                  <div className="text-base sm:text-lg font-mono font-black text-teal-700 mt-1 tabular-nums">
+                    {formatRupiah(channelBreakdown.grabfoodTotal)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                    Saldo dompet GrabMerchant resto
+                  </span>
+                </div>
+
+              </div>
+            </div>
+
+            {/* BAGIAN 3: KOTAK HIJAU EKSEKUTIF — LABA BERSIH HARIAN BOSS */}
             <div className="bg-gradient-to-br from-emerald-900 via-emerald-950 to-slate-900 text-white rounded-3xl p-5 sm:p-7 shadow-xl border border-emerald-700/40 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
               
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-5">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-4">
                 <div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
                     <span className="text-[11px] uppercase font-black tracking-widest text-emerald-300">
-                      Laporan Keuangan Eksekutif Harian
+                      Kalkulasi Keuangan Eksekutif Harian
                     </span>
                     <span className="px-2 py-0.5 rounded-full bg-white/10 text-[10px] font-bold text-amber-300 border border-white/10">
                       {activeExecutiveSummary.branchLabel}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-[10px] font-mono font-bold text-emerald-200 border border-emerald-400/20">
+                      Tgl: {selectedBossSummaryDate}
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
                     Uang Bersih Rekening Boss (Pak Agan)
                   </h2>
                   <p className="text-xs text-emerald-200/80 mt-0.5">
-                    Alur Otomatis: Omzet kotor kasir dikurangi beban tetap sewa ruko, modal HPP bahan, dan upah kehadiran staf hari ini.
+                    Dari total uang masuk kasir di atas, otomatis dipotong beban tetap sewa, HPP bahan, upah staf mingguan (÷6), dan belanja laci disetujui.
                   </p>
                 </div>
 
-                {/* Filter Outlet, Tanggal & Tombol Cetak PDF Terpadu */}
-                <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
-                  {/* Branch Selector */}
-                  <div className="flex items-center space-x-1.5 bg-white/10 px-3 py-1.5 rounded-2xl border border-white/15 backdrop-blur-sm text-xs font-bold text-white shadow-2xs">
-                    <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="text-emerald-200 text-[11px] font-bold">Outlet:</span>
-                    <select
-                      value={selectedCabangId}
-                      onChange={(e) => setSelectedCabangId(e.target.value)}
-                      className="bg-emerald-950/90 text-white font-extrabold text-xs rounded-xl px-2 py-1 border border-emerald-700/60 outline-none cursor-pointer"
-                    >
-                      <option value="all">🏢 Semua Cabang (Konsolidasi 10 Toko)</option>
-                      {cabangList.map(c => (
-                        <option key={c.id} value={c.id}>
-                          #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Date Selector */}
-                  <div className="flex items-center space-x-1.5 bg-white/10 px-3 py-1.5 rounded-2xl border border-white/15 backdrop-blur-sm text-xs font-bold text-white shadow-2xs">
-                    <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="text-emerald-200 text-[11px] font-bold">Tanggal:</span>
-                    <input
-                      type="date"
-                      value={selectedBossSummaryDate}
-                      onChange={(e) => setSelectedBossSummaryDate(e.target.value)}
-                      className="bg-emerald-950/90 border border-emerald-700/60 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-white outline-none cursor-pointer"
-                    />
-                  </div>
-
-                  {/* Cetak PDF Laporan Rekap Harian */}
-                  <button
-                    type="button"
-                    onClick={() => setShowDailyReportModal(true)}
-                    className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs shadow-md transition-all btn-tactile cursor-pointer"
-                    title="Cetak Laporan Harian PDF Resmi Kop Perusahaan"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-slate-900" />
-                    <span>Laporan PDF</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDailyReportModal(true)}
+                  className="flex items-center space-x-1.5 px-4 py-2 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs shadow-md transition-all btn-tactile cursor-pointer self-start lg:self-auto shrink-0"
+                  title="Cetak Laporan Harian PDF Resmi Kop Perusahaan"
+                >
+                  <FileText className="w-3.5 h-3.5 text-slate-900" />
+                  <span>Cetak Laporan PDF</span>
+                </button>
               </div>
 
-              {/* SAKELAR MODE POTONGAN FIXED COST: KAS RIIL (LUNAS = BEBAS POTONG) VS CADANGAN TABUNGAN (/30 HR) */}
-              <div className="mt-4 pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              {/* SAKELAR MODE POTONGAN FIXED COST */}
+              <div className="mt-4 pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] uppercase font-black tracking-wider text-emerald-200">
                     Sistem Biaya Sewa Toko:
@@ -1194,15 +1315,15 @@ export default function AdminDashboardPage() {
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab('fixedcost')}
+                  onClick={navigateToFixedCost}
                   className="flex items-center space-x-1.5 text-xs text-amber-300 hover:text-amber-200 font-bold self-start sm:self-auto cursor-pointer underline decoration-dotted"
                 >
                   <CreditCard className="w-3.5 h-3.5" />
-                  <span>Kelola Status Pembayaran Sewa Bulanan →</span>
+                  <span>Kelola Biaya Tetap (Fixed Cost) →</span>
                 </button>
               </div>
 
-              {/* SAKELAR SISTEM UPAH STAF: BEBAN STANDAR TOKO (/HARI) VS PRESENSI RIIL HADIR */}
+              {/* SAKELAR SISTEM UPAH STAF */}
               <div className="mt-2 pt-2 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] uppercase font-black tracking-wider text-blue-200">
@@ -1229,33 +1350,33 @@ export default function AdminDashboardPage() {
                           ? 'bg-cyan-500 text-slate-950 shadow-xs'
                           : 'text-white/60 hover:text-white'
                       }`}
-                      title="Hanya hitung staf yang sudah check-in presensi hadir hari ini"
+                      title="Hanya hitung presensi hadir yang sudah di-ACC Owner"
                     >
-                      Presensi Riil Hadir
+                      Presensi Riil Di-ACC
                     </button>
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab('payroll')}
+                  onClick={navigateToPayroll}
                   className="flex items-center space-x-1.5 text-xs text-blue-300 hover:text-blue-200 font-bold self-start sm:self-auto cursor-pointer underline decoration-dotted"
                 >
                   <DollarSign className="w-3.5 h-3.5" />
-                  <span>Atur Standar Gaji Staf di Payroll →</span>
+                  <span>Atur Gaji Mingguan Staf →</span>
                 </button>
               </div>
 
-              {/* Rincian 6 Kartu Pipeline Alur Keuangan Realtime */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-3.5 mt-4">
+              {/* Rincian 6 Kartu Pipeline Alur Keuangan Realtime (Font Responsif Agar Tidak Meluber) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 mt-4">
                 
                 {/* 1. Omzet Kotor */}
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-emerald-500/40 transition">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-emerald-500/40 transition min-w-0">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-300 block">
                       1. Total Omzet Kotor
                     </span>
-                    <div className="text-base sm:text-lg lg:text-xl font-mono font-extrabold text-emerald-300 mt-1 whitespace-nowrap">
+                    <div className="text-sm sm:text-base xl:text-lg font-mono font-extrabold text-emerald-300 mt-1 tabular-nums tracking-tight truncate">
                       +{formatRupiah(activeExecutiveSummary.omzet)}
                     </div>
                   </div>
@@ -1265,19 +1386,19 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* 2. Fixed Cost */}
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-rose-500/40 transition">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-rose-500/40 transition min-w-0">
                   <div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] uppercase font-bold tracking-wider text-rose-300 block">
                         2. Fixed Cost Harian
                       </span>
                       {activeExecutiveSummary.isAllTargetFullySettled && fixedCostDeductionMode === 'kas_riil' && (
-                        <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-black">
+                        <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-black shrink-0">
                           ✓ LUNAS
                         </span>
                       )}
                     </div>
-                    <div className={`text-base sm:text-lg lg:text-xl font-mono font-extrabold mt-1 whitespace-nowrap ${
+                    <div className={`text-sm sm:text-base xl:text-lg font-mono font-extrabold mt-1 tabular-nums tracking-tight truncate ${
                       activeExecutiveSummary.fixedCost === 0 ? 'text-emerald-300' : 'text-rose-300'
                     }`}>
                       {activeExecutiveSummary.fixedCost === 0 ? 'Rp 0' : `-${formatRupiah(activeExecutiveSummary.fixedCost)}`}
@@ -1293,12 +1414,12 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* 3. HPP Bahan */}
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-amber-500/40 transition">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-amber-500/40 transition min-w-0">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-amber-300 block">
                       3. HPP Modal Porsi
                     </span>
-                    <div className="text-base sm:text-lg lg:text-xl font-mono font-extrabold text-amber-300 mt-1 whitespace-nowrap">
+                    <div className="text-sm sm:text-base xl:text-lg font-mono font-extrabold text-amber-300 mt-1 tabular-nums tracking-tight truncate">
                       -{formatRupiah(activeExecutiveSummary.hpp)}
                     </div>
                   </div>
@@ -1308,34 +1429,34 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* 4. Upah Hadir / Standar Toko */}
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-blue-500/40 transition">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-blue-500/40 transition min-w-0">
                   <div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">
                         4. Upah Staf Toko
                       </span>
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                        {upahDeductionMode === 'standar_harian' ? 'Standar /Hari' : 'Presensi Riil'}
+                      <span className="text-[8.5px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                        {upahDeductionMode === 'standar_harian' ? 'Standar' : 'ACC Riil'}
                       </span>
                     </div>
-                    <div className="text-base sm:text-lg lg:text-xl font-mono font-extrabold text-blue-300 mt-1 whitespace-nowrap">
+                    <div className="text-sm sm:text-base xl:text-lg font-mono font-extrabold text-blue-300 mt-1 tabular-nums tracking-tight truncate">
                       -{formatRupiah(activeExecutiveSummary.gaji)}
                     </div>
                   </div>
                   <span className="text-[10px] text-white/60 block mt-2">
                     {upahDeductionMode === 'standar_harian'
                       ? `${activeExecutiveSummary.totalWorkersCount} Staf Terdaftar (/6 Hari Kerja)`
-                      : `${activeExecutiveSummary.stafHadir} Staf Presensi Masuk`}
+                      : `${activeExecutiveSummary.stafHadir} Staf Presensi Di-ACC`}
                   </span>
                 </div>
 
                 {/* 5. Belanja Toko Laci (Kas Kecil Approved) */}
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-purple-500/40 transition">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-purple-500/40 transition min-w-0">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-purple-300 block">
                       5. Belanja Toko Laci
                     </span>
-                    <div className="text-base sm:text-lg lg:text-xl font-mono font-extrabold text-purple-300 mt-1 whitespace-nowrap">
+                    <div className="text-sm sm:text-base xl:text-lg font-mono font-extrabold text-purple-300 mt-1 tabular-nums tracking-tight truncate">
                       {activeExecutiveSummary.belanja === 0 ? 'Rp 0' : `-${formatRupiah(activeExecutiveSummary.belanja)}`}
                     </div>
                   </div>
@@ -1345,12 +1466,12 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* 6. Uang Bersih Boss */}
-                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black col-span-2 sm:col-span-1 lg:col-span-1 shadow-lg border border-amber-300 flex flex-col justify-between">
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black col-span-2 sm:col-span-1 lg:col-span-1 shadow-lg border border-amber-300 flex flex-col justify-between min-w-0">
                   <div>
                     <span className="text-[10px] uppercase font-black tracking-wider text-slate-900 block">
                       💰 Uang Bersih Boss
                     </span>
-                    <div className="text-base sm:text-lg lg:text-xl font-mono font-black text-slate-950 mt-1 whitespace-nowrap">
+                    <div className="text-sm sm:text-base xl:text-lg font-mono font-black text-slate-950 mt-1 tabular-nums tracking-tight truncate">
                       {activeExecutiveSummary.uangBersih >= 0 ? '+' : ''}{formatRupiah(activeExecutiveSummary.uangBersih)}
                     </div>
                   </div>
@@ -1393,209 +1514,13 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <span className="text-[10px] text-emerald-300/80 font-medium">
-                  *Terhitung otomatis realtime setiap kasir mencatat transaksi, presensi staf masuk, atau belanja kas kecil disetujui.
+                  *Terhitung otomatis realtime saat transaksi kasir masuk, presensi di-ACC, atau belanja toko disetujui.
                 </span>
               </div>
 
             </div>
 
-            {/* PETA ALUR SISTEM FINANSIAL TERPADU (TRANSPARAN DARI KASIR KE BOSS) */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-soft-sm space-y-4">
-              <div className="flex items-center space-x-2.5 border-b border-slate-100 pb-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm">
-                  🗺️
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
-                    Alur Transparan: Dari Pesanan Kasir Hingga Uang Masuk Rekening Boss
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Memastikan setiap rupiah tercatat jelas asal-usulnya dan otomatis terpotong biaya harian tanpa manipulasi.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
-                {/* Tahap 1 */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                  <div className="flex items-center space-x-1.5 text-emerald-700 font-extrabold text-xs">
-                    <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-[10px]">1</span>
-                    <span>Pesanan Kasir POS</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Staf kasir input order Serabi Bawel &amp; Wedang di tablet. Uang masuk dari <strong>Tunai, QRIS, GrabFood, GoFood, &amp; ShopeeFood</strong> menjadi <strong>Omzet Kotor</strong>.
-                  </p>
-                </div>
-
-                {/* Tahap 2 */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                  <div className="flex items-center space-x-1.5 text-rose-700 font-extrabold text-xs">
-                    <span className="w-5 h-5 rounded-full bg-rose-100 flex items-center justify-center text-[10px]">2</span>
-                    <span>Otomatis Potong Fixed Cost</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Biaya <strong>Sewa Ruko, Wi-Fi/Listrik &amp; Sampah</strong> per bulan otomatis dibagi 30 hari. Sistem langsung menyisihkan beban tetap toko setiap hari secara adil.
-                  </p>
-                </div>
-
-                {/* Tahap 3 */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                  <div className="flex items-center space-x-1.5 text-amber-700 font-extrabold text-xs">
-                    <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-[10px]">3</span>
-                    <span>Otomatis Potong HPP Bahan</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Tiap porsi Serabi (Kinca Durian/Keju) &amp; Wedang terjual langsung memotong <strong>modal bahan baku HPP</strong> sesuai takaran resep di Master Menu.
-                  </p>
-                </div>
-
-                {/* Tahap 4 */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                  <div className="flex items-center space-x-1.5 text-blue-700 font-extrabold text-xs">
-                    <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[10px]">4</span>
-                    <span>Otomatis Potong Upah Hadir</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Staf yang melakukan <strong>presensi masuk</strong> otomatis dicatat upah hadirnya, memotong omzet toko hari itu dan diakumulasi ke payroll mingguan.
-                  </p>
-                </div>
-
-                {/* Tahap 5 */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                  <div className="flex items-center space-x-1.5 text-purple-700 font-extrabold text-xs">
-                    <span className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center text-[10px]">5</span>
-                    <span>Potong Belanja Kas Laci</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Pengajuan belanja kasir (gas LPG, es batu, kresek) yang <strong>di-approve Boss</strong> otomatis memotong saldo fisik laci kasir dan mengurangi laba harian secara transparan.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* PAPAN 2: POSISI UANG KASIR & OJOL (UANGNYA ADA DI MANA SAJA?) */}
-            <div className="bg-white rounded-3xl p-5 sm:p-6 border-t-[5px] border-emerald-600 border-x border-b border-slate-200/90 shadow-soft-sm space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-                    <Wallet className="w-5 h-5 text-emerald-700" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-extrabold text-slate-900">
-                      Posisi Saldo Realtime: Uang Hari Ini Ada di Mana Saja?
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Rincian fisik di laci kasir vs QRIS vs transfer bank vs saldo tertampung di akun merchant ShopeeFood, GoFood, &amp; GrabFood.
-                    </p>
-                  </div>
-                </div>
-
-                <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-xl self-start sm:self-auto">
-                  Total Realisasi: <strong className="text-slate-900">{formatRupiah(channelBreakdown.totalChannel)}</strong>
-                </span>
-              </div>
-
-              {/* 6 Kartu Saldo Terpisah: Fisik Laci, QRIS, Transfer Bank, ShopeePay, GoBiz, GrabMerchant */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                
-                {/* 1. Laci Kasir */}
-                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg">💵</span>
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 uppercase">Uang Fisik</span>
-                  </div>
-                  <span className="text-xs font-black text-slate-800 block mt-2">
-                    {selectedCabangId === 'all' 
-                      ? 'Kas Laci Kasir (10 Toko)' 
-                      : `Kas Laci Kasir (${cabangList.find(c => c.id === selectedCabangId)?.kode || 'Toko'})`}
-                  </span>
-                  <div className="text-lg font-mono font-black text-emerald-800 mt-1">
-                    {formatRupiah(channelBreakdown.tunaiTotal)}
-                  </div>
-                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
-                    Uang kertas &amp; koin di laci kasir toko
-                  </span>
-                </div>
-
-                {/* 2. QRIS */}
-                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg">📱</span>
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-200 text-blue-900 uppercase">QRIS</span>
-                  </div>
-                  <span className="text-xs font-black text-slate-800 block mt-2">QRIS Rekening Pusat</span>
-                  <div className="text-lg font-mono font-black text-blue-800 mt-1">
-                    {formatRupiah(channelBreakdown.qrisTotal)}
-                  </div>
-                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
-                    Scan QR langsung masuk rekening pusat
-                  </span>
-                </div>
-
-                {/* 3. Transfer Bank Rekening Pusat */}
-                <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg">🏦</span>
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-200 text-indigo-900 uppercase">Transfer</span>
-                  </div>
-                  <span className="text-xs font-black text-slate-800 block mt-2">Transfer Rekening Pusat</span>
-                  <div className="text-lg font-mono font-black text-indigo-800 mt-1">
-                    {formatRupiah(channelBreakdown.transferTotal)}
-                  </div>
-                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
-                    Transfer bank (BCA/Mandiri) masuk rekening pusat
-                  </span>
-                </div>
-
-                {/* 4. ShopeeFood */}
-                <div className="p-4 rounded-2xl bg-orange-50/70 border border-orange-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg">🟠</span>
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-orange-200 text-orange-900 uppercase">ShopeePay</span>
-                  </div>
-                  <span className="text-xs font-black text-slate-800 block mt-2">ShopeeFood Merchant</span>
-                  <div className="text-lg font-mono font-black text-orange-700 mt-1">
-                    {formatRupiah(channelBreakdown.shopeeTotal)}
-                  </div>
-                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
-                    Saldo dompet merchant ShopeePay Partner
-                  </span>
-                </div>
-
-                {/* 5. GoFood */}
-                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-300">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg">🛵</span>
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 uppercase">GoBiz</span>
-                  </div>
-                  <span className="text-xs font-black text-slate-800 block mt-2">GoFood Merchant</span>
-                  <div className="text-lg font-mono font-black text-emerald-700 mt-1">
-                    {formatRupiah(channelBreakdown.gofoodTotal)}
-                  </div>
-                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
-                    Saldo dompet merchant GoBiz resto
-                  </span>
-                </div>
-
-                {/* 6. GrabFood */}
-                <div className="p-4 rounded-2xl bg-teal-50/70 border border-teal-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg">🟢</span>
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-teal-200 text-teal-900 uppercase">Grab / OVO</span>
-                  </div>
-                  <span className="text-xs font-black text-slate-800 block mt-2">GrabFood Merchant</span>
-                  <div className="text-lg font-mono font-black text-teal-700 mt-1">
-                    {formatRupiah(channelBreakdown.grabfoodTotal)}
-                  </div>
-                  <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
-                    Saldo dompet GrabMerchant resto
-                  </span>
-                </div>
-
-              </div>
-            </div>
-
-            {/* PAPAN 3: TABEL LAPORAN OMZET & LABA BERSIH 10 TOKO (FOKUS LAPORAN BERSIH) */}
+            {/* BAGIAN 4: TABEL LAPORAN OMZET & LABA BERSIH 10 TOKO */}
             <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden space-y-4 p-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div className="flex items-center space-x-2">
@@ -1605,14 +1530,14 @@ export default function AdminDashboardPage() {
                       Laporan Kinerja &amp; Uang Bersih per Outlet (10 Cabang Resmi)
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Laporan otomatis setelah dikurangi biaya tetap, modal porsi, dan upah kehadiran staf hari ini.
+                      Laporan otomatis tanggal <strong>{selectedBossSummaryDate}</strong> setelah dipotong biaya tetap, modal HPP, upah staf, dan belanja laci disetujui.
                     </p>
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab('fixedcost')}
+                  onClick={navigateToFixedCost}
                   className="text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center space-x-1.5 transition self-start sm:self-auto cursor-pointer"
                 >
                   <Building2 className="w-3.5 h-3.5 text-emerald-700" />
@@ -1629,7 +1554,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-3.5 text-right text-rose-300">Potongan Fixed Cost</th>
                       <th className="py-3 px-3.5 text-right text-amber-300">HPP Bahan Baku</th>
                       <th className="py-3 px-3.5 text-right text-blue-300">
-                        Upah Staf {upahDeductionMode === 'standar_harian' ? '(/Hari)' : 'Hadir'}
+                        Upah Staf {upahDeductionMode === 'standar_harian' ? '(/Hari)' : 'ACC'}
                       </th>
                       <th className="py-3 px-3.5 text-right text-purple-300">Belanja Toko Laci</th>
                       <th className="py-3 px-3.5 text-right bg-slate-950 text-amber-300">Uang Bersih Toko</th>
@@ -1679,7 +1604,7 @@ export default function AdminDashboardPage() {
                             <span className="text-[9px] text-slate-400 block font-normal">
                               {upahDeductionMode === 'standar_harian' 
                                 ? `${b.branchWorkersCount} Staf Terplot (/6 Hari)` 
-                                : `${b.stafHadirCount} Staf Hadir`}
+                                : `${b.stafHadirCount} Staf Di-ACC`}
                             </span>
                           </td>
                           <td className="py-3 px-3.5 text-right font-mono font-bold text-purple-700 text-xs whitespace-nowrap">
@@ -1720,7 +1645,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Quick-Access Banner: Buku Mutasi Penjualan Kini Memiliki Menu Sendiri */}
+            {/* Quick-Access Banner: Menu 2 Buku Mutasi Transaksi */}
             <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-slate-950 p-5 rounded-3xl text-white flex flex-col sm:flex-row items-center justify-between gap-4 border border-emerald-500/30 shadow-lg">
               <div className="flex items-center space-x-3.5">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-800/80 border border-emerald-400/40 flex items-center justify-center text-amber-300 shadow-md shrink-0">
@@ -1730,14 +1655,14 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center space-x-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-300 bg-emerald-900/60 border border-emerald-500/40 px-2 py-0.5 rounded-full">
-                      Menu Tersendiri • Tidak Numpuk
+                      Menu 2 • Buku Mutasi Transaksi
                     </span>
                   </div>
                   <h4 className="font-extrabold text-sm sm:text-base text-white mt-1">
-                    Buku Mutasi Penjualan &amp; Rekap Struk Outlet
+                    Rincian Struk Kasir &amp; Mutasi Jam-jaman Outlet
                   </h4>
                   <p className="text-xs text-emerald-200/80 mt-0.5">
-                    Data transaksi, filter per Hari/Bulan/Tahun, AOV, dan unduh CSV kini dipisah ke menu tersendiri di bilah navigasi kiri agar dashboard ini tetap ringkas.
+                    Cek log struk per cabang/per jam, filter Hari/Bulan/Tahun, AOV, dan export CSV dari menu 2. Buku Mutasi Transaksi.
                   </p>
                 </div>
               </div>
@@ -1748,6 +1673,84 @@ export default function AdminDashboardPage() {
               >
                 <span>Buka Buku Mutasi Lengkap →</span>
               </button>
+            </div>
+
+            {/* PANDUAN RUMUS (DILIPAT DI PALING BAWAH AGAR HALAMAN UTAMA BERSIH) */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowFormulaGuide(prev => !prev)}
+                className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50 transition cursor-pointer"
+              >
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm shrink-0">
+                    🗺️
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900">
+                      Panduan Alur Transparan: Dari Pesanan Kasir Hingga Rekening Boss
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Klik untuk {showFormulaGuide ? 'menyembunyikan' : 'melihat'} penjelasan rumus potongan Fixed Cost, HPP, Upah Mingguan, &amp; Belanja Laci.
+                    </p>
+                  </div>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${showFormulaGuide ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showFormulaGuide && (
+                <div className="px-5 pb-5 pt-2 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                    <div className="flex items-center space-x-1.5 text-emerald-700 font-extrabold text-xs">
+                      <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-[10px]">1</span>
+                      <span>Pesanan Kasir POS</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Staf kasir input order Serabi Bawel &amp; Wedang di tablet. Uang masuk dari <strong>Tunai, QRIS, GrabFood, GoFood, &amp; ShopeeFood</strong> menjadi <strong>Omzet Kotor</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                    <div className="flex items-center space-x-1.5 text-rose-700 font-extrabold text-xs">
+                      <span className="w-5 h-5 rounded-full bg-rose-100 flex items-center justify-center text-[10px]">2</span>
+                      <span>Otomatis Potong Fixed Cost</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Biaya <strong>Sewa Ruko, Wi-Fi/Listrik &amp; Sampah</strong> per bulan otomatis dibagi 30 hari (atau Rp 0 bila status bulan sudah lunas).
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                    <div className="flex items-center space-x-1.5 text-amber-700 font-extrabold text-xs">
+                      <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-[10px]">3</span>
+                      <span>Otomatis Potong HPP Bahan</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Tiap porsi terjual langsung memotong <strong>modal bahan baku HPP</strong> sesuai takaran resep di Menu 4.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                    <div className="flex items-center space-x-1.5 text-blue-700 font-extrabold text-xs">
+                      <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[10px]">4</span>
+                      <span>Potong Upah Staf (÷6 Hari)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Mengambil standar gaji mingguan staf ÷ 6 hari kerja atau presensi hadir yang <strong>sudah di-ACC Boss</strong> di Menu 3.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                    <div className="flex items-center space-x-1.5 text-purple-700 font-extrabold text-xs">
+                      <span className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center text-[10px]">5</span>
+                      <span>Potong Belanja Kas Laci</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Pengajuan belanja kasir yang <strong>di-ACC Boss</strong> otomatis memotong saldo fisik laci dan laba harian toko.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
           </div>
@@ -1764,41 +1767,180 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB 2: APPROVAL CENTER */}
+        {/* MENU 3: PUSAT PERSETUJUAN (ACC PRESENSI KERJA & NOTA BELANJA / KASBON) */}
         {activeTab === 'approval' && (
-          <div className="space-y-4">
-            {/* Header & Print Action Bar */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-5">
+            {/* 2-Tab Navigation Pill Header */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setApprovalSubTab('presensi')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
+                    approvalSubTab === 'presensi'
+                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                  }`}
+                >
+                  <CalendarCheck className="w-4 h-4" />
+                  <span>Tab 1: ACC Presensi Kerja</span>
+                  {pendingAbsensi.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] animate-pulse">
+                      {pendingAbsensi.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setApprovalSubTab('belanja')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
+                    approvalSubTab === 'belanja'
+                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                  }`}
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>Tab 2: ACC Nota Belanja &amp; Kasbon</span>
+                  {pendingExpenses.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white font-extrabold text-[10px] animate-pulse">
+                      {pendingExpenses.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              <div className="text-[11px] text-slate-500 font-semibold px-2">
+                {totalPendingApprovals > 0 ? (
+                  <span className="text-amber-800 font-extrabold">
+                    ⏳ Total {totalPendingApprovals} pengajuan menunggu ACC Pusat
+                  </span>
+                ) : (
+                  <span className="text-emerald-700 font-bold">
+                    ✓ Semua presensi &amp; nota cabang sudah tervalidasi
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* SUB-TAB 2: ACC NOTA BELANJA & KASBON */}
+            {approvalSubTab === 'belanja' && (
+              <div className="space-y-5">
+            {/* Header & Action Bar */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0">
                     <CheckCircle2 className="w-4 h-4" />
                   </div>
                   <div>
                     <h3 className="text-base font-extrabold text-slate-900">
-                      Approval Center: Belanja Operasional &amp; Kasbon Staf
+                      ACC Nota Belanja Operasional &amp; Kasbon Staf
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Persetujuan pencairan dana dari tablet kasir dengan metode Kas Laci atau Transfer Bank. Audit jejak tanggal lengkap dan siap cetak PDF.
+                      Persetujuan pencairan dana kasir via Kas Laci atau Transfer Bank. Begitu di-ACC, nominal otomatis memotong saldo kas laci &amp; laporan laba harian.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2.5">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold flex items-center space-x-1.5">
                   <Clock className="w-3.5 h-3.5" />
-                  <span>{pendingExpenses.length} Menunggu Persetujuan</span>
+                  <span>{pendingExpenses.length} Menunggu ACC</span>
                 </span>
 
                 <button
                   type="button"
+                  onClick={() => setShowCreateExpenseModal(true)}
+                  className="px-3.5 py-2 rounded-xl bg-brand-primary hover:bg-brand-dark text-white font-extrabold text-xs shadow-md shadow-brand-dark/20 transition btn-tactile flex items-center space-x-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Catat Belanja Kas Kecil</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setShowApprovalReportModal(true)}
-                  className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-700/25 transition btn-tactile flex items-center space-x-1.5"
+                  className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-700/25 transition btn-tactile flex items-center space-x-1.5"
                 >
                   <Printer className="w-4 h-4" />
                   <span>Cetak Rekapitulasi (PDF)</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Total Belanja Toko (Disetujui)
+                </span>
+                <div className="text-xl font-mono font-extrabold text-emerald-800 mt-1 tabular-nums">
+                  {formatRupiah(
+                    expenseList
+                      .filter(e => e.jenis === 'belanja' && e.status === 'approved' && (approvalCabangFilter === 'all' || isBranchMatch(e.cabang_id, approvalCabangFilter)))
+                      .reduce((sum, e) => sum + e.nominal, 0)
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Bahan baku, gas LPG, es batu &amp; kemasan
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Total Kasbon Staf (Disetujui)
+                </span>
+                <div className="text-xl font-mono font-extrabold text-amber-700 mt-1 tabular-nums">
+                  {formatRupiah(
+                    expenseList
+                      .filter(e => e.jenis === 'kasbon' && e.status === 'approved' && (approvalCabangFilter === 'all' || isBranchMatch(e.cabang_id, approvalCabangFilter)))
+                      .reduce((sum, e) => sum + e.nominal, 0)
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Akan dipotong saat payroll tutup buku
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setApprovalStatusFilter('pending');
+                  setApprovalDateMode('all');
+                }}
+                className="text-left p-4 rounded-2xl bg-amber-50/70 hover:bg-amber-50 border border-amber-200/80 shadow-soft-sm transition-colors"
+              >
+                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                  ⏳ Menunggu Persetujuan Pusat
+                </span>
+                <div className="text-xl font-mono font-extrabold text-rose-600 mt-1 tabular-nums">
+                  {
+                    expenseList
+                      .filter(e => e.status === 'pending' && (approvalCabangFilter === 'all' || isBranchMatch(e.cabang_id, approvalCabangFilter)))
+                      .length
+                  } Pengajuan
+                </div>
+                <span className="text-[10px] text-amber-700 mt-1 block font-semibold">
+                  Klik untuk tampilkan antrean menunggu ACC
+                </span>
+              </button>
+
+              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Potong Kas Laci Kasir Cabang
+                </span>
+                <div className="text-xl font-mono font-extrabold text-brand-dark mt-1 tabular-nums">
+                  {formatRupiah(
+                    expenseList
+                      .filter(e => e.status === 'approved' && e.metode_pencairan === 'laci' && (approvalCabangFilter === 'all' || isBranchMatch(e.cabang_id, approvalCabangFilter)))
+                      .reduce((sum, e) => sum + e.nominal, 0)
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Mengurangi saldo kas fisik kasir
+                </span>
               </div>
             </div>
 
@@ -2055,16 +2197,18 @@ export default function AdminDashboardPage() {
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
                             {exp.status === 'pending' ? (
                               <div className="flex items-center justify-center space-x-1.5">
                                 <button
+                                  type="button"
                                   onClick={() => setSelectedExpenseForApproval(exp)}
                                   className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs btn-tactile shadow-sm shadow-emerald-700/20 transition-all"
                                 >
                                   Setujui
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={async () => {
                                     const alasan = prompt('Alasan penolakan pengeluaran ini:', 'Di luar anggaran operasional');
                                     if (alasan) {
@@ -2077,9 +2221,41 @@ export default function AdminDashboardPage() {
                                   Tolak
                                 </button>
                               </div>
+                            ) : exp.status === 'approved' ? (
+                              <div className="flex items-center justify-center space-x-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const branch = cabangList.find(c => isBranchMatch(c.id, exp.cabang_id));
+                                    const phone = exp.pemohon_telepon || '0813-1111-2222';
+                                    const cleanPhone = phone.replace(/[^0-9]/g, '');
+                                    const intlPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone;
+                                    const msg = [
+                                      `*BUKTI PERSETUJUAN PENGELUARAN KAS KECIL - SERABI BAWEL & WEDANG GEPREK*`,
+                                      `-----------------------------------------`,
+                                      `Halo Sdr/i *${exp.pemohon_nama}*, pengeluaran kas kecil cabang Anda telah *DISETUJUI* oleh Admin Pusat / Pak Agan:`,
+                                      ``,
+                                      `🏢 *Cabang:* ${branch?.nama || exp.cabang_nama || 'Outlet'}`,
+                                      `🔖 *Kategori:* ${exp.jenis === 'belanja' ? 'BELANJA OPERASIONAL TOKO' : 'KASBON STAF'}`,
+                                      `📝 *Rincian:* ${exp.keperluan}`,
+                                      `💰 *Nominal Disetujui:* ${formatRupiah(exp.nominal)}`,
+                                      `💳 *Sumber Dana:* ${exp.metode_pencairan === 'laci' ? 'Potong Kas Laci Kasir (Cash Drawer)' : 'Transfer Bank Rekening'}`,
+                                      `📅 *Status:* SUDAH DISETUJUI & SIAP DICATAT SAAT TUTUP SHIFT`,
+                                      ``,
+                                      `_Pesan otomatis resmi dari Backoffice Serabi Bawel & Wedang Geprek._`
+                                    ].join('\n');
+                                    window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                  }}
+                                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white rounded-lg text-[11px] font-bold transition-all shadow-sm btn-tactile"
+                                  title="Kirim Konfirmasi Bukti Persetujuan Langsung ke WhatsApp PJ/Kasir"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 fill-white" />
+                                  <span>Kirim WA</span>
+                                </button>
+                              </div>
                             ) : (
-                              <span className="text-slate-400 text-[10px] font-mono">
-                                ✓ Tuntas
+                              <span className="text-rose-500 text-[10px] font-mono font-bold">
+                                ✗ Ditolak
                               </span>
                             )}
                           </td>
@@ -2090,587 +2266,480 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* TAB 2.5: BUKU BELANJA KEBUTUHAN & KAS KECIL 10 CABANG */}
-        {activeTab === 'gaji' && (
-          <div className="space-y-5">
-            {/* Top Bar Title & Explanation */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold">
-                    <ShoppingBag className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-extrabold text-slate-900">
-                      Buku Belanja Kebutuhan &amp; Kas Kecil 10 Cabang
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Pencatatan uang kas kasir laci toko yang diambil untuk belanja bahan/kebutuhan cabang (gas, es batu, kemasan) &amp; kasbon staf. Wajib di-approve sebelum dicairkan.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateExpenseModal(true)}
-                  className="px-4 py-2 rounded-xl bg-brand-primary hover:bg-brand-dark text-white font-extrabold text-xs shadow-md shadow-brand-dark/20 btn-tactile flex items-center space-x-1.5 transition-all"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Catat Belanja Kas Kecil</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Total Belanja Toko (Disetujui)
-                </span>
-                <div className="text-xl font-mono font-extrabold text-emerald-800 mt-1 tabular-nums">
-                  {formatRupiah(
-                    expenseList
-                      .filter(e => e.jenis === 'belanja' && e.status === 'approved' && (belanjaCabangFilter === 'all' || isBranchMatch(e.cabang_id, belanjaCabangFilter)))
-                      .reduce((sum, e) => sum + e.nominal, 0)
-                  )}
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Bahan baku, gas LPG, es batu &amp; kemasan
-                </span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Total Kasbon Staf (Disetujui)
-                </span>
-                <div className="text-xl font-mono font-extrabold text-amber-700 mt-1 tabular-nums">
-                  {formatRupiah(
-                    expenseList
-                      .filter(e => e.jenis === 'kasbon' && e.status === 'approved' && (belanjaCabangFilter === 'all' || isBranchMatch(e.cabang_id, belanjaCabangFilter)))
-                      .reduce((sum, e) => sum + e.nominal, 0)
-                  )}
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Akan dipotong saat payroll tutup buku
-                </span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Menunggu Persetujuan Pusat
-                </span>
-                <div className="text-xl font-mono font-extrabold text-rose-600 mt-1 tabular-nums">
-                  {
-                    expenseList
-                      .filter(e => e.status === 'pending' && (belanjaCabangFilter === 'all' || isBranchMatch(e.cabang_id, belanjaCabangFilter)))
-                      .length
-                  } Pengajuan
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Butuh tindakan di Approval Center
-                </span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Potong Kas Laci Kasir Cabang
-                </span>
-                <div className="text-xl font-mono font-extrabold text-brand-dark mt-1 tabular-nums">
-                  {formatRupiah(
-                    expenseList
-                      .filter(e => e.status === 'approved' && e.metode_pencairan === 'laci' && (belanjaCabangFilter === 'all' || isBranchMatch(e.cabang_id, belanjaCabangFilter)))
-                      .reduce((sum, e) => sum + e.nominal, 0)
-                  )}
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Mengurangi saldo kas fisik kasir
-                </span>
-              </div>
-            </div>
-
-            {/* Filter Bar & Belanja Table */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden space-y-4 p-5">
-              
-              {/* Filter Controls */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b pb-4 border-slate-100 text-xs">
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Cabang Filter */}
-                  <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 font-bold">
-                    <Building2 className="w-3.5 h-3.5 text-brand-primary shrink-0" />
-                    <select
-                      value={belanjaCabangFilter}
-                      onChange={(e) => setBelanjaCabangFilter(e.target.value)}
-                      className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[170px] truncate"
-                    >
-                      <option value="all">🏢 Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
-                      {cabangList.map(c => (
-                        <option key={c.id} value={c.id}>
-                          #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Jenis Filter */}
-                  <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 font-bold">
-                    <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <select
-                      value={belanjaJenisFilter}
-                      onChange={(e) => setBelanjaJenisFilter(e.target.value as any)}
-                      className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer"
-                    >
-                      <option value="all">Semua Jenis</option>
-                      <option value="belanja">Belanja Toko (Bahan/Gas/Es)</option>
-                      <option value="kasbon">Kasbon Staf Cabang</option>
-                    </select>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 font-bold">
-                    <select
-                      value={belanjaStatusFilter}
-                      onChange={(e) => setBelanjaStatusFilter(e.target.value as any)}
-                      className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer"
-                    >
-                      <option value="all">Semua Status</option>
-                      <option value="approved">✓ Disetujui (Approved)</option>
-                      <option value="pending">⏳ Menunggu Persetujuan</option>
-                      <option value="rejected">✕ Ditolak</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Search Bar */}
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Cari rincian belanja, nama pemohon..."
-                    value={belanjaSearch}
-                    onChange={(e) => setBelanjaSearch(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-primary w-64 font-medium"
-                  />
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                </div>
-              </div>
-
-              {/* Table Data */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
-                    <tr>
-                      <th className="py-3 px-3">Tanggal &amp; Waktu</th>
-                      <th className="py-3 px-3">Cabang &amp; Pemohon</th>
-                      <th className="py-3 px-3">Kategori</th>
-                      <th className="py-3 px-3">Rincian Belanja / Kebutuhan</th>
-                      <th className="py-3 px-3 text-right">Nominal</th>
-                      <th className="py-3 px-3">Sumber Dana</th>
-                      <th className="py-3 px-3 text-center">Status</th>
-                      <th className="py-3 px-3 text-center">Aksi &amp; Notifikasi WA</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredBelanjaList.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
-                          Tidak ada data belanja atau kas kecil yang sesuai dengan filter.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredBelanjaList.map(exp => {
-                        const branch = cabangList.find(c => isBranchMatch(c.id, exp.cabang_id));
-                        const isLaci = exp.metode_pencairan === 'laci';
-
-                        return (
-                          <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              <span className="font-mono text-slate-800 font-bold block">
-                                {new Date(exp.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                {new Date(exp.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-3">
-                              <span className="font-extrabold text-slate-900 block">{exp.pemohon_nama}</span>
-                              <span className="text-[10px] text-slate-500">
-                                {branch?.nama || exp.cabang_nama || 'Cabang'}
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              {exp.jenis === 'belanja' ? (
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-                                  <span>🛍️ Belanja Toko</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
-                                  <span>💰 Kasbon Staf</span>
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-3 max-w-xs">
-                              <span className="font-bold text-slate-800 block text-xs">
-                                {exp.keperluan}
-                              </span>
-                              {exp.alasan_penolakan && (
-                                <span className="text-[10px] text-rose-600 block mt-0.5">
-                                  Alasan Ditolak: {exp.alasan_penolakan}
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-3 text-right font-mono font-extrabold text-slate-900 tabular-nums">
-                              {formatRupiah(exp.nominal)}
-                            </td>
-
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              {isLaci ? (
-                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-[10px] font-bold">
-                                  <span>💵 Kas Laci Toko</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-sky-100 text-sky-900 text-[10px] font-bold">
-                                  <span>🏦 Transfer Bank</span>
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
-                              {exp.status === 'approved' ? (
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold">
-                                  <span>✓ Disetujui</span>
-                                </span>
-                              ) : exp.status === 'pending' ? (
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold animate-pulse">
-                                  <span>⏳ Menunggu Approval</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold">
-                                  <span>✕ Ditolak</span>
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
-                              <div className="flex items-center justify-center space-x-1.5">
-                                {exp.status === 'pending' ? (
-                                  <button
-                                    onClick={() => setSelectedExpenseForApproval(exp)}
-                                    className="px-3 py-1.5 text-xs font-extrabold text-white bg-brand-primary hover:bg-brand-dark rounded-xl transition-all shadow-sm btn-tactile"
-                                  >
-                                    Review &amp; Setujui
-                                  </button>
-                                ) : exp.status === 'approved' ? (
-                                  <button
-                                    onClick={() => {
-                                      const phone = exp.pemohon_telepon || '0813-1111-2222';
-                                      const cleanPhone = phone.replace(/[^0-9]/g, '');
-                                      const intlPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone;
-                                      const msg = [
-                                        `*BUKTI PERSETUJUAN PENGELUARAN KAS KECIL - SERABI BAWEL & WEDANG GEPREK*`,
-                                        `-----------------------------------------`,
-                                        `Halo Sdr/i *${exp.pemohon_nama}*, pengeluaran kas kecil cabang Anda telah *DISETUJUI* oleh Admin Pusat / Pak Agan:`,
-                                        ``,
-                                        `🏢 *Cabang:* ${branch?.nama || exp.cabang_nama || 'Outlet'}`,
-                                        `🔖 *Kategori:* ${exp.jenis === 'belanja' ? 'BELANJA OPERASIONAL TOKO' : 'KASBON STAF'}`,
-                                        `📝 *Rincian:* ${exp.keperluan}`,
-                                        `💰 *Nominal Disetujui:* ${formatRupiah(exp.nominal)}`,
-                                        `💳 *Sumber Dana:* ${exp.metode_pencairan === 'laci' ? 'Potong Kas Laci Kasir (Cash Drawer)' : 'Transfer Bank Rekening'}`,
-                                        `📅 *Status:* SUDAH DISETUJUI & SIAP DICATAT SAAT TUTUP SHIFT`,
-                                        ``,
-                                        `_Pesan otomatis resmi dari Backoffice Serabi Bawel & Wedang Geprek._`
-                                      ].join('\n');
-                                      window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-                                    }}
-                                    className="inline-flex items-center space-x-1 px-3 py-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white rounded-xl text-xs font-bold transition-all shadow-sm btn-tactile"
-                                    title="Kirim Konfirmasi Bukti Persetujuan Langsung ke WhatsApp PJ/Kasir"
-                                  >
-                                    <MessageCircle className="w-3.5 h-3.5 fill-white" />
-                                    <span>Kirim WA</span>
-                                  </button>
-                                ) : (
-                                  <span className="text-slate-400 text-xs">-</span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-            </div>
 
             <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs flex items-start space-x-2">
               <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <span className="font-bold block">Sinkronisasi Otomatis dengan Laci Kasir &amp; Payroll:</span>
+                <span className="font-bold block">Sinkronisasi Otomatis dengan Laci Kasir, Laba Harian &amp; Payroll:</span>
                 <p className="text-[11px] text-emerald-900 leading-relaxed">
-                  Semua pengeluaran belanja berlabel <strong>Kas Laci Toko</strong> yang telah disetujui otomatis memotong perhitungan uang fisik laci kasir saat kasir melakukan <strong>Tutup Shift Laci (/pos)</strong>. Sedangkan pengeluaran berlabel <strong>Kasbon Staf</strong> otomatis tercatat pada slip gaji karyawan dan dilunasi saat Admin Pusat menekan <strong>Kunci Gaji Periode Ini (/admin tab Rekap Gaji &amp; Saldo)</strong>.
+                  Begitu Owner menyetujui pengajuan <strong>Belanja Operasional (Kas Laci)</strong>, nominal otomatis memotong perhitungan fisik laci saat kasir Tutup Shift serta memotong Laba Bersih harian di Menu 1. Sedangkan <strong>Kasbon Staf</strong> yang disetujui otomatis masuk potongan slip gaji mingguan hingga dilunasi saat Kunci Gaji.
                 </p>
               </div>
             </div>
-
           </div>
-        )}
+            )}
 
-        {/* TAB: MONITOR ABSENSI 10 CABANG */}
-        {activeTab === 'absensi' && (
-          <div className="space-y-5">
-            {/* Top Bar Filter & Title */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <CalendarCheck className="w-4 h-4 text-brand-primary" />
-                  <h3 className="text-sm font-extrabold text-slate-900">
-                    Pusat Rekap Presensi & Kehadiran 10 Cabang
-                  </h3>
-                </div>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Presensi dicatat dan divalidasi langsung oleh Admin Cabang / Kepala Outlet
-                </p>
-              </div>
+            {/* SUB-TAB 1: ACC PRESENSI KERJA (KASIR AJUKAN -> OWNER ACC/TOLAK -> MASUK GAJI & LABA) */}
+            {approvalSubTab === 'presensi' && (() => {
+              const branchFiltered = absensiList.filter(a => selectedCabangId === 'all' || isBranchMatch(a.cabang_id, selectedCabangId));
+              const dateFiltered = branchFiltered.filter(a => absensiDateFilterMode === 'all' || a.tanggal === selectedAbsensiDate);
+              const pendingBranchCount = branchFiltered.filter(a => a.approval_status === 'pending').length;
+              const approvedHadirCount = dateFiltered.filter(a => isAbsensiApproved(a) && (a.status === 'hadir' || a.status === 'setengah_hari')).length;
+              const totalUpahApproved = dateFiltered
+                .filter(a => isAbsensiApproved(a) && (a.status === 'hadir' || a.status === 'setengah_hari'))
+                .reduce((sum, a) => sum + (a.upah_harian_terhitung ?? (a.status === 'setengah_hari' ? 50000 : 100000)), 0);
+              const pendingInFiltered = filteredAbsensiList.filter(a => a.approval_status === 'pending');
 
-              <div className="flex flex-wrap items-center gap-2.5 text-xs">
-                {/* Mode Selector Pill: Tanggal Terpilih vs Semua Tanggal */}
-                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200/80">
-                  <button
-                    type="button"
-                    onClick={() => setAbsensiDateFilterMode('selected')}
-                    className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 ${
-                      absensiDateFilterMode === 'selected'
-                        ? 'bg-white text-emerald-800 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    <span>📅</span>
-                    <span>Tanggal Ini</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAbsensiDateFilterMode('all')}
-                    className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 ${
-                      absensiDateFilterMode === 'all'
-                        ? 'bg-white text-emerald-800 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    <span>📋</span>
-                    <span>Semua Tanggal</span>
-                  </button>
-                </div>
+              return (
+                <div className="space-y-5">
+                  {/* Top Bar Title & Batch ACC */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold shrink-0">
+                          <CalendarCheck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-extrabold text-slate-900">
+                            ACC Presensi Kerja Karyawan (10 Cabang)
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Kasir mengajukan kehadiran di tablet kasir. Upah harian staf baru masuk ke <strong>Slip Gaji, Rekap Mingguan, &amp; Laporan Keuangan</strong> setelah di-ACC Owner di sini.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
-                {/* Date Picker Input */}
-                <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border transition ${
-                  absensiDateFilterMode === 'selected'
-                    ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 font-bold'
-                    : 'bg-slate-50 border-slate-200 text-slate-600'
-                }`}>
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="font-bold text-slate-600">Tanggal:</span>
-                  <input
-                    type="date"
-                    value={selectedAbsensiDate}
-                    onChange={(e) => {
-                      setSelectedAbsensiDate(e.target.value);
-                      setAbsensiDateFilterMode('selected');
-                    }}
-                    className="bg-transparent font-mono font-bold text-slate-800 outline-none cursor-pointer"
-                  />
-                </div>
-              </div>
-            </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {pendingInFiltered.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (confirm(`ACC ${pendingInFiltered.length} data presensi menunggu sekarang?\n\nSetelah di-ACC, upah harian staf langsung masuk ke slip gaji karyawan & laporan keuangan pusat.`)) {
+                              await db.approveAllAbsensi(pendingInFiltered, 'Pak Agan (Owner)');
+                              await refreshAllData();
+                            }
+                          }}
+                          className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-700/25 transition btn-tactile flex items-center space-x-1.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>ACC Semua Menunggu ({pendingInFiltered.length})</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
-            {/* Attendance Overview Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Hadir Tanggal Terpilih ({selectedAbsensiDate})
-                </span>
-                <div className="text-2xl font-mono font-extrabold text-emerald-800 mt-1 tabular-nums">
-                  {absensiList.filter(a => a.tanggal === selectedAbsensiDate && a.status === 'hadir' && (selectedCabangId === 'all' || isBranchMatch(a.cabang_id, selectedCabangId))).length} Staf
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Presensi diverifikasi oleh Kepala Cabang
-                </span>
-              </div>
+                  {/* Filter Controls Bar */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-soft-sm flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Mode Selector Pill: Tanggal Terpilih vs Semua Tanggal */}
+                      <div className="flex items-center bg-slate-100 p-1 rounded-xl font-bold border border-slate-200/80">
+                        <button
+                          type="button"
+                          onClick={() => setAbsensiDateFilterMode('selected')}
+                          className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 ${
+                            absensiDateFilterMode === 'selected'
+                              ? 'bg-white text-emerald-800 shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <span>📅</span>
+                          <span>Tanggal Terpilih</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAbsensiDateFilterMode('all')}
+                          className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 ${
+                            absensiDateFilterMode === 'all'
+                              ? 'bg-white text-emerald-800 shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <span>📋</span>
+                          <span>Semua Tanggal</span>
+                        </button>
+                      </div>
 
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Total Staf Terdaftar Outlet
-                </span>
-                <div className="text-2xl font-mono font-extrabold text-slate-800 mt-1 tabular-nums">
-                  {karyawanList.filter(k => k.role !== 'owner' && (selectedCabangId === 'all' || isBranchMatch(k.cabang_id, selectedCabangId))).length} Staf
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Terbagi di {selectedCabangId === 'all' ? '10 Cabang Resmi' : 'Cabang Terpilih'}
-                </span>
-              </div>
+                      {/* Date Picker Input */}
+                      <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border transition ${
+                        absensiDateFilterMode === 'selected'
+                          ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 font-bold'
+                          : 'bg-slate-50 border-slate-200 text-slate-600'
+                      }`}>
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-bold text-slate-600">Pilih:</span>
+                        <input
+                          type="date"
+                          value={selectedAbsensiDate}
+                          onChange={(e) => {
+                            setSelectedAbsensiDate(e.target.value);
+                            setAbsensiDateFilterMode('selected');
+                          }}
+                          className="bg-transparent font-mono font-bold text-slate-800 outline-none cursor-pointer"
+                        />
+                      </div>
+                    </div>
 
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Total Kehadiran Bulan Berjalan
-                </span>
-                <div className="text-2xl font-mono font-extrabold text-brand-dark mt-1 tabular-nums">
-                  {absensiList.filter(a => a.status === 'hadir' && (selectedCabangId === 'all' || isBranchMatch(a.cabang_id, selectedCabangId))).length} Hari Kerja
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Akumulasi upah harian otomatis dihitung
-                </span>
-              </div>
-            </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Filter Status ACC */}
+                      <select
+                        value={absensiApprovalFilter}
+                        onChange={(e) => setAbsensiApprovalFilter(e.target.value as any)}
+                        className="bg-slate-50 border border-slate-200 font-bold text-slate-800 px-3 py-1.5 rounded-xl outline-none cursor-pointer"
+                      >
+                        <option value="all">⚡ Semua Status ACC</option>
+                        <option value="pending">⏳ Menunggu ACC ({pendingBranchCount})</option>
+                        <option value="approved">✅ Sudah Di-ACC</option>
+                        <option value="rejected">❌ Ditolak Pusat</option>
+                      </select>
 
-            {/* Attendance Table */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/60">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-extrabold text-slate-900">
-                    {absensiDateFilterMode === 'selected'
-                      ? `Log Presensi Karyawan Tanggal ${selectedAbsensiDate}`
-                      : 'Log Presensi Karyawan Seluruh Riwayat Tanggal'}
-                  </span>
-                  {absensiDateFilterMode === 'selected' && (
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300">
-                      Sesuai Tanggal
-                    </span>
-                  )}
-                </div>
-                
-                <div className="flex items-center space-x-2.5">
-                  <span className="text-[11px] font-mono font-bold text-slate-500">
-                    {filteredAbsensiList.length} Baris Presensi
-                  </span>
-                  {absensiDateFilterMode === 'selected' && (
+                      {/* Filter Outlet */}
+                      <select
+                        value={selectedCabangId}
+                        onChange={(e) => setSelectedCabangId(e.target.value)}
+                        className="bg-slate-50 border border-slate-200 font-bold text-slate-800 px-3 py-1.5 rounded-xl outline-none cursor-pointer max-w-[180px] truncate"
+                      >
+                        <option value="all">🏢 Semua Cabang ({cabangList.length || 10} Outlet)</option>
+                        {cabangList.map(c => (
+                          <option key={c.id} value={c.id}>
+                            #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Attendance Overview Stats */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <button
                       type="button"
-                      onClick={() => setAbsensiDateFilterMode('all')}
-                      className="text-[10px] font-bold text-blue-600 hover:text-blue-800 underline"
+                      onClick={() => {
+                        setAbsensiApprovalFilter('pending');
+                        setAbsensiDateFilterMode('all');
+                      }}
+                      className="text-left p-4 rounded-2xl bg-amber-50/70 hover:bg-amber-50 border border-amber-200/80 shadow-soft-sm transition-colors"
                     >
-                      Tampilkan Semua
+                      <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                        ⏳ Menunggu ACC Pusat
+                      </span>
+                      <div className="text-2xl font-mono font-extrabold text-amber-800 mt-1 tabular-nums">
+                        {pendingBranchCount} Presensi
+                      </div>
+                      <span className="text-[10px] text-amber-700 mt-1 block font-semibold">
+                        Klik untuk tampilkan seluruh antrean menunggu ACC
+                      </span>
                     </button>
-                  )}
-                </div>
-              </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
-                    <tr>
-                      <th className="py-3 px-4">Nama Staf & Jabatan</th>
-                      <th className="py-3 px-4">Outlet Cabang</th>
-                      <th className="py-3 px-4">Tanggal & Jam</th>
-                      <th className="py-3 px-4">Status Kehadiran</th>
-                      <th className="py-3 px-4 text-right">Upah Harian</th>
-                      <th className="py-3 px-4">Divalidasi Oleh</th>
-                      <th className="py-3 px-4">Catatan</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredAbsensiList.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400">
-                          <Calendar className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                          <p className="font-bold text-slate-700 text-xs">
-                            Belum ada catatan presensi pada tanggal {selectedAbsensiDate}
-                          </p>
-                          <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
-                            Silakan ganti tanggal di atas atau klik tombol di bawah untuk melihat seluruh log kehadiran staf.
-                          </p>
+                    <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        ✓ Hadir Di-ACC ({absensiDateFilterMode === 'selected' ? selectedAbsensiDate : 'Semua Tgl'})
+                      </span>
+                      <div className="text-2xl font-mono font-extrabold text-emerald-800 mt-1 tabular-nums">
+                        {approvedHadirCount} Shift
+                      </div>
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Hadir penuh &amp; 1/2 hari yang sudah tervalidasi Owner
+                      </span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft-sm">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Total Upah Ter-ACC (Masuk Gaji)
+                      </span>
+                      <div className="text-2xl font-mono font-extrabold text-brand-dark mt-1 tabular-nums">
+                        {formatRupiah(totalUpahApproved)}
+                      </div>
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Presensi pending/ditolak tidak dihitung ke upah
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Attendance Table */}
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/60">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-extrabold text-slate-900">
+                          {absensiDateFilterMode === 'selected'
+                            ? `Log Presensi Karyawan Tanggal ${selectedAbsensiDate}`
+                            : 'Log Presensi Karyawan Seluruh Riwayat Tanggal'}
+                        </span>
+                        {absensiApprovalFilter !== 'all' && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold border border-amber-300 uppercase">
+                            Filter: {absensiApprovalFilter}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center space-x-2.5">
+                        <span className="text-[11px] font-mono font-bold text-slate-500">
+                          {filteredAbsensiList.length} Baris Presensi
+                        </span>
+                        {(absensiDateFilterMode === 'selected' || absensiApprovalFilter !== 'all' || selectedCabangId !== 'all') && (
                           <button
                             type="button"
-                            onClick={() => setAbsensiDateFilterMode('all')}
-                            className="mt-3 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs inline-flex items-center gap-1.5 transition btn-tactile border border-slate-300"
+                            onClick={() => {
+                              setAbsensiDateFilterMode('all');
+                              setAbsensiApprovalFilter('all');
+                              setSelectedCabangId('all');
+                            }}
+                            className="text-[10px] font-bold text-blue-600 hover:text-blue-800 underline"
                           >
-                            <span>📋</span>
-                            <span>Tampilkan Semua Riwayat Tanggal</span>
+                            Reset Filter
                           </button>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredAbsensiList.map(abs => {
-                        const branch = cabangList.find(c => isBranchMatch(c.id, abs.cabang_id));
-                        return (
-                          <tr key={abs.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-3 px-4 font-bold text-slate-900">
-                              {abs.karyawan_nama}
-                            </td>
-                            <td className="py-3 px-4 text-slate-600 font-medium">
-                              {branch?.nama.split('-')[1]?.trim() || branch?.nama || abs.cabang_nama}
-                            </td>
-                            <td className="py-3 px-4 font-mono text-[11px] text-slate-700">
-                              {abs.tanggal} • {abs.jam_masuk} - {abs.jam_pulang || 'Shift Selesai'}
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold capitalize ${
-                                abs.status === 'hadir'
-                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                  : abs.status === 'setengah_hari'
-                                  ? 'bg-sky-50 text-sky-800 border border-sky-200'
-                                  : abs.status === 'sakit'
-                                  ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
-                                  : abs.status === 'izin'
-                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                                  : 'bg-rose-50 text-rose-800 border border-rose-200'
-                              }`}>
-                                {abs.status === 'setengah_hari' ? '1/2 Hari' : abs.status}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-right font-mono font-bold text-slate-800 tabular-nums">
-                              {formatRupiah(abs.upah_harian_terhitung || 100000)}
-                            </td>
-                            <td className="py-3 px-4 text-slate-600 font-medium text-[11px] flex items-center space-x-1">
-                              <UserCheck className="w-3.5 h-3.5 text-brand-primary shrink-0" />
-                              <span>{abs.recorded_by || 'Admin Cabang'}</span>
-                            </td>
-                            <td className="py-3 px-4 text-slate-500 italic text-[11px]">
-                              {abs.catatan || '-'}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                        )}
+                      </div>
+                    </div>
 
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-start space-x-2">
-              <ShieldCheck className="w-5 h-5 text-brand-primary shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <span className="font-bold block">Sistem Presensi Terverifikasi Anti-Kecurangan:</span>
-                <p className="text-[11px] text-emerald-800 leading-relaxed">
-                  Staf karyawan tidak bisa memanipulasi presensi sendiri. Setiap presensi diverifikasi langsung oleh Admin Cabang / Penanggung Jawab Outlet pada tablet kasir, dan secara realtime mengalir ke Modul Payroll Tutup Buku Pusat.
-                </p>
-              </div>
-            </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
+                          <tr>
+                            <th className="py-3 px-4">Nama Staf</th>
+                            <th className="py-3 px-4">Outlet &amp; Kasir Pencatat</th>
+                            <th className="py-3 px-4">Tanggal &amp; Jam</th>
+                            <th className="py-3 px-4">Kehadiran</th>
+                            <th className="py-3 px-4 text-right">Masuk Upah</th>
+                            <th className="py-3 px-4">Status ACC Boss</th>
+                            <th className="py-3 px-4">Catatan</th>
+                            <th className="py-3 px-4 text-center">Tindakan Owner</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredAbsensiList.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="py-12 text-center text-slate-400">
+                                <Calendar className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                                <p className="font-bold text-slate-700 text-xs">
+                                  Tidak ada data presensi sesuai filter saat ini.
+                                </p>
+                                <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                                  Ubah tanggal atau reset filter status ACC untuk menampilkan data presensi cabang lainnya.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAbsensiDateFilterMode('all');
+                                    setAbsensiApprovalFilter('all');
+                                    setSelectedCabangId('all');
+                                  }}
+                                  className="mt-3 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs inline-flex items-center gap-1.5 transition btn-tactile border border-slate-300"
+                                >
+                                  <span>📋 Tampilkan Semua Presensi</span>
+                                </button>
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredAbsensiList.map(abs => {
+                              const branch = cabangList.find(c => isBranchMatch(c.id, abs.cabang_id));
+                              const appStatus = abs.approval_status || 'approved';
+                              const rowWage = abs.upah_harian_terhitung ?? (abs.status === 'hadir' ? 100000 : abs.status === 'setengah_hari' ? 50000 : 0);
+
+                              return (
+                                <tr key={abs.id} className={`transition-colors ${appStatus === 'pending' ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-slate-50/70'}`}>
+                                  <td className="py-3 px-4 font-bold text-slate-900">
+                                    {abs.karyawan_nama}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className="text-slate-800 font-bold block">
+                                      {branch?.nama.split('-')[1]?.trim() || branch?.nama || abs.cabang_nama}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 flex items-center space-x-1 mt-0.5">
+                                      <UserCheck className="w-3 h-3 text-brand-primary shrink-0" />
+                                      <span>{abs.recorded_by || 'Kasir Cabang'}</span>
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-[11px] text-slate-700 whitespace-nowrap">
+                                    <span className="font-bold block">{abs.tanggal}</span>
+                                    <span className="text-[10px] text-slate-400">
+                                      {abs.jam_masuk} - {abs.jam_pulang || 'Shift Selesai'}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold capitalize ${
+                                      abs.status === 'hadir'
+                                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                        : abs.status === 'setengah_hari'
+                                        ? 'bg-sky-50 text-sky-800 border border-sky-200'
+                                        : abs.status === 'sakit'
+                                        ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                                        : abs.status === 'izin'
+                                        ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                        : 'bg-rose-50 text-rose-800 border border-rose-200'
+                                    }`}>
+                                      {abs.status === 'setengah_hari' ? '1/2 Hari' : abs.status}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono tabular-nums whitespace-nowrap">
+                                    {appStatus === 'approved' ? (
+                                      <div>
+                                        <span className="font-extrabold text-emerald-800">{formatRupiah(rowWage)}</span>
+                                        <span className="block text-[9px] text-emerald-600 font-bold">✓ Masuk Gaji</span>
+                                      </div>
+                                    ) : appStatus === 'pending' ? (
+                                      <div>
+                                        <span className="font-bold text-amber-700 line-through decoration-amber-400">{formatRupiah(rowWage)}</span>
+                                        <span className="block text-[9px] text-amber-700 font-bold">⏳ Menunggu ACC</span>
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <span className="font-bold text-rose-600">Rp 0</span>
+                                        <span className="block text-[9px] text-rose-600 font-bold">✕ Ditolak</span>
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    {appStatus === 'approved' ? (
+                                      <div className="space-y-0.5">
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold inline-block">
+                                          ✓ Di-ACC Pusat
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 block">
+                                          {abs.approved_by || 'Pak Agan (Owner)'}
+                                        </span>
+                                      </div>
+                                    ) : appStatus === 'rejected' ? (
+                                      <div className="space-y-0.5">
+                                        <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-extrabold inline-block">
+                                          ✕ Ditolak
+                                        </span>
+                                        {abs.alasan_penolakan && (
+                                          <span className="text-[10px] text-rose-600 italic block max-w-[160px] truncate" title={abs.alasan_penolakan}>
+                                            {abs.alasan_penolakan}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-extrabold inline-block animate-pulse">
+                                        ⏳ Menunggu ACC
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-slate-500 italic text-[11px] max-w-[140px]">
+                                    {abs.catatan || '-'}
+                                  </td>
+                                  <td className="py-3 px-4 text-center whitespace-nowrap">
+                                    <div className="flex items-center justify-center space-x-1.5">
+                                      {appStatus !== 'approved' && (
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            await db.approveAbsensi(abs, 'Pak Agan (Owner)');
+                                            await refreshAllData();
+                                          }}
+                                          className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs btn-tactile shadow-sm shadow-emerald-700/20 transition-all inline-flex items-center space-x-1"
+                                          title="ACC Presensi & Masukkan ke Gaji"
+                                        >
+                                          <Check className="w-3.5 h-3.5" />
+                                          <span>ACC</span>
+                                        </button>
+                                      )}
+                                      {appStatus !== 'rejected' && (
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            const alasan = prompt(`Alasan penolakan presensi ${abs.karyawan_nama} (${abs.tanggal}):`, 'Data kehadiran tidak sesuai shift');
+                                            if (alasan !== null) {
+                                              await db.rejectAbsensi(abs, alasan || 'Ditolak oleh Owner Pusat', 'Pak Agan (Owner)');
+                                              await refreshAllData();
+                                            }
+                                          }}
+                                          className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition-colors"
+                                          title="Tolak Presensi (Tidak Dihitung Gaji)"
+                                        >
+                                          Tolak
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-start space-x-2">
+                    <ShieldCheck className="w-5 h-5 text-brand-primary shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <span className="font-bold block">Alur Validasi Berlapis Anti-Kecurangan (Kasir Ajukan → Boss ACC):</span>
+                      <p className="text-[11px] text-emerald-800 leading-relaxed">
+                        Kasir tidak melihat nominal gaji saat menginput presensi di outlet. Setiap pengajuan masuk berstatus <strong>Menunggu ACC</strong>, lalu setelah Owner menekan <strong>ACC</strong>, nominal upah otomatis masuk ke kartu gaji karyawan, Rekap Gaji Mingguan, dan pemotongan Laba Bersih harian.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
-        {/* TAB: AUDIT ABSENSI BAHAN 10 TOKO & ANALISA HPP */}
-        {activeTab === 'bahan' && (
-          <BahanBakuAuditManager
-            cabangList={cabangList}
-            bahanList={bahanList}
-            kirimanBahanList={kirimanBahanList}
-            transaksiList={transaksiList}
-            selectedDate={selectedBahanDate}
-            onDateChange={(d) => setSelectedBahanDate(d)}
-            onRefreshData={refreshAllData}
-          />
-        )}
+        {/* MENU 4: RESEP, HPP & FIXED COST (MASTER MENU, STOK BAHAN, BIAYA TETAP) */}
+        {activeTab === 'modal_hpp' && (
+          <div className="space-y-5">
+            {/* Sub-Tab Navigasi Menu 4 */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalSubTab('menu')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
+                    modalSubTab === 'menu'
+                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                  }`}
+                >
+                  <Coffee className="w-4 h-4" />
+                  <span>Tab 1: Master Menu &amp; HPP</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalSubTab('bahan')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
+                    modalSubTab === 'bahan'
+                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                  }`}
+                >
+                  <PackageCheck className="w-4 h-4" />
+                  <span>Tab 2: Stok &amp; Pasokan Bahan</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalSubTab('fixedcost')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
+                    modalSubTab === 'fixedcost'
+                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>Tab 3: Biaya Tetap (Fixed Cost)</span>
+                </button>
+              </div>
+              <span className="text-[11px] text-slate-500 font-semibold px-2">
+                Semua Urusan Modal, HPP &amp; Beban Tetap Bulanan
+              </span>
+            </div>
 
-        {/* TAB 3: MASTER KATALOG MENU RESMI */}
-        {activeTab === 'menu' && (
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-4">
+            {/* SUB-TAB 2: STOK & PASOKAN BAHAN 10 TOKO */}
+            {modalSubTab === 'bahan' && (
+              <BahanBakuAuditManager
+                cabangList={cabangList}
+                bahanList={bahanList}
+                kirimanBahanList={kirimanBahanList}
+                transaksiList={transaksiList}
+                selectedDate={selectedBahanDate}
+                onDateChange={(d) => setSelectedBahanDate(d)}
+                onRefreshData={refreshAllData}
+              />
+            )}
+
+            {/* SUB-TAB 1: MASTER KATALOG MENU & HPP */}
+            {modalSubTab === 'menu' && (
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 border-slate-100">
               <div>
                 <div className="flex items-center space-x-2">
@@ -2937,11 +3006,70 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </div>
+            )}
+
+            {/* SUB-TAB 3: KELOLA BIAYA TETAP (FIXED COST) 10 CABANG */}
+            {modalSubTab === 'fixedcost' && (
+              <FixedCostPaymentManager
+                cabangList={cabangList}
+                onEditCabang={(c) => setSelectedCabangForFixedCost(c)}
+                selectedCabangId={selectedCabangId}
+              />
+            )}
+          </div>
         )}
 
-        {/* TAB 4: DATA PEKERJA & PENGGAJIAN PER-TOKO */}
-        {activeTab === 'karyawan' && (
-          <div className="space-y-6">
+        {/* MENU 5: OUTLET & PEKERJA (DATA PEKERJA & PIN, REKAP GAJI MINGGUAN, PROFIL TOKO) */}
+        {activeTab === 'outlet_pekerja' && (
+          <div className="space-y-5">
+            {/* Sub-Tab Navigasi Menu 5 */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOutletSubTab('karyawan')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
+                    outletSubTab === 'karyawan'
+                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Tab 1: Data Pekerja &amp; PIN</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOutletSubTab('payroll')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
+                    outletSubTab === 'payroll'
+                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                  }`}
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Tab 2: Rekap Gaji Mingguan &amp; PDF</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOutletSubTab('profiltoko')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
+                    outletSubTab === 'profiltoko'
+                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                  }`}
+                >
+                  <Store className="w-4 h-4" />
+                  <span>Tab 3: Identitas 10 Toko &amp; Struk</span>
+                </button>
+              </div>
+              <span className="text-[11px] text-slate-500 font-semibold px-2">
+                Manajemen Pekerja, Gaji Mingguan (/6 hari) &amp; Identitas Cabang
+              </span>
+            </div>
+
+            {/* SUB-TAB 1: DATA PEKERJA & PIN */}
+            {outletSubTab === 'karyawan' && (
+              <div className="space-y-6">
             
             {/* Store Selection & Top Header */}
             <div className="bg-white p-5 rounded-3xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
@@ -3243,19 +3371,19 @@ export default function AdminDashboardPage() {
             </div>
 
           </div>
-        )}
+            )}
 
-        {/* TAB KHUSUS: PROFIL TOKO, SANDI KASIR & FORMAT STRUK PROMO */}
-        {activeTab === 'profiltoko' && (
-          <ProfilTokoManager
-            cabangList={cabangList}
-            onRefreshData={refreshAllData}
-          />
-        )}
+            {/* SUB-TAB 3: IDENTITAS 10 TOKO, SANDI KASIR & FORMAT STRUK PROMO */}
+            {outletSubTab === 'profiltoko' && (
+              <ProfilTokoManager
+                cabangList={cabangList}
+                onRefreshData={refreshAllData}
+              />
+            )}
 
-        {/* TAB 5: MODUL PAYROLL OTOMATIS */}
-        {activeTab === 'payroll' && (
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-5">
+            {/* SUB-TAB 2: REKAP GAJI MINGGUAN & PDF (MODUL PAYROLL OTOMATIS) */}
+            {outletSubTab === 'payroll' && (
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-5">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4 border-slate-100">
               <div>
                 <h3 className="text-base font-extrabold text-slate-900">
@@ -3639,15 +3767,8 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </div>
-        )}
-
-        {/* TAB KHUSUS: KELOLA BIAYA TETAP & PEMBAYARAN BULANAN (FIXED COST) 10 CABANG */}
-        {activeTab === 'fixedcost' && (
-          <FixedCostPaymentManager
-            cabangList={cabangList}
-            onEditCabang={(c) => setSelectedCabangForFixedCost(c)}
-            selectedCabangId={selectedCabangId}
-          />
+            )}
+          </div>
         )}
 
       </main>
@@ -3884,7 +4005,7 @@ export default function AdminDashboardPage() {
         <CreateExpenseModal
           cabangList={cabangList}
           karyawanList={karyawanList}
-          defaultCabangId={belanjaCabangFilter !== 'all' ? belanjaCabangFilter : (selectedCabangId !== 'all' ? selectedCabangId : undefined)}
+          defaultCabangId={approvalCabangFilter !== 'all' ? approvalCabangFilter : (selectedCabangId !== 'all' ? selectedCabangId : undefined)}
           onClose={() => setShowCreateExpenseModal(false)}
           onSuccess={async () => {
             setShowCreateExpenseModal(false);
