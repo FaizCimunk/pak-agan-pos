@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Store, 
   Building2, 
@@ -65,6 +65,7 @@ export default function ProfilTokoManager({
   const [errorMsg, setErrorMsg] = useState<string>('');
 
   const activeCabang = cabangList.find(c => c.id === selectedCabangId) || cabangList[0];
+  const loadedCabangIdRef = useRef<string>('');
 
   useEffect(() => {
     db.getAllKaryawan()
@@ -74,30 +75,32 @@ export default function ProfilTokoManager({
 
   const branchWorkers = allKaryawan.filter(k => activeCabang && isBranchMatch(k.cabang_id, activeCabang.id));
 
-  // Load selected cabang into form
+  // Muat data cabang ke form HANYA ketika cabang yang dipilih berubah (anti-reset saat background polling)
   useEffect(() => {
-    if (activeCabang) {
-      setNama(activeCabang.nama || '');
-      setKode(activeCabang.kode || '');
-      setKota(activeCabang.kota || '');
-      setAlamat(activeCabang.alamat || '');
-      setTelepon(activeCabang.telepon || '');
-      
-      setKasirUsername(activeCabang.kasir_username || `kasir_${activeCabang.kode?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'toko'}`);
-      setKasirPassword(activeCabang.kasir_password_plain || 'Kasir#Bawel2026!');
-      setIsKasirLocked(activeCabang.is_kasir_locked || false);
-      
-      setPjNama(activeCabang.pj_nama || '');
-      setPjTelepon(activeCabang.pj_telepon || activeCabang.telepon || '');
-      
-      setStrukHeader(activeCabang.struk_header || 'SERABI BAWEL & WEDANG GEPREK');
-      setStrukFooter((activeCabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda').replace(/---?\s*www\.pakagan\.id\s*---?/gi, '').replace(/www\.pakagan\.id/gi, '').trim());
-      setStrukPromo(activeCabang.struk_promo || '');
-      setQrisMerchantName(activeCabang.qris_merchant_name || `Minuman Herbal Pak Agan - ${activeCabang.nama}`);
-      
-      setSuccessMsg('');
-      setErrorMsg('');
-    }
+    if (!activeCabang) return;
+    if (loadedCabangIdRef.current === activeCabang.id) return;
+    loadedCabangIdRef.current = activeCabang.id;
+
+    setNama(activeCabang.nama || '');
+    setKode(activeCabang.kode || '');
+    setKota(activeCabang.kota || '');
+    setAlamat(activeCabang.alamat || '');
+    setTelepon(activeCabang.telepon || '');
+    
+    setKasirUsername(activeCabang.kasir_username || `kasir_${activeCabang.kode?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'toko'}`);
+    setKasirPassword(activeCabang.kasir_password_plain || 'Kasir#Bawel2026!');
+    setIsKasirLocked(activeCabang.is_kasir_locked || false);
+    
+    setPjNama(activeCabang.pj_nama || '');
+    setPjTelepon(activeCabang.pj_telepon || activeCabang.telepon || '');
+    
+    setStrukHeader(activeCabang.struk_header || 'SERABI BAWEL & WEDANG GEPREK');
+    setStrukFooter((activeCabang.struk_footer || 'Khasiat Alami, Tubuh Sehat\nTerima Kasih Atas Kunjungan Anda').replace(/---?\s*www\.pakagan\.id\s*---?/gi, '').replace(/www\.pakagan\.id/gi, '').trim());
+    setStrukPromo(activeCabang.struk_promo || '');
+    setQrisMerchantName(activeCabang.qris_merchant_name || `Minuman Herbal Pak Agan - ${activeCabang.nama}`);
+    
+    setSuccessMsg('');
+    setErrorMsg('');
   }, [activeCabang]);
 
   const handleGeneratePassword = () => {

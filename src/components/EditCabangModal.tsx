@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   Store, 
@@ -63,6 +63,7 @@ export default function EditCabangModal({
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
+  const loadedCabangKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     db.getAllKaryawan()
@@ -83,6 +84,10 @@ export default function EditCabangModal({
   };
 
   useEffect(() => {
+    const key = cabang ? cabang.id : '__new__';
+    if (loadedCabangKeyRef.current === key) return;
+    loadedCabangKeyRef.current = key;
+
     if (cabang) {
       setNama(cabang.nama || '');
       setKode(cabang.kode || '');
