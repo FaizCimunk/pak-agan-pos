@@ -21,13 +21,14 @@ import {
   Snowflake
 } from 'lucide-react';
 import { MenuItem, Cabang } from '@/lib/types';
-import { db } from '@/lib/db';
+import { db, isBranchMatch } from '@/lib/db';
 import { formatRupiah, formatNominal, parseNominal } from '@/lib/utils';
 
 interface EditMenuModalProps {
   menu: MenuItem | null;
   isNew?: boolean;
   cabangList?: Cabang[];
+  defaultCabangId?: string;
   onClose: () => void;
   onSuccess: (menu: MenuItem) => void;
 }
@@ -42,6 +43,7 @@ export default function EditMenuModal({
   menu,
   isNew = false,
   cabangList = [],
+  defaultCabangId,
   onClose,
   onSuccess,
 }: EditMenuModalProps) {
@@ -167,10 +169,15 @@ export default function EditMenuModal({
       setDeskripsi('');
       setIsFavorite(false);
       setIsActive(true);
-      setIsAllBranches(true);
-      setSelectedCabangIds(cabangList.length > 0 ? cabangList.map(c => c.id) : []);
+      if (defaultCabangId && defaultCabangId !== 'all') {
+        setIsAllBranches(false);
+        setSelectedCabangIds([defaultCabangId]);
+      } else {
+        setIsAllBranches(true);
+        setSelectedCabangIds(cabangList.length > 0 ? cabangList.map(c => c.id) : []);
+      }
     }
-  }, [menu?.id, isNew, cabangList]);
+  }, [menu?.id, isNew, cabangList, defaultCabangId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -987,14 +994,14 @@ export default function EditMenuModal({
 
                     <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
                       {cabangList.map(cabang => {
-                        const isChecked = selectedCabangIds.includes(cabang.id);
+                        const isChecked = selectedCabangIds.some(id => isBranchMatch(id, cabang.id));
                         return (
                           <button
                             key={cabang.id}
                             type="button"
                             onClick={() => {
                               if (isChecked) {
-                                setSelectedCabangIds(selectedCabangIds.filter(id => id !== cabang.id));
+                                setSelectedCabangIds(selectedCabangIds.filter(id => !isBranchMatch(id, cabang.id)));
                               } else {
                                 setSelectedCabangIds([...selectedCabangIds, cabang.id]);
                               }

@@ -125,8 +125,8 @@ export default function AdminSidebar({
     },
     {
       id: 'menu',
-      label: 'Master Menu & Resep',
-      sub: 'Harga jual, HPP resep & lempar kasir',
+      label: 'Menu Kasir Cabang',
+      sub: 'Lihat menu, harga & HPP per kasir',
       icon: Coffee,
     },
     {
