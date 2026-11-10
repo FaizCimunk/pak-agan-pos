@@ -212,12 +212,15 @@ export function getBranchUuid(idOrCode?: string | null): string | null {
 export function getBranchName(idOrCodeOrUuid?: string | null): string {
   if (!idOrCodeOrUuid) return 'Cabang';
   const clean = idOrCodeOrUuid.trim().toLowerCase();
+  const resolvedUuid = getBranchUuid(idOrCodeOrUuid);
   const match = CABANG_MAP_INFO.find(
-    c => c.uuid.toLowerCase() === clean || 
-         c.id.toLowerCase() === clean || 
-         c.kode.toLowerCase() === clean || 
-         String(c.nomor) === clean ||
-         c.nama.toLowerCase().includes(clean)
+    c =>
+      (resolvedUuid && c.uuid.toLowerCase() === resolvedUuid.toLowerCase()) ||
+      c.uuid.toLowerCase() === clean ||
+      c.id.toLowerCase() === clean ||
+      c.kode.toLowerCase() === clean ||
+      String(c.nomor) === clean ||
+      c.nama.toLowerCase().includes(clean)
   );
   return match ? match.nama : 'Cabang ' + idOrCodeOrUuid;
 }
@@ -301,6 +304,22 @@ export function getKategoriUuid(idOrCode?: string | null): string | null {
   return null;
 }
 
+export function syncCabangNamesToMap(cabangs: Array<{ id?: string; uuid?: string; nomor?: number; kode?: string; nama?: string }>): void {
+  for (const cbg of cabangs) {
+    if (!cbg?.nama) continue;
+    const targetUuid = getBranchUuid(cbg.id || cbg.kode || (cbg.nomor ? String(cbg.nomor) : ''));
+    const entry = CABANG_MAP_INFO.find(
+      m =>
+        (targetUuid && m.uuid.toLowerCase() === targetUuid.toLowerCase()) ||
+        (cbg.kode && m.kode.toLowerCase() === cbg.kode.toLowerCase()) ||
+        (cbg.nomor && m.nomor === cbg.nomor)
+    );
+    if (entry) {
+      entry.nama = cbg.nama;
+    }
+  }
+}
+
 export class PosDatabase {
   // --------------------------------------------------------------------------
   // CABANG (10 CABANG RESMI)
@@ -309,7 +328,11 @@ export class PosDatabase {
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase.from('cabang').select('*').order('nomor', { ascending: true });
-        if (!error && data && data.length > 0) return data;
+        if (!error && data && data.length > 0) {
+          syncCabangNamesToMap(data);
+          saveLocal(STORAGE_KEYS.CABANG, data);
+          return data;
+        }
       } catch (e) {
         console.warn('Fallback to local cabang data:', e);
       }
@@ -324,6 +347,7 @@ export class PosDatabase {
       }
       saveLocal(STORAGE_KEYS.CABANG, local);
     }
+    syncCabangNamesToMap(local);
     return local;
   }
 
@@ -341,11 +365,15 @@ export class PosDatabase {
     const index = list.findIndex(c => isBranchMatch(c.id, id));
     if (index === -1) throw new Error(`Cabang dengan ID ${id} tidak ditemukan.`);
 
+    // Kunci Paten Sistem: id, uuid, nomor, dan kode tidak pernah diubah agar semua relasi tetap utuh
+    const { id: _ignoredId, kode: _ignoredKode, nomor: _ignoredNomor, ...safeUpdates } = updates as any;
+
     const updatedCabang: Cabang = {
       ...list[index],
-      ...updates,
+      ...safeUpdates,
     };
     list[index] = updatedCabang;
+    syncCabangNamesToMap([updatedCabang]);
     saveLocal(STORAGE_KEYS.CABANG, list);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
@@ -354,7 +382,10 @@ export class PosDatabase {
     if (isSupabaseConfigured && supabase) {
       try {
         const targetUuid = getBranchUuid(id) || id;
-        await supabase.from('cabang').update(updates).eq('id', targetUuid);
+        const { error } = await supabase.from('cabang').update(safeUpdates).eq('id', targetUuid);
+        if (error) {
+          console.warn('Supabase updateCabang error:', error);
+        }
       } catch (e) {
         console.warn('Supabase updateCabang fallback local:', e);
       }

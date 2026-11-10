@@ -126,7 +126,6 @@ export default function ProfilTokoManager({
     try {
       await db.updateCabang(activeCabang.id, {
         nama: nama.trim(),
-        kode: kode.trim(),
         kota: kota.trim(),
         alamat: alamat.trim(),
         telepon: telepon.trim(),

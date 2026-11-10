@@ -163,7 +163,6 @@ export default function EditCabangModal({
       } else {
         saved = await db.updateCabang(cabang.id, {
           nama: nama.trim(),
-          kode: kode.trim().toUpperCase(),
           kota: kota.trim() || 'Indonesia',
           alamat: alamat.trim(),
           telepon: telepon.trim(),
