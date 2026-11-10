@@ -83,9 +83,7 @@ import {
   PackageCheck,
   Menu,
   CreditCard,
-  ChevronDown,
-  Users,
-  Coffee
+  ChevronDown
 } from 'lucide-react';
 
 const OWNER_AUTH_KEY = 'pakagan_owner_authenticated';
@@ -97,9 +95,7 @@ export default function AdminDashboardPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   const [activeTab, setActiveTab] = useState<AdminTabId>('ringkasan');
-  const [approvalSubTab, setApprovalSubTab] = useState<'presensi' | 'belanja'>('presensi');
-  const [modalSubTab, setModalSubTab] = useState<'menu' | 'bahan' | 'fixedcost'>('menu');
-  const [outletSubTab, setOutletSubTab] = useState<'karyawan' | 'payroll' | 'profiltoko'>('karyawan');
+  const [approvalSubTab, setApprovalSubTab] = useState<'presensi' | 'belanja'>('belanja');
   const [showFormulaGuide, setShowFormulaGuide] = useState<boolean>(false);
 
   const [cabangList, setCabangList] = useState<Cabang[]>([]);
@@ -377,17 +373,15 @@ export default function AdminDashboardPage() {
 
   const totalPendingApprovals = pendingExpenses.length + pendingAbsensi.length;
 
-  const navigateToApproval = (sub: 'presensi' | 'belanja' = 'presensi') => {
+  const navigateToApproval = (sub: 'presensi' | 'belanja' = 'belanja') => {
     setActiveTab('approval');
     setApprovalSubTab(sub);
   };
   const navigateToFixedCost = () => {
-    setActiveTab('modal_hpp');
-    setModalSubTab('fixedcost');
+    setActiveTab('fixedcost');
   };
   const navigateToPayroll = () => {
-    setActiveTab('outlet_pekerja');
-    setOutletSubTab('payroll');
+    setActiveTab('payroll');
   };
 
   const totalUnsettledKasbon = useMemo(() => {
@@ -614,18 +608,22 @@ export default function AdminDashboardPage() {
     const targetDate = selectedBossSummaryDate;
     const menuHppMap: Record<string, number> = {};
     const menuHppEsMap: Record<string, number> = {};
+    const menuObjMap: Record<string, MenuItem> = {};
     menuList.forEach(m => { 
       const defaultHpp = m.hpp !== undefined && m.hpp > 0 ? m.hpp : Math.round(m.harga * 0.32) || 4000;
       const defaultHppEs = m.hpp_es !== undefined && m.hpp_es > 0 ? m.hpp_es : defaultHpp;
       menuHppMap[m.id] = defaultHpp;
       menuHppEsMap[m.id] = defaultHppEs;
+      menuObjMap[m.id] = m;
       if (m.kode) {
         menuHppMap[m.kode] = defaultHpp;
         menuHppEsMap[m.kode] = defaultHppEs;
+        menuObjMap[m.kode] = m;
       }
       if (m.nama) {
         menuHppMap[m.nama.toLowerCase()] = defaultHpp;
         menuHppEsMap[m.nama.toLowerCase()] = defaultHppEs;
+        menuObjMap[m.nama.toLowerCase()] = m;
       }
     });
 
@@ -660,10 +658,21 @@ export default function AdminDashboardPage() {
       branchTrx.forEach(trx => {
         omzetKotor += trx.total;
         trx.items.forEach(it => {
-          const isDingin = it.temperature === 'dingin';
-          const itemHpp = isDingin 
-            ? (menuHppEsMap[it.menu_id] || (it.nama_menu && menuHppEsMap[it.nama_menu.toLowerCase()]) || menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000)
-            : (menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000);
+          const matchedMenu = menuObjMap[it.menu_id] || (it.nama_menu ? menuObjMap[it.nama_menu.toLowerCase()] : undefined);
+          let itemHpp: number | undefined;
+          if (matchedMenu && it.varian_nama && matchedMenu.has_variasi_harga) {
+            if (matchedMenu.varian_nama_2 && it.varian_nama.toLowerCase() === matchedMenu.varian_nama_2.toLowerCase()) {
+              itemHpp = matchedMenu.varian_hpp_2;
+            } else if (matchedMenu.varian_nama_1 && it.varian_nama.toLowerCase() === matchedMenu.varian_nama_1.toLowerCase()) {
+              itemHpp = matchedMenu.varian_hpp_1;
+            }
+          }
+          if (!itemHpp || itemHpp <= 0) {
+            const isDingin = it.temperature === 'dingin';
+            itemHpp = isDingin
+              ? (menuHppEsMap[it.menu_id] || (it.nama_menu && menuHppEsMap[it.nama_menu.toLowerCase()]) || menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000)
+              : (menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000);
+          }
           totalHppBahan += itemHpp * it.qty;
         });
       });
@@ -960,11 +969,12 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row text-slate-800">
       
-      {/* 1. DEDICATED FINTECH LEFT SIDEBAR (5 MENU RINGKAS PAK AGAN) */}
+      {/* 1. DEDICATED FINTECH LEFT SIDEBAR (PAK AGAN) */}
       <AdminSidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
         pendingCount={totalPendingApprovals}
+        pendingAbsensiCount={pendingAbsensi.length}
         onLogout={handleLogoutOwner}
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
@@ -984,11 +994,17 @@ export default function AdminDashboardPage() {
                 SERABI BAWEL PUSAT
               </span>
               <span className="text-[10px] text-emerald-700 font-bold truncate block">
-                {activeTab === 'mutasi' ? '2. Buku Mutasi Transaksi' :
-                 activeTab === 'approval' ? '3. Pusat Persetujuan' :
-                 activeTab === 'modal_hpp' ? '4. Resep, HPP & Fixed Cost' :
-                 activeTab === 'outlet_pekerja' ? '5. Outlet & Pekerja' :
-                 '1. Ringkasan & 10 Cabang'}
+                {activeTab === 'mutasi' ? 'Buku Mutasi Penjualan' :
+                 activeTab === 'absensi' ? 'Monitoring Presensi Cabang' :
+                 activeTab === 'gaji' ? 'Belanja dan Kas Kecil' :
+                 activeTab === 'approval' ? 'Pusat Persetujuan' :
+                 activeTab === 'payroll' ? 'Menu Setting • Rekap Gaji Saldo' :
+                 activeTab === 'fixedcost' ? 'Menu Setting • Fix Cost' :
+                 activeTab === 'karyawan' ? 'Menu Setting • Data Pekerja' :
+                 activeTab === 'profiltoko' ? 'Menu Setting • Identitas Toko' :
+                 activeTab === 'menu' ? 'Menu Setting • Master Menu & Resep' :
+                 activeTab === 'bahan' ? 'Menu Setting • Absensi Bahan' :
+                 'Ringkasan 10 Cabang'}
               </span>
             </div>
           </div>
@@ -1767,75 +1783,76 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* MENU 3: PUSAT PERSETUJUAN (ACC PRESENSI KERJA & NOTA BELANJA / KASBON) */}
+        {/* PUSAT PERSETUJUAN: PILIHAN TAB ACC NOTA BELANJA / KASBON ATAU ACC PRESENSI */}
         {activeTab === 'approval' && (
-          <div className="space-y-5">
-            {/* 2-Tab Navigation Pill Header */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setApprovalSubTab('presensi')}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
-                    approvalSubTab === 'presensi'
-                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                  }`}
-                >
-                  <CalendarCheck className="w-4 h-4" />
-                  <span>Tab 1: ACC Presensi Kerja</span>
-                  {pendingAbsensi.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] animate-pulse">
-                      {pendingAbsensi.length}
-                    </span>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setApprovalSubTab('belanja')}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
-                    approvalSubTab === 'belanja'
-                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                  }`}
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Tab 2: ACC Nota Belanja &amp; Kasbon</span>
-                  {pendingExpenses.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white font-extrabold text-[10px] animate-pulse">
-                      {pendingExpenses.length}
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              <div className="text-[11px] text-slate-500 font-semibold px-2">
-                {totalPendingApprovals > 0 ? (
-                  <span className="text-amber-800 font-extrabold">
-                    ⏳ Total {totalPendingApprovals} pengajuan menunggu ACC Pusat
-                  </span>
-                ) : (
-                  <span className="text-emerald-700 font-bold">
-                    ✓ Semua presensi &amp; nota cabang sudah tervalidasi
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setApprovalSubTab('belanja')}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
+                  approvalSubTab === 'belanja'
+                    ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                }`}
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>Tab 1: ACC Nota Belanja &amp; Kasbon</span>
+                {pendingExpenses.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white font-extrabold text-[10px] animate-pulse">
+                    {pendingExpenses.length}
                   </span>
                 )}
-              </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setApprovalSubTab('presensi')}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
+                  approvalSubTab === 'presensi'
+                    ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+                }`}
+              >
+                <CalendarCheck className="w-4 h-4" />
+                <span>Tab 2: ACC Presensi Kerja</span>
+                {pendingAbsensi.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] animate-pulse">
+                    {pendingAbsensi.length}
+                  </span>
+                )}
+              </button>
             </div>
 
-            {/* SUB-TAB 2: ACC NOTA BELANJA & KASBON */}
-            {approvalSubTab === 'belanja' && (
-              <div className="space-y-5">
+            <div className="text-[11px] text-slate-500 font-semibold px-2">
+              {totalPendingApprovals > 0 ? (
+                <span className="text-amber-800 font-extrabold">
+                  ⏳ Total {totalPendingApprovals} pengajuan menunggu ACC Pusat
+                </span>
+              ) : (
+                <span className="text-emerald-700 font-bold">
+                  ✓ Semua presensi &amp; nota cabang sudah tervalidasi
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* BELANJA DAN KAS KECIL / ACC NOTA BELANJA & KASBON */}
+        {(activeTab === 'gaji' || (activeTab === 'approval' && approvalSubTab === 'belanja')) && (
+          <div className="space-y-5">
             {/* Header & Action Bar */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0">
-                    <CheckCircle2 className="w-4 h-4" />
+                    {activeTab === 'gaji' ? <ShoppingBag className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                   </div>
                   <div>
                     <h3 className="text-base font-extrabold text-slate-900">
-                      ACC Nota Belanja Operasional &amp; Kasbon Staf
+                      {activeTab === 'gaji'
+                        ? 'Buku Belanja Kebutuhan & Kas Kecil 10 Cabang'
+                        : 'ACC Nota Belanja Operasional & Kasbon Staf'}
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Persetujuan pencairan dana kasir via Kas Laci atau Transfer Bank. Begitu di-ACC, nominal otomatis memotong saldo kas laci &amp; laporan laba harian.
@@ -2277,10 +2294,10 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </div>
-            )}
+        )}
 
-            {/* SUB-TAB 1: ACC PRESENSI KERJA (KASIR AJUKAN -> OWNER ACC/TOLAK -> MASUK GAJI & LABA) */}
-            {approvalSubTab === 'presensi' && (() => {
+        {/* MONITORING PRESENSI CABANG / ACC PRESENSI KERJA */}
+        {(activeTab === 'absensi' || (activeTab === 'approval' && approvalSubTab === 'presensi')) && (() => {
               const branchFiltered = absensiList.filter(a => selectedCabangId === 'all' || isBranchMatch(a.cabang_id, selectedCabangId));
               const dateFiltered = branchFiltered.filter(a => absensiDateFilterMode === 'all' || a.tanggal === selectedAbsensiDate);
               const pendingBranchCount = branchFiltered.filter(a => a.approval_status === 'pending').length;
@@ -2673,73 +2690,23 @@ export default function AdminDashboardPage() {
                 </div>
               );
             })()}
-          </div>
+
+        {/* MENU SETTING: ABSENSI BAHAN 10 TOKO */}
+        {activeTab === 'bahan' && (
+          <BahanBakuAuditManager
+            cabangList={cabangList}
+            bahanList={bahanList}
+            kirimanBahanList={kirimanBahanList}
+            transaksiList={transaksiList}
+            selectedDate={selectedBahanDate}
+            onDateChange={(d) => setSelectedBahanDate(d)}
+            onRefreshData={refreshAllData}
+          />
         )}
 
-        {/* MENU 4: RESEP, HPP & FIXED COST (MASTER MENU, STOK BAHAN, BIAYA TETAP) */}
-        {activeTab === 'modal_hpp' && (
-          <div className="space-y-5">
-            {/* Sub-Tab Navigasi Menu 4 */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setModalSubTab('menu')}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
-                    modalSubTab === 'menu'
-                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                  }`}
-                >
-                  <Coffee className="w-4 h-4" />
-                  <span>Tab 1: Master Menu &amp; HPP</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModalSubTab('bahan')}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
-                    modalSubTab === 'bahan'
-                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                  }`}
-                >
-                  <PackageCheck className="w-4 h-4" />
-                  <span>Tab 2: Stok &amp; Pasokan Bahan</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModalSubTab('fixedcost')}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
-                    modalSubTab === 'fixedcost'
-                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4" />
-                  <span>Tab 3: Biaya Tetap (Fixed Cost)</span>
-                </button>
-              </div>
-              <span className="text-[11px] text-slate-500 font-semibold px-2">
-                Semua Urusan Modal, HPP &amp; Beban Tetap Bulanan
-              </span>
-            </div>
-
-            {/* SUB-TAB 2: STOK & PASOKAN BAHAN 10 TOKO */}
-            {modalSubTab === 'bahan' && (
-              <BahanBakuAuditManager
-                cabangList={cabangList}
-                bahanList={bahanList}
-                kirimanBahanList={kirimanBahanList}
-                transaksiList={transaksiList}
-                selectedDate={selectedBahanDate}
-                onDateChange={(d) => setSelectedBahanDate(d)}
-                onRefreshData={refreshAllData}
-              />
-            )}
-
-            {/* SUB-TAB 1: MASTER KATALOG MENU & HPP */}
-            {modalSubTab === 'menu' && (
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-4">
+        {/* MENU SETTING: MASTER MENU & RESEP */}
+        {activeTab === 'menu' && (
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 border-slate-100">
               <div>
                 <div className="flex items-center space-x-2">
@@ -3006,70 +2973,20 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </div>
-            )}
-
-            {/* SUB-TAB 3: KELOLA BIAYA TETAP (FIXED COST) 10 CABANG */}
-            {modalSubTab === 'fixedcost' && (
-              <FixedCostPaymentManager
-                cabangList={cabangList}
-                onEditCabang={(c) => setSelectedCabangForFixedCost(c)}
-                selectedCabangId={selectedCabangId}
-              />
-            )}
-          </div>
         )}
 
-        {/* MENU 5: OUTLET & PEKERJA (DATA PEKERJA & PIN, REKAP GAJI MINGGUAN, PROFIL TOKO) */}
-        {activeTab === 'outlet_pekerja' && (
-          <div className="space-y-5">
-            {/* Sub-Tab Navigasi Menu 5 */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOutletSubTab('karyawan')}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
-                    outletSubTab === 'karyawan'
-                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                  }`}
-                >
-                  <Users className="w-4 h-4" />
-                  <span>Tab 1: Data Pekerja &amp; PIN</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOutletSubTab('payroll')}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
-                    outletSubTab === 'payroll'
-                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                  }`}
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>Tab 2: Rekap Gaji Mingguan &amp; PDF</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOutletSubTab('profiltoko')}
-                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 btn-tactile ${
-                    outletSubTab === 'profiltoko'
-                      ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                  }`}
-                >
-                  <Store className="w-4 h-4" />
-                  <span>Tab 3: Identitas 10 Toko &amp; Struk</span>
-                </button>
-              </div>
-              <span className="text-[11px] text-slate-500 font-semibold px-2">
-                Manajemen Pekerja, Gaji Mingguan (/6 hari) &amp; Identitas Cabang
-              </span>
-            </div>
+        {/* MENU SETTING: FIX COST (KELOLA BIAYA TETAP 10 CABANG) */}
+        {activeTab === 'fixedcost' && (
+          <FixedCostPaymentManager
+            cabangList={cabangList}
+            onEditCabang={(c) => setSelectedCabangForFixedCost(c)}
+            selectedCabangId={selectedCabangId}
+          />
+        )}
 
-            {/* SUB-TAB 1: DATA PEKERJA & PIN */}
-            {outletSubTab === 'karyawan' && (
-              <div className="space-y-6">
+        {/* MENU SETTING: DATA PEKERJA */}
+        {activeTab === 'karyawan' && (
+          <div className="space-y-6">
             
             {/* Store Selection & Top Header */}
             <div className="bg-white p-5 rounded-3xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
@@ -3371,19 +3288,19 @@ export default function AdminDashboardPage() {
             </div>
 
           </div>
-            )}
+        )}
 
-            {/* SUB-TAB 3: IDENTITAS 10 TOKO, SANDI KASIR & FORMAT STRUK PROMO */}
-            {outletSubTab === 'profiltoko' && (
-              <ProfilTokoManager
-                cabangList={cabangList}
-                onRefreshData={refreshAllData}
-              />
-            )}
+        {/* MENU SETTING: IDENTITAS TOKO DAN STRUK */}
+        {activeTab === 'profiltoko' && (
+          <ProfilTokoManager
+            cabangList={cabangList}
+            onRefreshData={refreshAllData}
+          />
+        )}
 
-            {/* SUB-TAB 2: REKAP GAJI MINGGUAN & PDF (MODUL PAYROLL OTOMATIS) */}
-            {outletSubTab === 'payroll' && (
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-5">
+        {/* MENU SETTING: REKAP GAJI SALDO */}
+        {activeTab === 'payroll' && (
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-5">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4 border-slate-100">
               <div>
                 <h3 className="text-base font-extrabold text-slate-900">
@@ -3766,8 +3683,6 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
             </div>
-          </div>
-            )}
           </div>
         )}
 

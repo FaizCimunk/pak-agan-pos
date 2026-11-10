@@ -5,20 +5,38 @@ import {
   Receipt, 
   Clock, 
   Coffee, 
-  Users, 
+  FileText, 
   LogOut, 
   ShieldCheck,
   ChevronRight,
+  CalendarCheck,
+  UserCheck,
+  ShoppingBag,
   Coins,
+  PackageCheck,
+  Building2,
+  Store,
   X
 } from 'lucide-react';
 
-export type AdminTabId = 'ringkasan' | 'mutasi' | 'approval' | 'modal_hpp' | 'outlet_pekerja';
+export type AdminTabId =
+  | 'ringkasan'
+  | 'mutasi'
+  | 'absensi'
+  | 'gaji'
+  | 'approval'
+  | 'payroll'
+  | 'fixedcost'
+  | 'karyawan'
+  | 'profiltoko'
+  | 'menu'
+  | 'bahan';
 
 interface AdminSidebarProps {
   activeTab: AdminTabId;
   onTabChange: (tab: AdminTabId) => void;
   pendingCount: number;
+  pendingAbsensiCount?: number;
   onLogout: () => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
@@ -28,12 +46,13 @@ export default function AdminSidebar({
   activeTab,
   onTabChange,
   pendingCount,
+  pendingAbsensiCount = 0,
   onLogout,
   isMobileOpen = false,
   onCloseMobile,
 }: AdminSidebarProps) {
 
-  const menuItems: {
+  const operasionalItems: {
     id: AdminTabId;
     label: string;
     sub: string;
@@ -42,34 +61,79 @@ export default function AdminSidebar({
   }[] = [
     {
       id: 'ringkasan',
-      label: '1. Ringkasan & 10 Cabang',
+      label: 'Ringkasan 10 Cabang',
       sub: 'Laporan kasir, laba bersih & toko',
       icon: Coins,
     },
     {
       id: 'mutasi',
-      label: '2. Buku Mutasi Transaksi',
-      sub: 'Aliran kas keluar-masuk & struk',
+      label: 'Buku Mutasi Penjualan',
+      sub: 'Struk kasir, omzet & filter tanggal',
       icon: Receipt,
     },
     {
+      id: 'absensi',
+      label: 'Monitoring Presensi Cabang',
+      sub: 'Presensi kasir & ACC kehadiran',
+      icon: CalendarCheck,
+      badge: pendingAbsensiCount > 0 ? pendingAbsensiCount : null,
+    },
+    {
+      id: 'gaji',
+      label: 'Belanja dan Kas Kecil',
+      sub: 'Uang kas kasir & belanja kebutuhan',
+      icon: ShoppingBag,
+    },
+    {
       id: 'approval',
-      label: '3. Pusat Persetujuan',
-      sub: 'ACC Presensi & Nota Belanja/Kasbon',
+      label: 'Pusat Persetujuan',
+      sub: 'ACC belanja, kasbon & presensi',
       icon: Clock,
       badge: pendingCount > 0 ? pendingCount : null,
     },
+  ];
+
+  const settingItems: {
+    id: AdminTabId;
+    label: string;
+    sub: string;
+    icon: any;
+  }[] = [
     {
-      id: 'modal_hpp',
-      label: '4. Resep, HPP & Fixed Cost',
-      sub: 'Menu/HPP, Stok Bahan & Sewa Toko',
+      id: 'payroll',
+      label: 'Rekap Gaji Saldo',
+      sub: 'Gaji mingguan (/6 hari) & cetak PDF',
+      icon: FileText,
+    },
+    {
+      id: 'fixedcost',
+      label: 'Fix Cost',
+      sub: 'Atur sewa, wifi, sampah & listrik',
+      icon: Building2,
+    },
+    {
+      id: 'karyawan',
+      label: 'Data Pekerja',
+      sub: 'Profil, tarif upah, PIN & ploting',
+      icon: UserCheck,
+    },
+    {
+      id: 'profiltoko',
+      label: 'Identitas Toko dan Struk',
+      sub: 'Nama toko, sandi kasir, WA & promo',
+      icon: Store,
+    },
+    {
+      id: 'menu',
+      label: 'Master Menu & Resep',
+      sub: 'Harga jual, HPP resep & lempar kasir',
       icon: Coffee,
     },
     {
-      id: 'outlet_pekerja',
-      label: '5. Outlet & Pekerja',
-      sub: 'Tim & PIN, Gaji PDF & Profil Toko',
-      icon: Users,
+      id: 'bahan',
+      label: 'Absensi Bahan 10 Toko',
+      sub: 'Stok dapur & pasokan bahan pusat',
+      icon: PackageCheck,
     },
   ];
 
@@ -78,6 +142,52 @@ export default function AdminSidebar({
     if (onCloseMobile) {
       onCloseMobile();
     }
+  };
+
+  const renderMenuButton = (item: {
+    id: AdminTabId;
+    label: string;
+    sub: string;
+    icon: any;
+    badge?: number | null;
+  }) => {
+    const Icon = item.icon;
+    const isActive = activeTab === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => handleSelectTab(item.id)}
+        className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-left transition-all btn-tactile ${
+          isActive
+            ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
+            : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+        }`}
+      >
+        <div className="flex items-center space-x-2.5 min-w-0">
+          <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+            isActive ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'
+          }`}>
+            <Icon className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0">
+            <div className={`text-xs font-extrabold leading-tight truncate ${isActive ? 'text-white' : 'text-slate-900'}`}>
+              {item.label}
+            </div>
+            <div className={`text-[10px] mt-0.5 leading-snug truncate ${isActive ? 'text-emerald-200' : 'text-slate-400'}`}>
+              {item.sub}
+            </div>
+          </div>
+        </div>
+
+        {item.badge ? (
+          <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] shadow-sm animate-pulse shrink-0">
+            {item.badge}
+          </span>
+        ) : isActive ? (
+          <ChevronRight className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+        ) : null}
+      </button>
+    );
   };
 
   const sidebarContent = (
@@ -121,53 +231,29 @@ export default function AdminSidebar({
         )}
       </div>
 
-      {/* Navigation List: 5 Menu Terpusat */}
-      <nav className="p-3 sm:p-4 space-y-2 flex-1 overflow-y-auto">
-        <div className="text-[10px] uppercase font-black tracking-widest text-emerald-800 px-3 py-1 flex items-center justify-between">
-          <span>Menu Kendali Pusat (5)</span>
-          <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">Ringkas</span>
+      {/* Navigation List */}
+      <nav className="p-3 sm:p-4 space-y-4 flex-1 overflow-y-auto">
+        {/* GRUP 1: OPERASIONAL HARIAN & PERSETUJUAN */}
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase font-black tracking-widest text-slate-400 px-3 py-1">
+            Operasional Cabang
+          </div>
+          <div className="space-y-1">
+            {operasionalItems.map(item => renderMenuButton(item))}
+          </div>
         </div>
 
-        <div className="space-y-1.5">
-          {menuItems.map(item => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleSelectTab(item.id)}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl text-left transition-all btn-tactile ${
-                  isActive
-                    ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    isActive ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className={`text-xs font-extrabold leading-tight ${isActive ? 'text-white' : 'text-slate-900'}`}>
-                      {item.label}
-                    </div>
-                    <div className={`text-[10px] mt-0.5 leading-snug ${isActive ? 'text-emerald-200' : 'text-slate-400'}`}>
-                      {item.sub}
-                    </div>
-                  </div>
-                </div>
-
-                {item.badge ? (
-                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] shadow-sm animate-pulse shrink-0">
-                    {item.badge}
-                  </span>
-                ) : isActive ? (
-                  <ChevronRight className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                ) : null}
-              </button>
-            );
-          })}
+        {/* GRUP 2: MENU SETTING */}
+        <div className="space-y-1 pt-2 border-t border-slate-100">
+          <div className="text-[10px] uppercase font-black tracking-widest text-emerald-800 px-3 py-1 flex items-center justify-between">
+            <span>Menu Setting</span>
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+              Pusat
+            </span>
+          </div>
+          <div className="space-y-1">
+            {settingItems.map(item => renderMenuButton(item))}
+          </div>
         </div>
       </nav>
 
