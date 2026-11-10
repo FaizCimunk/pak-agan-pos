@@ -209,8 +209,20 @@ export function getBranchUuid(idOrCode?: string | null): string | null {
   return match ? match.uuid : (isValidUuid(idOrCode) ? idOrCode : null);
 }
 
+let hasSyncedLocalCabangMap = false;
+
+export function ensureLocalCabangNamesSynced(): void {
+  if (hasSyncedLocalCabangMap || typeof window === 'undefined') return;
+  hasSyncedLocalCabangMap = true;
+  const local = loadLocal<Cabang[]>(STORAGE_KEYS.CABANG, []);
+  if (local.length > 0) {
+    syncCabangNamesToMap(local);
+  }
+}
+
 export function getBranchName(idOrCodeOrUuid?: string | null): string {
   if (!idOrCodeOrUuid) return 'Cabang';
+  ensureLocalCabangNamesSynced();
   const clean = idOrCodeOrUuid.trim().toLowerCase();
   const resolvedUuid = getBranchUuid(idOrCodeOrUuid);
   const match = CABANG_MAP_INFO.find(
@@ -223,6 +235,15 @@ export function getBranchName(idOrCodeOrUuid?: string | null): string {
       c.nama.toLowerCase().includes(clean)
   );
   return match ? match.nama : 'Cabang ' + idOrCodeOrUuid;
+}
+
+export function resolveLiveBranchName(cabangId?: string | null, storedNama?: string | null): string {
+  ensureLocalCabangNamesSynced();
+  const resolvedUuid = getBranchUuid(cabangId);
+  if (resolvedUuid) {
+    return getBranchName(resolvedUuid);
+  }
+  return storedNama || getBranchName(cabangId);
 }
 
 export function isBranchMatch(idA?: string | null, idB?: string | null): boolean {
@@ -305,6 +326,7 @@ export function getKategoriUuid(idOrCode?: string | null): string | null {
 }
 
 export function syncCabangNamesToMap(cabangs: Array<{ id?: string; uuid?: string; nomor?: number; kode?: string; nama?: string }>): void {
+  hasSyncedLocalCabangMap = true;
   for (const cbg of cabangs) {
     if (!cbg?.nama) continue;
     const targetUuid = getBranchUuid(cbg.id || cbg.kode || (cbg.nomor ? String(cbg.nomor) : ''));
@@ -1070,7 +1092,7 @@ export class PosDatabase {
       approval_status: parsedStatus,
       approved_by: parsedApprovedBy,
       alasan_penolakan: parsedReason,
-      cabang_nama: raw.cabang_nama || getBranchName(raw.cabang_id),
+      cabang_nama: resolveLiveBranchName(raw.cabang_id, raw.cabang_nama),
     };
   }
 
@@ -1896,7 +1918,7 @@ export class PosDatabase {
             id: d.id,
             invoice_no: d.invoice_no,
             cabang_id: d.cabang_id,
-            cabang_nama: d.cabang_nama || getBranchName(d.cabang_id),
+            cabang_nama: resolveLiveBranchName(d.cabang_id, d.cabang_nama),
             shift_id: d.shift_id,
             karyawan_id: d.karyawan_id,
             nama_pelanggan: d.nama_pelanggan,
@@ -1938,7 +1960,7 @@ export class PosDatabase {
       if (!combinedMap.has(key)) {
         combinedMap.set(key, {
           ...trx,
-          cabang_nama: trx.cabang_nama || getBranchName(trx.cabang_id),
+          cabang_nama: resolveLiveBranchName(trx.cabang_id, trx.cabang_nama),
         });
       }
     }
@@ -2083,9 +2105,13 @@ export class PosDatabase {
   // --------------------------------------------------------------------------
   async getOpenBills(cabangId?: string): Promise<Transaksi[]> {
     const list = loadLocal<Transaksi[]>(STORAGE_KEYS.OPEN_BILLS, []);
-    const filtered = cabangId && cabangId !== 'all'
+    const filtered = (cabangId && cabangId !== 'all'
       ? list.filter(t => isBranchMatch(t.cabang_id, cabangId) && t.status === 'pending_payment')
-      : list.filter(t => t.status === 'pending_payment');
+      : list.filter(t => t.status === 'pending_payment')
+    ).map(t => ({
+      ...t,
+      cabang_nama: resolveLiveBranchName(t.cabang_id, t.cabang_nama),
+    }));
     
     return filtered.sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime());
   }
@@ -2187,7 +2213,7 @@ export class PosDatabase {
         if (!error && data) {
           cloudExpenses = data.map((d: any) => ({
             ...d,
-            cabang_nama: d.cabang_nama || getBranchName(d.cabang_id),
+            cabang_nama: resolveLiveBranchName(d.cabang_id, d.cabang_nama),
           }));
         }
       } catch (e) {
@@ -2204,7 +2230,7 @@ export class PosDatabase {
       if (!combinedMap.has(exp.id)) {
         combinedMap.set(exp.id, {
           ...exp,
-          cabang_nama: exp.cabang_nama || getBranchName(exp.cabang_id),
+          cabang_nama: resolveLiveBranchName(exp.cabang_id, exp.cabang_nama),
         });
       }
     }
@@ -2355,6 +2381,7 @@ export class PosDatabase {
         if (!error && data && data.length > 0) {
           return data.map((d: any) => ({
             ...d,
+            cabang_nama: resolveLiveBranchName(d.cabang_id, d.cabang_nama),
             gaji_pokok: Number(d.gaji_pokok),
             tunjangan: Number(d.tunjangan),
             potongan_kasbon: Number(d.potongan_kasbon || 0),
@@ -2368,7 +2395,10 @@ export class PosDatabase {
         console.warn('Fallback to local payroll:', e);
       }
     }
-    return loadLocal<Payroll[]>(STORAGE_KEYS.PAYROLL, []);
+    return loadLocal<Payroll[]>(STORAGE_KEYS.PAYROLL, []).map(p => ({
+      ...p,
+      cabang_nama: resolveLiveBranchName(p.cabang_id, p.cabang_nama),
+    }));
   }
 
   // --------------------------------------------------------------------------
@@ -2783,6 +2813,7 @@ export class PosDatabase {
         if (!error && data) {
           cloudList = data.map((d: any) => ({
             ...d,
+            cabang_nama: resolveLiveBranchName(d.cabang_id, d.cabang_nama),
             jumlah: Number(d.jumlah),
             harga_satuan: Number(d.harga_satuan || 0),
             total_nilai: Number(d.total_nilai || 0)
@@ -2800,7 +2831,10 @@ export class PosDatabase {
     }
     for (const k of all) {
       if (!combinedMap.has(k.id)) {
-        combinedMap.set(k.id, k);
+        combinedMap.set(k.id, {
+          ...k,
+          cabang_nama: resolveLiveBranchName(k.cabang_id, k.cabang_nama),
+        });
       }
     }
     const combined = Array.from(combinedMap.values());
@@ -3189,7 +3223,7 @@ export class PosDatabase {
       if (!combinedMap.has(p.id)) {
         combinedMap.set(p.id, {
           ...p,
-          cabang_nama: p.cabang_nama || getBranchName(p.cabang_id)
+          cabang_nama: resolveLiveBranchName(p.cabang_id, p.cabang_nama)
         });
       }
     }
