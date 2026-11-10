@@ -108,16 +108,16 @@ export default function AdminSidebar({
       icon: Building2,
     },
     {
-      id: 'profiltoko',
-      label: 'Identitas Toko dan Struk',
-      sub: 'Nama toko, sandi kasir, WA & promo',
-      icon: Store,
-    },
-    {
       id: 'menu',
       label: 'Menu Kasir Cabang',
       sub: 'Lihat menu, harga & HPP per kasir',
       icon: Coffee,
+    },
+    {
+      id: 'profiltoko',
+      label: 'Identitas Toko & Struk',
+      sub: 'Nama toko, password kasir, PJ/WA & struk',
+      icon: Store,
     },
   ];
 
