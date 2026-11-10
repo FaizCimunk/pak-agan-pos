@@ -6,19 +6,12 @@ import {
   UserPlus, 
   Building2, 
   Phone, 
-  Key, 
-  Lock, 
-  Coins, 
-  DollarSign, 
-  Sparkles, 
-  Save, 
-  Eye, 
-  EyeOff,
-  UserCheck
+  Save,
+  CreditCard
 } from 'lucide-react';
 import { Cabang } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatNominal, parseNominal, generateStrongPassword } from '@/lib/utils';
+import { formatNominal, parseNominal } from '@/lib/utils';
 
 interface CreateKaryawanModalProps {
   cabangList: Cabang[];
@@ -27,6 +20,8 @@ interface CreateKaryawanModalProps {
   onSuccess: () => void;
 }
 
+const BANK_OPTIONS = ['DANA', 'BCA', 'BRI', 'Mandiri', 'BNI', 'SeaBank', 'GoPay', 'Tunai'];
+
 export default function CreateKaryawanModal({
   cabangList,
   defaultCabangId,
@@ -34,34 +29,18 @@ export default function CreateKaryawanModal({
   onSuccess,
 }: CreateKaryawanModalProps) {
   const [nama, setNama] = useState<string>('');
-  const [username, setUsername] = useState<string>('');
   const [cabangId, setCabangId] = useState<string>(
     defaultCabangId && defaultCabangId !== 'all' ? defaultCabangId : cabangList[0]?.id || 'cbg-1'
   );
   const [role, setRole] = useState<'kasir' | 'kitchen'>('kasir');
   const [telepon, setTelepon] = useState<string>('');
-  const [pin, setPin] = useState<string>('1234');
-  const [password, setPassword] = useState<string>('Kasir#Bawel2026!');
-  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [bankNama, setBankNama] = useState<string>('DANA');
+  const [noRekening, setNoRekening] = useState<string>('');
+  const [atasNamaRek, setAtasNamaRek] = useState<string>('');
   const [gajiHarianDisplay, setGajiHarianDisplay] = useState<string>('100.000');
-  const [tabunganMingguanDisplay, setTabunganMingguanDisplay] = useState<string>('200.000');
+  const [tabunganMingguanDisplay, setTabunganMingguanDisplay] = useState<string>('0');
   const [plafonKasbonDisplay, setPlafonKasbonDisplay] = useState<string>('500.000');
   const [saving, setSaving] = useState<boolean>(false);
-
-  // Auto-generate strong password
-  const handleGeneratePassword = () => {
-    const strong = generateStrongPassword();
-    setPassword(strong);
-    setShowPassword(true);
-  };
-
-  const handleNameChange = (val: string) => {
-    setNama(val);
-    if (!username || username.startsWith('kasir')) {
-      const clean = val.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (clean) setUsername(clean.slice(0, 10));
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,37 +48,32 @@ export default function CreateKaryawanModal({
       alert('Nama karyawan wajib diisi');
       return;
     }
-    if (!username.trim()) {
-      alert('Username wajib diisi');
-      return;
-    }
-    if (!pin.trim() || pin.length < 4) {
-      alert('PIN cepat kasir minimal 4 digit');
-      return;
-    }
 
     const uHarian = parseNominal(gajiHarianDisplay) || 100000;
     const plafon = parseNominal(plafonKasbonDisplay) || 500000;
     const tabungan = parseNominal(tabunganMingguanDisplay) || 0;
+    const cleanPhone = telepon.trim() || (bankNama === 'DANA' && noRekening.trim() ? noRekening.trim() : '0812-0000-0000');
 
     setSaving(true);
     try {
       await db.createKaryawan({
         nama: nama.trim(),
-        username: username.trim().toLowerCase(),
         role: role,
         cabang_id: cabangId,
-        telepon: telepon.trim() || '0812-0000-0000',
-        pin: pin.trim(),
-        password_plain: password.trim(),
+        telepon: cleanPhone,
+        pin: '1234',
+        password_plain: '1234',
         tipe_gaji: 'harian',
         gaji_harian: uHarian,
-        gaji_pokok: uHarian * 26,
+        gaji_pokok: uHarian * 6,
         plafon_kasbon: plafon,
         tabungan_rutin_mingguan: tabungan,
+        bank_nama: bankNama.trim() || 'DANA',
+        no_rekening: noRekening.trim(),
+        atas_nama_rekening: atasNamaRek.trim() || nama.trim(),
       });
 
-      alert(`Karyawan "${nama}" berhasil didaftarkan! Staf dapat langsung login di POS tablet cabang.`);
+      alert(`Karyawan "${nama}" berhasil ditambahkan dan langsung masuk daftar Rekap Gaji & Pekerja!`);
       onSuccess();
     } catch (err: any) {
       alert('Gagal mendaftarkan karyawan: ' + err.message);
@@ -128,10 +102,10 @@ export default function CreateKaryawanModal({
             </div>
             <div>
               <h3 className="text-sm font-extrabold text-slate-900">
-                Tambah Karyawan / Kasir Baru
+                Tambah Karyawan Baru
               </h3>
               <p className="text-[11px] text-slate-500 font-medium">
-                Daftarkan profil pekerja, cabang penempatan, tarif gaji harian &amp; PIN login
+                Isi nama, cabang tugas, nomor DANA/rekening transfer gaji &amp; upah harian
               </p>
             </div>
           </div>
@@ -155,7 +129,7 @@ export default function CreateKaryawanModal({
               <input
                 type="text"
                 value={nama}
-                onChange={(e) => handleNameChange(e.target.value)}
+                onChange={(e) => setNama(e.target.value)}
                 placeholder="Contoh: Siti Rahmawati"
                 required
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
@@ -164,45 +138,44 @@ export default function CreateKaryawanModal({
 
             <div>
               <label className="font-bold text-slate-700 block mb-1">
-                Role / Posisi Jabatan:
+                Posisi / Tugas Outlet:
               </label>
               <select
                 value={role}
                 onChange={(e: any) => setRole(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
               >
-                <option value="kasir">Kasir Cabang (Penanggung Jawab Outlet &amp; Tablet POS)</option>
-                <option value="kitchen">Pekerja Outlet (Kru Dapur / Serabi &amp; Wedang)</option>
+                <option value="kasir">Kasir Cabang (PJ Outlet &amp; POS)</option>
+                <option value="kitchen">Pekerja Outlet (Serabi &amp; Wedang)</option>
               </select>
             </div>
           </div>
 
-          {/* Penempatan Cabang */}
-          <div>
-            <label className="font-bold text-slate-700 block mb-1">
-              Penempatan Cabang:
-            </label>
-            <div className="relative">
-              <select
-                value={cabangId}
-                onChange={(e) => setCabangId(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
-              >
-                {cabangList.map(c => (
-                  <option key={c.id} value={c.id}>
-                    #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama} ({c.kota})
-                  </option>
-                ))}
-              </select>
-              <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            </div>
-          </div>
-
-          {/* Nomor HP & Username */}
+          {/* Penempatan Cabang & No. WA */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="font-bold text-slate-700 block mb-1">
-                Nomor WhatsApp / HP:
+                Ploting Cabang Tugas:
+              </label>
+              <div className="relative">
+                <select
+                  value={cabangId}
+                  onChange={(e) => setCabangId(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
+                >
+                  {cabangList.map(c => (
+                    <option key={c.id} value={c.id}>
+                      #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
+                    </option>
+                  ))}
+                </select>
+                <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">
+                Nomor WhatsApp (Kirim Slip Gaji):
               </label>
               <div className="relative">
                 <input
@@ -210,86 +183,67 @@ export default function CreateKaryawanModal({
                   value={telepon}
                   onChange={(e) => setTelepon(e.target.value)}
                   placeholder="0813-xxxx-xxxx"
-                  required
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:border-brand-primary"
                 />
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               </div>
             </div>
-
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">
-                Username Login:
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="siti / cabang1"
-                required
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
-              />
-            </div>
           </div>
 
-          {/* PIN Cepat & Password Kuat */}
-          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-            <span className="text-[11px] font-extrabold text-slate-700 block">
-              Kredensial Keamanan &amp; PIN Tablet Kasir:
-            </span>
+          {/* Rekening Bank / DANA Tujuan Transfer */}
+          <div className="p-3.5 bg-sky-50/70 rounded-2xl border border-sky-200 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-sky-950 flex items-center space-x-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-sky-700" />
+                <span>Rekening Bank / DANA Tujuan Transfer Gaji:</span>
+              </span>
+              <span className="text-[9px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-bold">
+                Siap Transfer Mingguan
+              </span>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* PIN Cepat Tablet (4-6 Angka) */}
+            {/* Pilihan Cepat Channel */}
+            <div className="flex flex-wrap gap-1.5">
+              {BANK_OPTIONS.map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setBankNama(b)}
+                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-extrabold border transition-all ${
+                    bankNama === b
+                      ? 'bg-sky-700 text-white border-sky-800 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-sky-100/60'
+                  }`}
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
-                <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                  PIN Cepat Tablet POS:
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                  {bankNama === 'Tunai' ? 'Keterangan Pembayaran:' : `Nomor ${bankNama}:`}
                 </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    maxLength={6}
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))}
-                    placeholder="1234"
-                    required
-                    className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl font-mono font-black text-center tracking-widest text-slate-900 focus:outline-none focus:border-brand-primary"
-                  />
-                  <Key className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                </div>
-                <span className="text-[9px] text-slate-400 mt-0.5 block">Default demo: 1234</span>
+                <input
+                  type="text"
+                  value={noRekening}
+                  onChange={(e) => setNoRekening(e.target.value)}
+                  placeholder={bankNama === 'DANA' || bankNama === 'GoPay' ? 'Contoh: 081234567890' : bankNama === 'Tunai' ? 'Serah Tunai Langsung' : 'Contoh: 1234567890'}
+                  className="w-full px-3 py-1.5 bg-white border border-sky-200 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-sky-600"
+                />
               </div>
-
-              {/* Password Kuat */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-bold text-slate-600">
-                    Sandi Akun:
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleGeneratePassword}
-                    className="text-[10px] text-brand-primary hover:underline font-bold flex items-center space-x-1"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>Acak Sandi</span>
-                  </button>
-                </div>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="w-full pl-3 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:border-brand-primary text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
-                  >
-                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                  Atas Nama (Opsional):
+                </label>
+                <input
+                  type="text"
+                  value={atasNamaRek}
+                  onChange={(e) => setAtasNamaRek(e.target.value)}
+                  placeholder={nama.trim() || 'Sesuai nama karyawan'}
+                  className="w-full px-3 py-1.5 bg-white border border-sky-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-sky-600"
+                />
               </div>
             </div>
           </div>
@@ -298,17 +252,17 @@ export default function CreateKaryawanModal({
           <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-200 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold text-emerald-950">
-                Skema Gaji Murni Harian &amp; Kasbon:
+                Skema Gaji Murni Mingguan &amp; Kasbon:
               </span>
               <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                Otomatis Presensi Hadir
+                100% Mingguan (÷ 6 Hari)
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  Gaji Harian per Kehadiran:
+                  Upah Harian per Kehadiran:
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-2 font-bold text-slate-400">Rp</span>
@@ -320,14 +274,10 @@ export default function CreateKaryawanModal({
                     className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
                   />
                 </div>
-                <div className="text-[10px] text-slate-600 mt-1.5 space-y-0.5 bg-white p-2 rounded-xl border border-emerald-200/60">
+                <div className="text-[10px] text-slate-600 mt-1.5 bg-white p-2 rounded-xl border border-emerald-200/60">
                   <div className="flex justify-between font-extrabold text-emerald-800">
-                    <span>Pencairan Mingguan (6 Hari):</span>
+                    <span>Total Gaji 1 Minggu (6 Hari):</span>
                     <span className="font-mono">Rp {formatNominal(((parseNominal(gajiHarianDisplay) || 100000) * 6).toString())}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-slate-600">
-                    <span>Akumulasi Bulanan (26 Hari):</span>
-                    <span className="font-mono">Rp {formatNominal(((parseNominal(gajiHarianDisplay) || 100000) * 26).toString())}</span>
                   </div>
                 </div>
               </div>
@@ -347,7 +297,7 @@ export default function CreateKaryawanModal({
                   />
                 </div>
                 <span className="text-[9px] text-slate-500 mt-1 block">
-                  Batas pinjaman kas kecil kasir
+                  Batas pinjaman kasbon mingguan
                 </span>
               </div>
             </div>
@@ -356,10 +306,10 @@ export default function CreateKaryawanModal({
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-extrabold text-amber-950 flex items-center space-x-1">
-                  <span>🐷 Titip Tabungan Rutin Mingguan:</span>
+                  <span>🐷 Titip Tabungan Rutin Mingguan (Opsional):</span>
                 </span>
                 <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
-                  Auto-Potong Gaji &amp; Tersimpan
+                  Isi 0 jika tanpa tabungan
                 </span>
               </div>
               <div className="relative">
@@ -368,13 +318,10 @@ export default function CreateKaryawanModal({
                   type="text"
                   value={tabunganMingguanDisplay}
                   onChange={(e) => setTabunganMingguanDisplay(formatNominal(e.target.value))}
-                  placeholder="200.000"
+                  placeholder="0"
                   className="w-full pl-9 pr-3 py-1.5 bg-white border border-amber-300 rounded-xl font-mono font-bold text-amber-950 focus:outline-none focus:border-amber-600 text-xs"
                 />
               </div>
-              <p className="text-[9.5px] text-amber-900/80">
-                Otomatis disisihkan tiap gajian mingguan dan tercatat ke Buku Tabungan Karyawan.
-              </p>
             </div>
           </div>
 

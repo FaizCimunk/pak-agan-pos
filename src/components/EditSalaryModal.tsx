@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, DollarSign, Coins, ShieldCheck, Check, PiggyBank, Calendar, Wallet } from 'lucide-react';
+import { X, DollarSign, ShieldCheck, Check, PiggyBank, Calendar, Wallet, CreditCard, Phone } from 'lucide-react';
 import { Karyawan } from '@/lib/types';
 import { db } from '@/lib/db';
 import { formatRupiah, formatNominal, parseNominal, formatKaryawanRole } from '@/lib/utils';
+
+const BANK_OPTIONS = ['DANA', 'BCA', 'BRI', 'Mandiri', 'BNI', 'SeaBank', 'GoPay', 'Tunai'];
 
 interface EditSalaryModalProps {
   karyawan: Karyawan;
@@ -19,8 +21,12 @@ export default function EditSalaryModal({
 }: EditSalaryModalProps) {
   const [gajiHarian, setGajiHarian] = useState<number>(karyawan.gaji_harian || 100000);
   const [gajiMingguan, setGajiMingguan] = useState<number>((karyawan.gaji_harian || 100000) * 6);
-  const [tabunganMingguan, setTabunganMingguan] = useState<number>(karyawan.tabungan_rutin_mingguan ?? 200000);
+  const [tabunganMingguan, setTabunganMingguan] = useState<number>(karyawan.tabungan_rutin_mingguan ?? 0);
   const [plafonKasbon, setPlafonKasbon] = useState<number>(karyawan.plafon_kasbon || 500000);
+  const [bankNama, setBankNama] = useState<string>(karyawan.bank_nama || 'DANA');
+  const [noRekening, setNoRekening] = useState<string>(karyawan.no_rekening || '');
+  const [atasNamaRek, setAtasNamaRek] = useState<string>(karyawan.atas_nama_rekening || karyawan.nama || '');
+  const [telepon, setTelepon] = useState<string>(karyawan.telepon || '');
   const [loading, setLoading] = useState<boolean>(false);
 
   // Estimasi Gaji Mingguan & Bersih Transfer
@@ -39,8 +45,12 @@ export default function EditSalaryModal({
         tunjangan_harian: 0,
         tunjangan: 0,
         plafon_kasbon: plafonKasbon,
+        bank_nama: bankNama.trim(),
+        no_rekening: noRekening.trim(),
+        atas_nama_rekening: atasNamaRek.trim() || karyawan.nama,
+        telepon: telepon.trim() || karyawan.telepon,
       });
-      alert(`Skema gaji mingguan & celengan tabungan ${karyawan.nama} berhasil diperbarui!`);
+      alert(`Gaji mingguan, tabungan & nomor rekening ${karyawan.nama} berhasil diperbarui!`);
       onSuccess();
     } catch (e: any) {
       alert('Gagal memperbarui: ' + e.message);
@@ -292,6 +302,75 @@ export default function EditSalaryModal({
             />
           </div>
 
+          {/* Rekening Bank / DANA & WhatsApp */}
+          <div className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-200 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="font-extrabold text-sky-950 flex items-center space-x-1.5 text-xs">
+                <CreditCard className="w-4 h-4 text-sky-700" />
+                <span>Rekening Bank / DANA &amp; No. WA Transfer Gaji:</span>
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {BANK_OPTIONS.map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setBankNama(b)}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-extrabold border transition-all ${
+                    bankNama === b
+                      ? 'bg-sky-700 text-white border-sky-800 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-sky-100/60'
+                  }`}
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10.5px] font-bold text-slate-700 block mb-1">
+                  {bankNama === 'Tunai' ? 'Keterangan:' : `Nomor ${bankNama}:`}
+                </label>
+                <input
+                  type="text"
+                  value={noRekening}
+                  onChange={(e) => setNoRekening(e.target.value)}
+                  placeholder={bankNama === 'DANA' || bankNama === 'GoPay' ? '0812xxxxxxxx' : 'Nomor rekening'}
+                  className="w-full px-3 py-1.5 bg-white border border-sky-200 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-sky-600"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10.5px] font-bold text-slate-700 block mb-1">
+                  Atas Nama Rekening:
+                </label>
+                <input
+                  type="text"
+                  value={atasNamaRek}
+                  onChange={(e) => setAtasNamaRek(e.target.value)}
+                  placeholder={karyawan.nama}
+                  className="w-full px-3 py-1.5 bg-white border border-sky-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-sky-600"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10.5px] font-bold text-slate-700 block mb-1 flex items-center space-x-1">
+                <Phone className="w-3 h-3 text-slate-500" />
+                <span>Nomor WhatsApp (Kirim Slip Gaji):</span>
+              </label>
+              <input
+                type="text"
+                value={telepon}
+                onChange={(e) => setTelepon(e.target.value)}
+                placeholder="0812-xxxx-xxxx"
+                className="w-full px-3 py-1.5 bg-white border border-sky-200 rounded-xl font-mono text-slate-900 focus:outline-none focus:border-sky-600"
+              />
+            </div>
+          </div>
+
         </div>
 
         {/* Footer */}
@@ -308,7 +387,7 @@ export default function EditSalaryModal({
             className="px-6 py-2.5 rounded-xl font-black text-xs bg-emerald-700 hover:bg-emerald-800 text-white shadow-md shadow-emerald-900/20 btn-tactile transition-all cursor-pointer flex items-center space-x-1.5"
           >
             <Check className="w-4 h-4" />
-            <span>{loading ? 'Menyimpan...' : 'Simpan Skema Gaji & Tabungan'}</span>
+            <span>{loading ? 'Menyimpan...' : 'Simpan Gaji, Tabungan & Rekening'}</span>
           </button>
         </div>
 

@@ -51,6 +51,9 @@ export interface Karyawan {
   tunjangan: number;
   plafon_kasbon: number;
   utang_nominal?: number; // Nominal utang/kasbon staf yang diatur langsung oleh Boss dari pusat
+  bank_nama?: string; // Contoh: 'DANA', 'BCA', 'BRI', 'Mandiri', 'SeaBank', 'Tunai'
+  no_rekening?: string; // Nomor rekening bank atau nomor HP DANA tujuan transfer gaji
+  atas_nama_rekening?: string; // Nama pemilik rekening/e-wallet jika berbeda dengan nama staf
   is_active: boolean;
   created_at?: string;
 }
@@ -235,6 +238,9 @@ export interface Payroll {
   status: 'draft' | 'locked' | 'paid';
   tanggal_kunci: string;
   karyawan_telepon?: string;
+  karyawan_bank_nama?: string;
+  karyawan_no_rekening?: string;
+  karyawan_atas_nama_rekening?: string;
   keterangan?: string;
   kasbon_details?: PengeluaranKasbon[];
 }

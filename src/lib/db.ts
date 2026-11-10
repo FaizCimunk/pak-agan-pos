@@ -237,6 +237,38 @@ export function isAbsensiApproved(a?: Absensi | null): boolean {
   return !a.approval_status || a.approval_status === 'approved';
 }
 
+export function encodeKaryawanBankMarker(
+  passwordPlain?: string | null,
+  bankNama?: string,
+  noRekening?: string,
+  atasNamaRek?: string
+): string {
+  const cleanPass = (passwordPlain || '1234').replace(/\s*\[\[B(?:ANK)?:[^\]]*\]\]/g, '').trim() || '1234';
+  const cleanBank = (bankNama || '').replace(/[|\[\]]/g, '').trim().slice(0, 20);
+  const cleanRek = (noRekening || '').replace(/[|\[\]]/g, '').trim().slice(0, 32);
+  const cleanAtas = (atasNamaRek || '').replace(/[|\[\]]/g, '').trim().slice(0, 28);
+  if (!cleanBank && !cleanRek) return cleanPass.slice(0, 100);
+  return `${cleanPass} [[B:${cleanBank}|${cleanRek}|${cleanAtas}]]`.slice(0, 100);
+}
+
+export function decodeKaryawanRecord(raw: any): Karyawan {
+  const basePass = typeof raw?.password_plain === 'string' ? raw.password_plain : '';
+  const match = basePass.match(/\[\[B(?:ANK)?:([^|\]]*)\|([^|\]]*)\|([^\]]*)\]\]/);
+  const cleanPass = basePass.replace(/\s*\[\[B(?:ANK)?:[^\]]*\]\]/g, '').trim();
+  const decodedBank = raw?.bank_nama || (match?.[1]?.trim() || undefined);
+  const decodedRek = raw?.no_rekening || (match?.[2]?.trim() || undefined);
+  const decodedAtas = raw?.atas_nama_rekening || (match?.[3]?.trim() || undefined);
+
+  const rec: Karyawan = {
+    ...raw,
+    password_plain: cleanPass || raw?.password_plain,
+    bank_nama: decodedBank,
+    no_rekening: decodedRek,
+    atas_nama_rekening: decodedAtas,
+  };
+  return rec.role === 'owner' ? { ...rec, cabang_id: 'pusat' } : rec;
+}
+
 export function getKaryawanUuid(idOrUsername?: string | null): string | null {
   if (!idOrUsername) return null;
   const clean = idOrUsername.trim().toLowerCase();
@@ -528,14 +560,15 @@ export class PosDatabase {
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase.from('karyawan').select('*').order('nama', { ascending: true });
-        if (!error && data && data.length > 0) return data;
+        if (!error && data && data.length > 0) {
+          return data.map(decodeKaryawanRecord);
+        }
       } catch (e) {
         console.warn('Fallback to local karyawan:', e);
       }
     }
     const local = loadLocal<Karyawan[]>(STORAGE_KEYS.KARYAWAN, INITIAL_KARYAWAN);
-    // Ensure owner is always pinned to 'pusat' to prevent any branch device collision
-    return local.map(k => k.role === 'owner' ? { ...k, cabang_id: 'pusat' } : k);
+    return local.map(decodeKaryawanRecord);
   }
 
   async getKaryawanByCabang(cabangId: string): Promise<Karyawan[]> {
@@ -787,32 +820,80 @@ export class PosDatabase {
     tunjangan?: number;
     plafon_kasbon?: number;
     tabungan_rutin_mingguan?: number;
+    bank_nama?: string;
+    no_rekening?: string;
+    atas_nama_rekening?: string;
   }): Promise<Karyawan> {
     const list = await this.getAllKaryawan();
-    const pinHashed = await hashPin(data.pin || '1234');
+    const cleanPin = (data.pin || '1234').trim();
+    const pinHashed = await hashPin(cleanPin);
     const autoUsername = (data.username || data.nama.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'staf') + Math.floor(10 + Math.random() * 90);
+    const newId = generateUUID();
+    const branchUuid = getBranchUuid(data.cabang_id) || data.cabang_id;
+    const cleanPassPlain = data.password_plain || cleanPin || '1234';
+    const bankNama = (data.bank_nama || '').trim() || undefined;
+    const noRekening = (data.no_rekening || '').trim() || undefined;
+    const atasNamaRek = (data.atas_nama_rekening || data.nama || '').trim() || undefined;
+
     const newK: Karyawan = {
-      id: 'kar-' + Date.now(),
-      nama: data.nama,
+      id: newId,
+      nama: data.nama.trim(),
       username: autoUsername,
       role: data.role,
-      cabang_id: data.cabang_id,
+      cabang_id: branchUuid,
       telepon: data.telepon || '0812-0000-0000',
       pin_hash: pinHashed,
-      password_plain: data.password_plain || data.pin || '1234',
+      password_plain: cleanPassPlain,
       tipe_gaji: data.tipe_gaji || 'harian',
       gaji_harian: data.gaji_harian || 100000,
       gaji_pokok: data.gaji_pokok || ((data.gaji_harian || 100000) * 6),
       tunjangan: data.tunjangan || 0,
       plafon_kasbon: data.plafon_kasbon || 500000,
-      tabungan_rutin_mingguan: data.tabungan_rutin_mingguan ?? 200000,
+      tabungan_rutin_mingguan: data.tabungan_rutin_mingguan ?? 0,
       total_tabungan: 0,
+      bank_nama: bankNama,
+      no_rekening: noRekening,
+      atas_nama_rekening: bankNama || noRekening ? atasNamaRek : undefined,
       is_locked: false,
       is_active: true,
       created_at: new Date().toISOString(),
     };
     list.push(newK);
     saveLocal(STORAGE_KEYS.KARYAWAN, list);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const supabaseBranchUuid = getBranchUuid(data.cabang_id) || CABANG_MAP_INFO[0].uuid;
+        const encodedPass = encodeKaryawanBankMarker(cleanPassPlain, bankNama, noRekening, atasNamaRek);
+        const supabasePayload: any = {
+          id: newId,
+          cabang_id: supabaseBranchUuid,
+          username: autoUsername,
+          nama: newK.nama,
+          role: newK.role,
+          telepon: newK.telepon,
+          pin_hash: pinHashed,
+          password_plain: encodedPass,
+          is_locked: false,
+          tipe_gaji: newK.tipe_gaji,
+          gaji_harian: newK.gaji_harian,
+          tunjangan_harian: 0,
+          tabungan_rutin_mingguan: newK.tabungan_rutin_mingguan,
+          total_tabungan: 0,
+          gaji_pokok: newK.gaji_pokok,
+          tunjangan: 0,
+          plafon_kasbon: newK.plafon_kasbon,
+          is_active: true,
+        };
+        const { error } = await supabase.from('karyawan').insert([supabasePayload]);
+        if (error) {
+          console.warn('Supabase createKaryawan fallback local:', error.message);
+        }
+      } catch (e) {
+        console.warn('Supabase createKaryawan fallback local:', e);
+      }
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
@@ -821,8 +902,23 @@ export class PosDatabase {
 
   async deleteKaryawan(karyawanId: string): Promise<boolean> {
     const list = await this.getAllKaryawan();
-    const updated = list.filter(k => k.id !== karyawanId);
+    const targetKarUuid = getKaryawanUuid(karyawanId);
+    const updated = list.filter(k => k.id !== karyawanId && !(targetKarUuid && getKaryawanUuid(k.id) === targetKarUuid));
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        if (targetKarUuid) {
+          await supabase.from('karyawan').delete().eq('id', targetKarUuid);
+        }
+      } catch (e) {
+        console.warn('Supabase deleteKaryawan fallback local:', e);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
     return true;
   }
 
@@ -841,17 +937,41 @@ export class PosDatabase {
       tunjangan_harian?: number;
       tabungan_rutin_mingguan?: number;
       total_tabungan?: number;
+      bank_nama?: string;
+      no_rekening?: string;
+      atas_nama_rekening?: string;
+      telepon?: string;
     }
   ): Promise<boolean> {
     const list = await this.getAllKaryawan();
-    const updated = list.map(k => k.id === karyawanId ? { ...k, ...data } : k);
+    const targetKarUuid = getKaryawanUuid(karyawanId);
+    let targetAfter: Karyawan | null = null;
+    const updated = list.map(k => {
+      const isMatch = k.id === karyawanId || (targetKarUuid && getKaryawanUuid(k.id) === targetKarUuid);
+      if (!isMatch) return k;
+      targetAfter = { ...k, ...data };
+      return targetAfter;
+    });
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const karUuid = getKaryawanUuid(karyawanId);
-        if (karUuid) {
-          await supabase.from('karyawan').update(data).eq('id', karUuid);
+        const karUuid = targetKarUuid || (isValidUuid(karyawanId) ? karyawanId : null);
+        if (karUuid && targetAfter) {
+          const t: Karyawan = targetAfter;
+          const supPayload: any = {
+            gaji_pokok: data.gaji_pokok,
+            tunjangan: data.tunjangan,
+            plafon_kasbon: data.plafon_kasbon,
+            ...(data.tipe_gaji ? { tipe_gaji: data.tipe_gaji } : {}),
+            ...(data.gaji_harian !== undefined ? { gaji_harian: data.gaji_harian } : {}),
+            ...(data.tunjangan_harian !== undefined ? { tunjangan_harian: data.tunjangan_harian } : {}),
+            ...(data.tabungan_rutin_mingguan !== undefined ? { tabungan_rutin_mingguan: data.tabungan_rutin_mingguan } : {}),
+            ...(data.total_tabungan !== undefined ? { total_tabungan: data.total_tabungan } : {}),
+            ...(data.telepon !== undefined ? { telepon: data.telepon } : {}),
+            password_plain: encodeKaryawanBankMarker(t.password_plain, t.bank_nama, t.no_rekening, t.atas_nama_rekening),
+          };
+          await supabase.from('karyawan').update(supPayload).eq('id', karUuid);
         }
       } catch (e) {
         console.warn('Supabase updateKaryawanSalary error:', e);

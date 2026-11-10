@@ -10,10 +10,8 @@ import {
   ShieldCheck,
   ChevronRight,
   CalendarCheck,
-  UserCheck,
   ShoppingBag,
   Coins,
-  PackageCheck,
   Building2,
   Store,
   X
@@ -27,10 +25,8 @@ export type AdminTabId =
   | 'approval'
   | 'payroll'
   | 'fixedcost'
-  | 'karyawan'
   | 'profiltoko'
-  | 'menu'
-  | 'bahan';
+  | 'menu';
 
 interface AdminSidebarProps {
   activeTab: AdminTabId;
@@ -101,8 +97,8 @@ export default function AdminSidebar({
   }[] = [
     {
       id: 'payroll',
-      label: 'Rekap Gaji Saldo',
-      sub: 'Gaji mingguan (/6 hari) & cetak PDF',
+      label: 'Rekap Gaji & Pekerja',
+      sub: 'Gaji mingguan, tambah staf, kasbon & ploting',
       icon: FileText,
     },
     {
@@ -110,12 +106,6 @@ export default function AdminSidebar({
       label: 'Fix Cost',
       sub: 'Atur sewa, wifi, sampah & listrik',
       icon: Building2,
-    },
-    {
-      id: 'karyawan',
-      label: 'Data Pekerja',
-      sub: 'Profil, tarif upah, PIN & ploting',
-      icon: UserCheck,
     },
     {
       id: 'profiltoko',
@@ -128,12 +118,6 @@ export default function AdminSidebar({
       label: 'Menu Kasir Cabang',
       sub: 'Lihat menu, harga & HPP per kasir',
       icon: Coffee,
-    },
-    {
-      id: 'bahan',
-      label: 'Absensi Bahan 10 Toko',
-      sub: 'Stok dapur & pasokan bahan pusat',
-      icon: PackageCheck,
     },
   ];
 

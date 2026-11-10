@@ -3,12 +3,10 @@
 import React, { useState } from 'react';
 import { 
   X, 
-  CheckCircle2, 
   AlertTriangle, 
-  ArrowRight, 
-  DollarSign, 
-  Upload, 
-  FileText 
+  CreditCard,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Payroll } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -30,6 +28,7 @@ export default function PayoutSalaryModal({
   // Default payout amount: full salary available (tanpa potongan admin bank)
   const [payoutAmount, setPayoutAmount] = useState<number>(totalGajiTersedia);
   const [receiptFileName, setReceiptFileName] = useState<string>('');
+  const [copiedRek, setCopiedRek] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Sisa Saldo Pekerja Nanti = Gaji Tersedia - Nominal Dicairkan (Tanpa Biaya Admin)
@@ -50,12 +49,17 @@ export default function PayoutSalaryModal({
       return;
     }
 
+    const rekInfo = payroll.karyawan_no_rekening
+      ? `${payroll.karyawan_bank_nama || 'Bank'} • ${payroll.karyawan_no_rekening} (a.n. ${payroll.karyawan_atas_nama_rekening || payroll.karyawan_nama})`
+      : 'Belum diisi / Tunai';
+
     const confirmPayout = confirm(
       `KONFIRMASI PENCAIRAN GAJI (TRANSFER):\n\n` +
       `Karyawan: ${payroll.karyawan_nama} (${payroll.karyawan_role || 'Kasir Cabang'})\n` +
+      `Tujuan Transfer: ${rekInfo}\n` +
       `Nominal Transfer: ${formatRupiah(payoutAmount)}\n` +
       `Sisa Saldo Pekerja Nanti: ${formatRupiah(sisaSaldoNanti)}\n\n` +
-      `Setelah dicairkan, kasbon periode ini otomatis LUNAS, saldo gaji staf menjadi Rp 0, dan dashboard staf menampilkan banner transfer gaji resmi. Lanjutkan?`
+      `Setelah dicairkan, kasbon periode ini otomatis LUNAS dan slip tercatat sebagai Terbayar. Lanjutkan?`
     );
     if (!confirmPayout) return;
 
@@ -66,10 +70,12 @@ export default function PayoutSalaryModal({
         nominalDicairkan: payoutAmount,
         biayaAdmin: 0,
         buktiTransferUrl: receiptFileName ? `https://storage.pakagan.id/transfers/${receiptFileName}` : undefined,
-        catatan: `Transfer via M-Banking (Lunas Tanpa Potongan Admin)`,
+        catatan: payroll.karyawan_no_rekening
+          ? `Transfer ke ${payroll.karyawan_bank_nama || 'Rekening'} ${payroll.karyawan_no_rekening} (Lunas Tanpa Potongan Admin)`
+          : `Transfer via M-Banking / Tunai (Lunas Tanpa Potongan Admin)`,
       });
 
-      alert(`Gaji ${payroll.karyawan_nama} sebesar ${formatRupiah(payoutAmount)} berhasil dicairkan! Saldo kasbon telah lunas dan status dashboard staf telah diperbarui menjadi Rp 0.`);
+      alert(`Gaji ${payroll.karyawan_nama} sebesar ${formatRupiah(payoutAmount)} berhasil dicairkan! Saldo kasbon telah lunas.`);
       onSuccess();
     } catch (err: any) {
       alert('Gagal mencairkan gaji: ' + (err.message || 'Error'));
@@ -103,6 +109,46 @@ export default function PayoutSalaryModal({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 text-xs">
           
+          {/* Rekening Bank / DANA Tujuan Transfer */}
+          <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-between gap-2">
+            <div className="flex items-start space-x-2 min-w-0">
+              <CreditCard className="w-4 h-4 text-sky-700 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase text-sky-700 block">
+                  Tujuan Transfer ({payroll.karyawan_bank_nama || 'Rekening / DANA'}):
+                </span>
+                {payroll.karyawan_no_rekening ? (
+                  <>
+                    <span className="font-mono font-black text-sm text-sky-950 block truncate">
+                      {payroll.karyawan_no_rekening}
+                    </span>
+                    <span className="text-[10px] text-sky-800 block">
+                      a.n. {payroll.karyawan_atas_nama_rekening || payroll.karyawan_nama}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[11px] text-amber-800 font-semibold block">
+                    Nomor rekening / DANA belum diisi (bisa diisi via tombol Ubah Gaji &amp; Rekening).
+                  </span>
+                )}
+              </div>
+            </div>
+            {payroll.karyawan_no_rekening && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(payroll.karyawan_no_rekening || '');
+                  setCopiedRek(true);
+                  setTimeout(() => setCopiedRek(false), 1800);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-sky-100 border border-sky-300 text-sky-900 font-bold text-[10.5px] inline-flex items-center space-x-1 shrink-0"
+              >
+                {copiedRek ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                <span>{copiedRek ? 'Disalin' : 'Salin'}</span>
+              </button>
+            )}
+          </div>
+
           {/* Total Gaji Tersedia (Kotak Hijau Screenshot 2) */}
           <div className="p-3.5 bg-emerald-50 text-emerald-900 rounded-2xl font-bold border border-emerald-200 flex items-center justify-between">
             <span className="text-xs">Total Gaji Tersedia:</span>

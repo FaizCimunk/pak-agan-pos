@@ -5,7 +5,6 @@ import Link from 'next/link';
 import AdminSidebar, { AdminTabId } from '@/components/AdminSidebar';
 import ApprovalActionModal from '@/components/ApprovalActionModal';
 import PayrollSlipModal from '@/components/PayrollSlipModal';
-import PinResetModal from '@/components/PinResetModal';
 import EditSalaryModal from '@/components/EditSalaryModal';
 import PayrollRecapReportModal from '@/components/PayrollRecapReportModal';
 import ApprovalRecapReportModal from '@/components/ApprovalRecapReportModal';
@@ -16,11 +15,10 @@ import CreateExpenseModal from '@/components/CreateExpenseModal';
 import CreateKaryawanModal from '@/components/CreateKaryawanModal';
 import DailyBranchReportModal from '@/components/DailyBranchReportModal';
 import PayoutSalaryModal from '@/components/PayoutSalaryModal';
-import CreateKirimanBahanModal from '@/components/CreateKirimanBahanModal';
+import GiveLoanModal from '@/components/GiveLoanModal';
 import ProfilTokoManager from '@/components/ProfilTokoManager';
 import MutasiPenjualanStatement from '@/components/MutasiPenjualanStatement';
 import FixedCostPaymentManager from '@/components/FixedCostPaymentManager';
-import BahanBakuAuditManager from '@/components/BahanBakuAuditManager';
 import BukuTabunganModal from '@/components/BukuTabunganModal';
 
 import { 
@@ -31,9 +29,6 @@ import {
   PengeluaranKasbon, 
   Payroll,
   Absensi,
-  BahanBaku,
-  KirimanBahanPusat,
-  AbsensiBahanHarian,
   FixedCostHarianCabang,
   PembayaranFixedCostBulanan
 } from '@/lib/types';
@@ -47,8 +42,6 @@ import {
   Clock, 
   Plus, 
   Lock, 
-  Unlock,
-  KeyRound, 
   Store, 
   Calendar,
   ShieldCheck,
@@ -60,8 +53,6 @@ import {
   CheckCircle2,
   Check,
   Printer,
-  Eye,
-  EyeOff,
   Search,
   FileDown,
   FileText,
@@ -80,7 +71,6 @@ import {
   XCircle,
   Filter,
   Sparkles,
-  PackageCheck,
   Menu,
   CreditCard,
   ChevronDown
@@ -110,13 +100,6 @@ export default function AdminDashboardPage() {
   const [payrollList, setPayrollList] = useState<Payroll[]>([]);
   const [absensiList, setAbsensiList] = useState<Absensi[]>([]);
 
-  // State Manajemen Bahan & Pasokan 10 Toko
-  const [bahanList, setBahanList] = useState<BahanBaku[]>([]);
-  const [kirimanBahanList, setKirimanBahanList] = useState<KirimanBahanPusat[]>([]);
-  const [selectedBahanCabangId, setSelectedBahanCabangId] = useState<string>('all');
-  const [selectedBahanDate, setSelectedBahanDate] = useState<string>(getTodayDateString());
-  const [showKirimanModal, setShowKirimanModal] = useState<boolean>(false);
-
   // State Rekap Uang Masuk Bersih Rekening Boss
   const [selectedBossSummaryDate, setSelectedBossSummaryDate] = useState<string>(getTodayDateString());
   const [showAdvancedTables, setShowAdvancedTables] = useState<boolean>(false);
@@ -126,7 +109,6 @@ export default function AdminDashboardPage() {
   const [selectedCabangForFixedCost, setSelectedCabangForFixedCost] = useState<Cabang | null>(null);
   const [isAddingNewCabang, setIsAddingNewCabang] = useState<boolean>(false);
   const [selectedExpenseForApproval, setSelectedExpenseForApproval] = useState<PengeluaranKasbon | null>(null);
-  const [selectedKaryawanForPinReset, setSelectedKaryawanForPinReset] = useState<Karyawan | null>(null);
   const [selectedKaryawanForSalaryEdit, setSelectedKaryawanForSalaryEdit] = useState<Karyawan | null>(null);
   const [selectedKaryawanForTabungan, setSelectedKaryawanForTabungan] = useState<Karyawan | null>(null);
   const [selectedKaryawanForPlot, setSelectedKaryawanForPlot] = useState<Karyawan | null>(null);
@@ -151,15 +133,9 @@ export default function AdminDashboardPage() {
 
   const [showCreateExpenseModal, setShowCreateExpenseModal] = useState<boolean>(false);
 
-  // User Search & Credentials Visibility
-  const [userSearch, setUserSearch] = useState<string>('');
-  const [karyawanBranchFilter, setKaryawanBranchFilter] = useState<string>('all');
-  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
   const [showCreateKaryawanModal, setShowCreateKaryawanModal] = useState<boolean>(false);
-
-  const togglePasswordVisibility = (id: string) => {
-    setRevealedPasswords(prev => ({ ...prev, [id]: !prev[id] }));
-  };
+  const [selectedPayrollForLoan, setSelectedPayrollForLoan] = useState<Payroll | null>(null);
+  const [isAddingGeneralLoan, setIsAddingGeneralLoan] = useState<boolean>(false);
 
   const handleDeleteKaryawan = async (karyawanId: string, nama: string) => {
     const confirmDelete = confirm(`Apakah Anda yakin ingin menghapus akun karyawan "${nama}"?`);
@@ -200,18 +176,6 @@ export default function AdminDashboardPage() {
     await db.loadOneWeekSimulationData();
     await refreshAllData();
     alert('Data simulasi 1 minggu berhasil dimuat! Anda dapat langsung memeriksa modul Approval, Kasbon, dan Payroll.');
-  };
-
-  const handleUnlockUser = async (karyawanId: string) => {
-    await db.toggleKaryawanLock(karyawanId, false);
-    await refreshAllData();
-    alert('Gembok akun berhasil dibuka! Staf dapat langsung login kembali.');
-  };
-
-  const handleLockUser = async (karyawanId: string) => {
-    await db.toggleKaryawanLock(karyawanId, true);
-    await refreshAllData();
-    alert('Akun staf berhasil digembok! Akses login kasir dinonaktifkan.');
   };
 
   // Payroll Period & Branch Filters (Penggajian Murni Mingguan)
@@ -290,12 +254,6 @@ export default function AdminDashboardPage() {
 
     const abs = await db.getAbsensiList();
     setAbsensiList(abs);
-
-    const bhs = await db.getBahanBakuList();
-    setBahanList(bhs);
-
-    const krms = await db.getKirimanBahanList();
-    setKirimanBahanList(krms);
 
     const fcPayments = await db.getFixedCostPayments();
     setFixedCostPayments(fcPayments);
@@ -390,20 +348,6 @@ export default function AdminDashboardPage() {
       .filter(e => e.jenis === 'kasbon' && e.status === 'approved' && !e.is_settled)
       .reduce((sum, e) => sum + e.nominal, 0);
   }, [expenseList]);
-
-  const filteredKaryawan = useMemo(() => {
-    return karyawanList.filter(k => {
-      const matchBranch = karyawanBranchFilter === 'all' || isBranchMatch(k.cabang_id, karyawanBranchFilter);
-      if (!userSearch.trim()) return matchBranch;
-      const q = userSearch.toLowerCase();
-      const matchSearch = 
-        k.nama.toLowerCase().includes(q) ||
-        (k.username || '').toLowerCase().includes(q) ||
-        (k.telepon || '').includes(q) ||
-        (k.role || '').toLowerCase().includes(q);
-      return matchBranch && matchSearch;
-    });
-  }, [karyawanList, karyawanBranchFilter, userSearch]);
 
   // Filtered Absensi List berdasarkan Cabang, Tanggal Terpilih, & Status ACC Boss
   const filteredAbsensiList = useMemo(() => {
@@ -565,6 +509,9 @@ export default function AdminDashboardPage() {
           karyawan_nama: kar.nama,
           karyawan_role: kar.role,
           karyawan_telepon: kar.telepon,
+          karyawan_bank_nama: kar.bank_nama,
+          karyawan_no_rekening: kar.no_rekening,
+          karyawan_atas_nama_rekening: kar.atas_nama_rekening,
           cabang_id: kar.cabang_id,
           cabang_nama: branch?.nama || 'Cabang',
           slip_no: `SLIP/MGG-${(payrollStartDate || '').replace(/-/g, '')}/${kar.nama.split(' ')[0]?.toUpperCase() || 'STF'}`,
@@ -884,76 +831,6 @@ export default function AdminDashboardPage() {
     };
   }, [transaksiList, selectedBossSummaryDate, selectedCabangId]);
 
-  // --------------------------------------------------------------------------
-  // REKAPITULASI BAHAN 10 CABANG DARI DATA KASIR DI TEMPAT & KIRIMAN PUSAT
-  // --------------------------------------------------------------------------
-  const materialAuditRows = useMemo(() => {
-    const targetBranches = selectedBahanCabangId === 'all' 
-      ? cabangList 
-      : cabangList.filter(c => c.id === selectedBahanCabangId);
-
-    const rows: {
-      cabang: Cabang;
-      bahan: BahanBaku;
-      stokAwal: number;
-      kirimanPusat: number;
-      terpakaiKasir: number;
-      sisaSistem: number;
-      sisaFisik: number;
-      selisih: number;
-      status: 'cocok' | 'selisih';
-    }[] = [];
-
-    targetBranches.forEach(cbg => {
-      // Transaksi cabang ini pada selectedBahanDate
-      const cbgTrx = transaksiList.filter(t => isBranchMatch(t.cabang_id, cbg.id) && t.status === 'completed' && t.waktu.startsWith(selectedBahanDate));
-      const terpakaiMap: Record<string, number> = {};
-      cbgTrx.forEach(trx => {
-        trx.items.forEach(it => {
-          if (it.nama_menu.toLowerCase().includes('serabi')) {
-            terpakaiMap['bh-1'] = (terpakaiMap['bh-1'] || 0) + it.qty;
-            terpakaiMap['bh-11'] = (terpakaiMap['bh-11'] || 0) + it.qty;
-            if (it.nama_menu.toLowerCase().includes('durian')) terpakaiMap['bh-2'] = (terpakaiMap['bh-2'] || 0) + it.qty;
-            if (it.nama_menu.toLowerCase().includes('keju')) terpakaiMap['bh-3'] = (terpakaiMap['bh-3'] || 0) + it.qty;
-            if (it.nama_menu.toLowerCase().includes('oncom')) terpakaiMap['bh-4'] = (terpakaiMap['bh-4'] || 0) + it.qty;
-            if (it.nama_menu.toLowerCase().includes('cokelat')) terpakaiMap['bh-5'] = (terpakaiMap['bh-5'] || 0) + it.qty;
-          } else if (it.nama_menu.toLowerCase().includes('wedang') || it.nama_menu.toLowerCase().includes('jahe')) {
-            terpakaiMap['bh-7'] = (terpakaiMap['bh-7'] || 0) + it.qty;
-            terpakaiMap['bh-11'] = (terpakaiMap['bh-11'] || 0) + it.qty;
-            if (it.nama_menu.toLowerCase().includes('uwuh')) terpakaiMap['bh-8'] = (terpakaiMap['bh-8'] || 0) + it.qty;
-            if (it.nama_menu.toLowerCase().includes('susu') || it.nama_menu.toLowerCase().includes('madu')) terpakaiMap['bh-10'] = (terpakaiMap['bh-10'] || 0) + it.qty;
-          }
-        });
-      });
-
-      // Kiriman bahan ke cabang ini pada tanggal ini
-      const cbgKiriman = kirimanBahanList.filter(k => isBranchMatch(k.cabang_id, cbg.id) && k.tanggal === selectedBahanDate);
-
-      bahanList.forEach(bhn => {
-        const kirimanTotal = cbgKiriman.filter(k => k.bahan_id === bhn.id).reduce((sum, k) => sum + k.jumlah, 0);
-        const terpakai = terpakaiMap[bhn.id] || 0;
-        const stokAwal = bhn.stok_minimum || 20;
-        const sisaSistem = stokAwal + kirimanTotal - terpakai;
-        const sisaFisik = sisaSistem;
-        const selisih = sisaFisik - sisaSistem;
-
-        rows.push({
-          cabang: cbg,
-          bahan: bhn,
-          stokAwal,
-          kirimanPusat: kirimanTotal,
-          terpakaiKasir: terpakai,
-          sisaSistem,
-          sisaFisik,
-          selisih,
-          status: selisih === 0 ? 'cocok' : 'selisih',
-        });
-      });
-    });
-
-    return rows;
-  }, [selectedBahanCabangId, selectedBahanDate, cabangList, bahanList, kirimanBahanList, transaksiList]);
-
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return (
@@ -999,12 +876,10 @@ export default function AdminDashboardPage() {
                  activeTab === 'absensi' ? 'Monitoring Presensi Cabang' :
                  activeTab === 'gaji' ? 'Belanja dan Kas Kecil' :
                  activeTab === 'approval' ? 'Pusat Persetujuan' :
-                 activeTab === 'payroll' ? 'Menu Setting • Rekap Gaji Saldo' :
+                 activeTab === 'payroll' ? 'Menu Setting • Rekap Gaji & Pekerja' :
                  activeTab === 'fixedcost' ? 'Menu Setting • Fix Cost' :
-                 activeTab === 'karyawan' ? 'Menu Setting • Data Pekerja' :
                  activeTab === 'profiltoko' ? 'Menu Setting • Identitas Toko' :
                  activeTab === 'menu' ? 'Menu Setting • Menu Kasir Cabang' :
-                 activeTab === 'bahan' ? 'Menu Setting • Absensi Bahan' :
                  'Ringkasan 10 Cabang'}
               </span>
             </div>
@@ -2692,19 +2567,6 @@ export default function AdminDashboardPage() {
               );
             })()}
 
-        {/* MENU SETTING: ABSENSI BAHAN 10 TOKO */}
-        {activeTab === 'bahan' && (
-          <BahanBakuAuditManager
-            cabangList={cabangList}
-            bahanList={bahanList}
-            kirimanBahanList={kirimanBahanList}
-            transaksiList={transaksiList}
-            selectedDate={selectedBahanDate}
-            onDateChange={(d) => setSelectedBahanDate(d)}
-            onRefreshData={refreshAllData}
-          />
-        )}
-
         {/* MENU SETTING: MENU KASIR CABANG (LIHAT & ATUR MENU PER KASIR CABANG) */}
         {activeTab === 'menu' && (() => {
           const isMenuSoldAtBranch = (item: MenuItem, branchId: string) =>
@@ -3174,312 +3036,6 @@ export default function AdminDashboardPage() {
           />
         )}
 
-        {/* MENU SETTING: DATA PEKERJA */}
-        {activeTab === 'karyawan' && (
-          <div className="space-y-6">
-            
-            {/* Store Selection & Top Header */}
-            <div className="bg-white p-5 rounded-3xl border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                
-                {/* Toko Identifier */}
-                <div className="flex items-center space-x-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-bold text-2xl shadow-md shadow-emerald-700/20 shrink-0">
-                    👥
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black uppercase tracking-wider">
-                        SDM &amp; Penggajian Terpadu
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-bold">
-                        • Struktur Manajemen Per-Toko
-                      </span>
-                    </div>
-                    <h3 className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
-                      {karyawanBranchFilter === 'all'
-                        ? 'Master Data Karyawan Seluruh Cabang (10 Toko)'
-                        : `Daftar Pekerja ${cabangList.find(c => c.id === karyawanBranchFilter)?.nama || 'Cabang'}`}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Kelola profil pekerja, penempatan cabang, tarif upah harian / tunjangan makan, plafon kasbon, dan PIN kasir per toko.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Dropdown Filter Toko & Tambah Karyawan */}
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <div className="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-2xl border border-slate-200 text-xs font-bold shadow-2xs">
-                    <Building2 className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <span className="text-slate-500 text-[11px] font-bold">Pilih Toko:</span>
-                    <select
-                      value={karyawanBranchFilter}
-                      onChange={(e) => setKaryawanBranchFilter(e.target.value)}
-                      className="bg-transparent font-extrabold text-slate-900 focus:outline-none cursor-pointer text-xs"
-                    >
-                      <option value="all">🏢 Semua Cabang ({karyawanList.length} Staf)</option>
-                      {cabangList.map(c => {
-                        const count = karyawanList.filter(k => isBranchMatch(k.cabang_id, c.id)).length;
-                        return (
-                          <option key={c.id} value={c.id}>
-                            #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama} ({count} staf)
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateKaryawanModal(true)}
-                    className="flex items-center space-x-1.5 px-4 py-2 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-800/20 btn-tactile transition cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>
-                      + Tambah Karyawan {karyawanBranchFilter !== 'all' ? `di ${cabangList.find(c => c.id === karyawanBranchFilter)?.kode || 'Toko Ini'}` : ''}
-                    </span>
-                  </button>
-                </div>
-
-              </div>
-
-              {/* 4 Stat Cards Ringkasan SDM & Pekerja */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-5 pt-4 border-t border-slate-100">
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                    Total Pekerja {karyawanBranchFilter === 'all' ? '10 Toko' : 'Toko Ini'}
-                  </span>
-                  <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
-                    {filteredKaryawan.length}
-                    <span className="text-xs font-normal text-slate-500"> Orang</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
-                    Data SDM &amp; Akun Pekerja
-                  </span>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                    Akun Staf Aktif
-                  </span>
-                  <div className="text-xl font-mono font-black text-emerald-800 mt-1 tabular-nums">
-                    {filteredKaryawan.filter(k => !k.is_locked && k.role !== 'owner').length}
-                    <span className="text-xs font-normal text-slate-500"> Staf</span>
-                  </div>
-                  <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
-                    Bisa login kasir &amp; presensi
-                  </span>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                    Akun Tergembok / Kunci
-                  </span>
-                  <div className="text-xl font-mono font-black text-rose-700 mt-1 tabular-nums">
-                    {filteredKaryawan.filter(k => k.is_locked).length}
-                    <span className="text-xs font-normal text-slate-500"> Akun</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
-                    Akses login dinonaktifkan
-                  </span>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                    Penempatan Cabang
-                  </span>
-                  <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
-                    {cabangList.length || 10}
-                    <span className="text-xs font-normal text-slate-500"> Cabang</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
-                    Struktur cabang resmi tercover
-                  </span>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Karyawan & Credentials Table */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm p-5 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3 border-slate-100">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">👥</span>
-                    <h3 className="text-sm font-extrabold text-slate-900">
-                      Tabel Master Karyawan &amp; Kredensial Akun
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      {filteredKaryawan.length} Pekerja
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Kelola profil pekerja, penempatan cabang toko, ubah username, sandi kuat, PIN kasir, dan buka/tutup gembok akun.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Cari nama, ID, no HP, role..."
-                      value={userSearch}
-                      onChange={(e) => setUserSearch(e.target.value)}
-                      className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 w-52 font-medium"
-                    />
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateKaryawanModal(true)}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-sm btn-tactile transition-all"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Tambah Karyawan</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
-                    <tr>
-                      <th className="py-3 px-4">Nama Karyawan &amp; Kontak</th>
-                      <th className="py-3 px-4">Penempatan Cabang</th>
-                      <th className="py-3 px-4 text-center">Kredensial &amp; Sandi / PIN</th>
-                      <th className="py-3 px-4 text-center">Aksi Kelola Pekerja</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredKaryawan.map(kar => {
-                      const branch = cabangList.find(c => isBranchMatch(c.id, kar.cabang_id));
-                      const isRevealed = revealedPasswords[kar.id];
-
-                      return (
-                        <tr key={kar.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-3.5 px-4">
-                            <span className="font-extrabold text-slate-900 block text-sm">{kar.nama}</span>
-                            <div className="flex items-center space-x-2 mt-0.5 text-xs text-slate-500 font-medium">
-                              <span className="capitalize px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
-                                {formatKaryawanRole(kar.role)}
-                              </span>
-                              <span>•</span>
-                              <span className="font-mono text-emerald-800 font-bold">{kar.telepon}</span>
-                            </div>
-                          </td>
-
-                          <td className="py-3.5 px-4">
-                            <span className="font-bold text-slate-800 block text-xs">
-                              {branch?.nama.split('-')[1]?.trim() || branch?.nama || 'Pusat'}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono font-bold">
-                              #{branch?.nomor || '01'} • {branch?.kode || 'CBG-01'}
-                            </span>
-                          </td>
-
-                          {/* Sandi / PIN & Status Gembok */}
-                          <td className="py-3.5 px-4 text-center">
-                            <div className="inline-flex flex-col items-center gap-1">
-                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-slate-800 text-xs shadow-2xs">
-                                <span>
-                                  {isRevealed 
-                                    ? (kar.password_plain || '1234') 
-                                    : '••••••••'}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => togglePasswordVisibility(kar.id)}
-                                  className="text-slate-400 hover:text-slate-700 ml-1"
-                                  title={isRevealed ? "Sembunyikan" : "Lihat Sandi Asli"}
-                                >
-                                  {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                </button>
-                              </div>
-                              <div>
-                                {kar.is_locked ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
-                                    <span>🔒</span> TERGEMBOK
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    <span>✓</span> AKTIF
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Aksi Kelola Simpel & Praktis (Ploting, Ubah Sandi/PIN, Gembok, Hapus) */}
-                          <td className="py-3.5 px-4 text-center">
-                            <div className="flex flex-wrap items-center justify-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedKaryawanForPlot(kar);
-                                  setTargetBranchIdForPlot(kar.cabang_id);
-                                }}
-                                className="px-3 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 rounded-xl border border-emerald-300 transition-colors inline-flex items-center space-x-1 shadow-2xs btn-tactile"
-                                title="Ploting Penempatan Cabang Karyawan"
-                              >
-                                <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-700" />
-                                <span>Ploting</span>
-                              </button>
-
-                              <button
-                                onClick={() => setSelectedKaryawanForPinReset(kar)}
-                                className="px-3 py-1.5 text-xs font-bold text-amber-900 hover:text-amber-950 bg-amber-50 hover:bg-amber-100/80 rounded-xl border border-amber-300 transition-colors inline-flex items-center space-x-1 shadow-2xs btn-tactile"
-                                title="Ganti Username, Sandi Kuat & PIN Tablet Kasir"
-                              >
-                                <KeyRound className="w-3.5 h-3.5 text-amber-700" />
-                                <span>Ubah Sandi &amp; PIN</span>
-                              </button>
-
-                              {kar.is_locked ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUnlockUser(kar.id)}
-                                  className="px-2.5 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl border border-emerald-300 transition-colors inline-flex items-center space-x-1"
-                                  title="Buka Gembok Akun"
-                                >
-                                  <Unlock className="w-3.5 h-3.5" />
-                                  <span>Buka</span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleLockUser(kar.id)}
-                                  className="px-2.5 py-1.5 text-xs font-bold text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl border border-slate-200 hover:border-rose-300 transition-colors inline-flex items-center space-x-1"
-                                  title="Gembok Akun Karyawan"
-                                >
-                                  <Lock className="w-3.5 h-3.5" />
-                                  <span>Kunci</span>
-                                </button>
-                              )}
-
-                              {kar.role !== 'owner' && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteKaryawan(kar.id, kar.nama)}
-                                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                                  title="Hapus Karyawan"
-                                >
-                                  <Trash2 className="w-4 h-4 text-rose-600" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
-        )}
-
         {/* MENU SETTING: IDENTITAS TOKO DAN STRUK */}
         {activeTab === 'profiltoko' && (
           <ProfilTokoManager
@@ -3488,20 +3044,61 @@ export default function AdminDashboardPage() {
           />
         )}
 
-        {/* MENU SETTING: REKAP GAJI SALDO */}
+        {/* MENU SETTING: REKAP GAJI, KASBON & DATA PEKERJA */}
         {activeTab === 'payroll' && (
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-5 space-y-5">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4 border-slate-100">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">
-                  Modul Payroll Otomatis &amp; Tutup Buku
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Formula: Gaji Bersih = Gaji Pokok + Tunjangan - Total Kasbon (Approved &amp; Unsettled).
-                </p>
+            <div className="flex flex-col gap-4 border-b pb-4 border-slate-100">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Rekap Gaji Mingguan, Kasbon &amp; Data Pekerja
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Tambah pekerja &amp; nomor DANA/rekening, ploting cabang, isi kasbon langsung dari pusat (otomatis potong gaji mingguan), dan cairkan gaji.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateKaryawanModal(true)}
+                    className="px-3.5 py-2 rounded-xl bg-brand-primary hover:bg-brand-dark text-white font-extrabold text-xs shadow-sm shadow-brand-dark/20 btn-tactile flex items-center space-x-1.5 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Tambah Karyawan</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingGeneralLoan(true)}
+                    className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-sm shadow-rose-600/20 btn-tactile flex items-center space-x-1.5 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Catat Kasbon Staf</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPayrollReportModal(true)}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-700/20 btn-tactile flex items-center space-x-1.5 transition-all"
+                    title="Cetak Laporan Rekap Gaji ke PDF Sesuai Tanggal Terpilih"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Cetak Rekap PDF</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleLockPayroll}
+                    className="px-4 py-2 rounded-xl bg-accent-gold hover:bg-amber-600 text-white font-extrabold text-xs shadow-md shadow-accent-gold/25 btn-tactile flex items-center space-x-1.5 transition-all cursor-pointer"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Kunci Gaji Mingguan</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Filter Tanggal & Tombol Cetak PDF */}
+              {/* Filter Cabang & Tanggal */}
               <div className="flex flex-wrap items-center gap-2">
                 {/* Branch Filter Per-Cabang */}
                 <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold">
@@ -3619,26 +3216,6 @@ export default function AdminDashboardPage() {
                     />
                   </div>
                 )}
-
-                {/* Tombol Cetak Rekap PDF */}
-                <button
-                  type="button"
-                  onClick={() => setShowPayrollReportModal(true)}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md shadow-emerald-700/20 btn-tactile flex items-center space-x-1.5 transition-all"
-                  title="Cetak Laporan Rekap Gaji ke PDF Sesuai Tanggal Terpilih"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Cetak Rekap PDF</span>
-                </button>
-
-                {/* Tombol Kunci Gaji */}
-                <button
-                  onClick={handleLockPayroll}
-                  className="px-4 py-2 rounded-xl bg-accent-gold hover:bg-amber-600 text-white font-extrabold text-xs shadow-md shadow-accent-gold/25 btn-tactile flex items-center space-x-1.5 transition-all cursor-pointer"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Kunci Gaji Mingguan</span>
-                </button>
               </div>
             </div>
 
@@ -3706,33 +3283,65 @@ export default function AdminDashboardPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
                   <tr>
-                    <th className="py-3 px-4">Nama Staf &amp; Outlet</th>
+                    <th className="py-3 px-4">Nama Staf, Cabang &amp; Rekening/DANA</th>
                     <th className="py-3 px-4">Kehadiran Minggu Ini</th>
                     <th className="py-3 px-4 text-right">Upah Harian (÷ 6)</th>
                     <th className="py-3 px-4 text-right">Total Upah Mingguan</th>
                     <th className="py-3 px-4 text-right text-rose-600">Hutang / Kasbon (Auto-Potong)</th>
                     <th className="py-3 px-4 text-right text-amber-700">Tabungan Mingguan</th>
                     <th className="py-3 px-4 text-right font-extrabold text-brand-dark">Gaji Bersih Ditransfer</th>
-                    <th className="py-3 px-4 text-center">Slip Digital &amp; Kirim WA</th>
+                    <th className="py-3 px-4 text-center">Kelola Staf, Kasbon &amp; Transfer</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {calculatedPayrollDrafts.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-12 text-center text-slate-400 text-xs">
-                        <div className="flex flex-col items-center justify-center space-y-1">
+                        <div className="flex flex-col items-center justify-center space-y-2">
                           <span className="text-2xl">💰</span>
-                          <span className="font-extrabold text-slate-700">Belum Ada Karyawan untuk Dihitung Gajinya (Mulai dari 0)</span>
-                          <span className="text-slate-400 text-[11px]">Daftarkan staf di menu Master Karyawan untuk menghitung gaji harian.</span>
+                          <span className="font-extrabold text-slate-700">Belum Ada Karyawan Terdaftar</span>
+                          <span className="text-slate-400 text-[11px]">Tambahkan staf &amp; nomor rekening/DANA langsung dari tombol di bawah untuk mulai mencatat gaji &amp; kasbon.</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateKaryawanModal(true)}
+                            className="mt-2 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs inline-flex items-center space-x-1.5 shadow-sm btn-tactile"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Tambah Karyawan Baru</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    calculatedPayrollDrafts.map(draft => (
+                    calculatedPayrollDrafts.map(draft => {
+                      const kar = karyawanList.find(k => k.id === draft.karyawan_id);
+                      return (
                     <tr key={draft.karyawan_id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-4">
                         <span className="font-extrabold text-slate-900 block">{draft.karyawan_nama}</span>
-                        <span className="text-[10px] text-slate-500">{draft.cabang_nama} ({draft.karyawan_role})</span>
+                        <span className="text-[10px] text-slate-500 block">
+                          {draft.cabang_nama} ({formatKaryawanRole(draft.karyawan_role)})
+                        </span>
+                        {draft.karyawan_no_rekening ? (
+                          <button
+                            type="button"
+                            onClick={() => kar && setSelectedKaryawanForSalaryEdit(kar)}
+                            className="inline-flex items-center space-x-1 mt-1 px-2 py-0.5 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-900 text-[10px] font-mono font-bold transition-colors"
+                            title="Klik untuk ubah nomor rekening / DANA"
+                          >
+                            <CreditCard className="w-3 h-3 text-sky-700 shrink-0" />
+                            <span>{draft.karyawan_bank_nama || 'Bank'}: {draft.karyawan_no_rekening}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => kar && setSelectedKaryawanForSalaryEdit(kar)}
+                            className="inline-flex items-center space-x-1 mt-1 px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold transition-colors"
+                            title="Isi nomor rekening / DANA untuk transfer gaji"
+                          >
+                            <span>+ Isi No. Rekening / DANA</span>
+                          </button>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
@@ -3752,7 +3361,7 @@ export default function AdminDashboardPage() {
                         <div>-{formatRupiah(draft.potongan_kasbon)}</div>
                         {draft.potongan_kasbon > 0 ? (
                           <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-black border border-emerald-200">
-                            ✓ Otomatis Lunas
+                            ✓ Auto-Potong
                           </span>
                         ) : (
                           <span className="text-[9px] text-slate-400 font-medium">Nihil / Lunas</span>
@@ -3777,16 +3386,17 @@ export default function AdminDashboardPage() {
                         {formatRupiah(draft.gaji_bersih)}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <div className="flex flex-wrap items-center justify-center gap-1.5">
+                        <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-[260px] mx-auto">
                           {draft.status === 'paid' ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-[11px] font-black">
                               ✓ Lunas
                             </span>
                           ) : (
                             <button
+                              type="button"
                               onClick={() => setSelectedPayrollForPayout(draft)}
                               className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full text-xs font-bold transition shadow-xs btn-tactile"
-                              title="Cairkan Dana & Transfer ke Rekening Staf"
+                              title="Cairkan Dana & Transfer ke Rekening / DANA Staf"
                             >
                               <span>💸</span>
                               <span>Cairkan</span>
@@ -3794,15 +3404,27 @@ export default function AdminDashboardPage() {
                           )}
 
                           <button
+                            type="button"
+                            onClick={() => setSelectedPayrollForLoan(draft)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-xs font-extrabold transition shadow-2xs btn-tactile"
+                            title="Catat Kasbon / Bon Karyawan (Otomatis Potong Gaji Mingguan)"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Kasbon</span>
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => setSelectedPayrollSlip(draft)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-full text-xs font-bold transition shadow-xs btn-tactile"
-                            title="Buka Rincian Absensi, Kasbon & Slip Gaji Digital"
+                            title="Buka Rincian Presensi, Kasbon & Slip Gaji Digital"
                           >
                             <span>🔍</span>
                             <span>Slip</span>
                           </button>
                           
                           <button
+                            type="button"
                             onClick={() => {
                               const waUrl = generateWhatsAppPayrollSlipLink({
                                 telepon: draft.karyawan_telepon,
@@ -3830,23 +3452,35 @@ export default function AdminDashboardPage() {
                             <span>Kirim WA</span>
                           </button>
 
+                          {kar && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedKaryawanForPlot(kar);
+                                setTargetBranchIdForPlot(kar.cabang_id);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold transition shadow-2xs btn-tactile"
+                              title="Ploting / Pindah Penempatan Cabang Staf"
+                            >
+                              <ArrowRightLeft className="w-3 h-3 text-emerald-700" />
+                              <span>Ploting</span>
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => {
-                              const kar = karyawanList.find(k => k.id === draft.karyawan_id);
                               if (kar) setSelectedKaryawanForSalaryEdit(kar);
                             }}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-bold transition shadow-2xs btn-tactile"
-                            title="Ubah Tarif Upah Harian & Skema Gaji"
+                            title="Ubah Tarif Upah Harian, Skema Tabungan & Nomor Rekening / DANA"
                           >
-                            <span>$</span>
-                            <span>Ubah Gaji</span>
+                            <span>$ Gaji / Rek</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => {
-                              const kar = karyawanList.find(k => k.id === draft.karyawan_id);
                               if (kar) setSelectedKaryawanForTabungan(kar);
                             }}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-xs font-bold transition shadow-2xs btn-tactile"
@@ -3855,11 +3489,23 @@ export default function AdminDashboardPage() {
                             <PiggyBank className="w-3.5 h-3.5 text-amber-700" />
                             <span>Tabungan</span>
                           </button>
+
+                          {draft.karyawan_role !== 'owner' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteKaryawan(draft.karyawan_id, draft.karyawan_nama || 'Karyawan')}
+                              className="p-1.5 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Hapus Data Karyawan"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -3867,9 +3513,9 @@ export default function AdminDashboardPage() {
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start space-x-2">
               <ShieldCheck className="w-5 h-5 text-accent-gold shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <span className="font-bold block">Jaminan Integritas Pembukuan Bank-Grade:</span>
+                <span className="font-bold block">Alur Praktis 1 Pintu (Pekerja, Kasbon &amp; Gaji Mingguan):</span>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
-                  Menekan tombol <strong>&quot;Kunci Gaji&quot;</strong> akan membekukan perhitungan gaji periode ini, mengubah semua baris kasbon karyawan menjadi <code>is_settled: true</code>, dan saldo kasbon staf untuk bulan berikutnya otomatis kembali ke Rp 0.
+                  Admin Pusat mendaftarkan staf &amp; nomor DANA/rekening, memindah cabang via <strong>Ploting</strong>, serta mengisi pinjaman lewat tombol <strong>+ Kasbon</strong> yang langsung memotong gaji mingguan. Menekan <strong>&quot;Kunci Gaji Mingguan&quot;</strong> melunasi kasbon periode ini (<code>is_settled: true</code>).
                 </p>
               </div>
             </div>
@@ -3912,17 +3558,6 @@ export default function AdminDashboardPage() {
           onClose={() => setSelectedExpenseForApproval(null)}
           onSuccess={async () => {
             setSelectedExpenseForApproval(null);
-            await refreshAllData();
-          }}
-        />
-      )}
-
-      {selectedKaryawanForPinReset && (
-        <PinResetModal
-          karyawan={selectedKaryawanForPinReset}
-          onClose={() => setSelectedKaryawanForPinReset(null)}
-          onSuccess={async () => {
-            setSelectedKaryawanForPinReset(null);
             await refreshAllData();
           }}
         />
@@ -4123,10 +3758,28 @@ export default function AdminDashboardPage() {
       {showCreateKaryawanModal && (
         <CreateKaryawanModal
           cabangList={cabangList}
-          defaultCabangId={karyawanBranchFilter !== 'all' ? karyawanBranchFilter : (selectedCabangId !== 'all' ? selectedCabangId : undefined)}
+          defaultCabangId={payrollBranchFilter !== 'all' ? payrollBranchFilter : (selectedCabangId !== 'all' ? selectedCabangId : undefined)}
           onClose={() => setShowCreateKaryawanModal(false)}
           onSuccess={async () => {
             setShowCreateKaryawanModal(false);
+            await refreshAllData();
+          }}
+        />
+      )}
+
+      {(selectedPayrollForLoan || isAddingGeneralLoan) && (
+        <GiveLoanModal
+          payroll={selectedPayrollForLoan}
+          karyawanList={karyawanList}
+          cabangList={cabangList}
+          defaultCabangId={payrollBranchFilter !== 'all' ? payrollBranchFilter : undefined}
+          onClose={() => {
+            setSelectedPayrollForLoan(null);
+            setIsAddingGeneralLoan(false);
+          }}
+          onSuccess={async () => {
+            setSelectedPayrollForLoan(null);
+            setIsAddingGeneralLoan(false);
             await refreshAllData();
           }}
         />
@@ -4141,20 +3794,6 @@ export default function AdminDashboardPage() {
           defaultCabangId={selectedCabangId !== 'all' ? selectedCabangId : undefined}
           defaultDate={getTodayDateString()}
           onClose={() => setShowDailyReportModal(false)}
-        />
-      )}
-
-      {showKirimanModal && (
-        <CreateKirimanBahanModal
-          cabangList={cabangList}
-          bahanList={bahanList}
-          defaultCabangId={selectedBahanCabangId !== 'all' ? selectedBahanCabangId : undefined}
-          defaultDate={selectedBahanDate}
-          onClose={() => setShowKirimanModal(false)}
-          onSuccess={async () => {
-            setShowKirimanModal(false);
-            await refreshAllData();
-          }}
         />
       )}
 

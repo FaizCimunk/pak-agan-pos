@@ -62,10 +62,18 @@ CREATE TABLE IF NOT EXISTS karyawan (
     tunjangan NUMERIC(12, 2) DEFAULT 500000,
     plafon_kasbon NUMERIC(12, 2) DEFAULT 1000000,
     utang_nominal NUMERIC(12, 2) DEFAULT 0,
+    bank_nama VARCHAR(50),
+    no_rekening VARCHAR(60),
+    atas_nama_rekening VARCHAR(100),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migrasi aman jika tabel karyawan sudah dibuat sebelumnya:
+ALTER TABLE karyawan ADD COLUMN IF NOT EXISTS bank_nama VARCHAR(50);
+ALTER TABLE karyawan ADD COLUMN IF NOT EXISTS no_rekening VARCHAR(60);
+ALTER TABLE karyawan ADD COLUMN IF NOT EXISTS atas_nama_rekening VARCHAR(100);
 
 -- ------------------------------------------------------------------------------
 -- TABEL: tabungan_karyawan_log (Buku Celengan Digital Tabungan Mingguan Staf)
