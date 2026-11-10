@@ -461,11 +461,25 @@ class BluetoothPrinterService {
 
     builder.line('-', 32);
     builder.bold(true);
-    builder.text('METODE LAIN:');
+    builder.text('NON-TUNAI & OJOL/ONLINE:');
     builder.newLine();
     builder.bold(false);
-    builder.row('QRIS Masuk:', formatRupiah(shift.total_qris_masuk));
-    builder.row('Transfer Masuk:', formatRupiah(shift.total_transfer_masuk));
+    builder.row('QRIS Masuk:', formatRupiah(shift.total_qris_masuk || 0));
+    builder.row('Transfer Bank:', formatRupiah(shift.total_transfer_masuk || 0));
+    builder.row('ShopeeFood:', formatRupiah(shift.total_shopeefood_masuk || 0));
+    builder.row('GoFood:', formatRupiah(shift.total_gofood_masuk || 0));
+    builder.row('GrabFood:', formatRupiah(shift.total_grabfood_masuk || 0));
+    const totalOmzetShift =
+      (shift.total_tunai_masuk || 0) +
+      (shift.total_qris_masuk || 0) +
+      (shift.total_transfer_masuk || 0) +
+      (shift.total_shopeefood_masuk || 0) +
+      (shift.total_gofood_masuk || 0) +
+      (shift.total_grabfood_masuk || 0);
+    builder.line('-', 32);
+    builder.bold(true);
+    builder.row('TOTAL OMZET SHIFT:', formatRupiah(totalOmzetShift));
+    builder.bold(false);
 
     builder.line('=', 32);
     builder.alignCenter();

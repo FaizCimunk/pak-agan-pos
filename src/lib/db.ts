@@ -1716,12 +1716,20 @@ export class PosDatabase {
     let tunaiMasuk = 0;
     let qrisMasuk = 0;
     let transferMasuk = 0;
+    let shopeefoodMasuk = 0;
+    let gofoodMasuk = 0;
+    let grabfoodMasuk = 0;
 
     for (const trx of shiftTransactions) {
       const pay = (trx.metode_bayar || '').toLowerCase().trim();
-      if (pay === 'tunai') tunaiMasuk += Number(trx.total || 0);
-      else if (pay === 'qris') qrisMasuk += Number(trx.total || 0);
-      else if (pay === 'transfer') transferMasuk += Number(trx.total || 0);
+      const amt = Number(trx.total || 0);
+      if (pay === 'tunai' || pay === 'cash') tunaiMasuk += amt;
+      else if (pay === 'qris') qrisMasuk += amt;
+      else if (pay.includes('transfer') || pay === 'tf' || pay === 'bank') transferMasuk += amt;
+      else if (pay.includes('shopee')) shopeefoodMasuk += amt;
+      else if (pay.includes('gofood') || pay.includes('gopay')) gofoodMasuk += amt;
+      else if (pay.includes('grab') || pay.includes('ovo')) grabfoodMasuk += amt;
+      else transferMasuk += amt;
     }
 
     // Sum approved expenses taken from drawer ('laci') strictly within this shift window
@@ -1756,6 +1764,10 @@ export class PosDatabase {
       total_tunai_masuk: tunaiMasuk,
       total_qris_masuk: qrisMasuk,
       total_transfer_masuk: transferMasuk,
+      total_shopeefood_masuk: shopeefoodMasuk,
+      total_gofood_masuk: gofoodMasuk,
+      total_grabfood_masuk: grabfoodMasuk,
+      total_transaksi_shift: shiftTransactions.length,
       total_belanja_approved: belanjaApproved,
       total_kasbon_approved: kasbonApproved,
       saldo_akhir_sistem: saldoSistem,
@@ -2088,6 +2100,9 @@ export class PosDatabase {
       metode_bayar: PaymentMethod;
       bayar: number;
       kembali: number;
+      shift_id?: string;
+      karyawan_id?: string;
+      karyawan_nama?: string;
     }
   ): Promise<Transaksi> {
     const list = loadLocal<Transaksi[]>(STORAGE_KEYS.OPEN_BILLS, []);
@@ -2096,9 +2111,12 @@ export class PosDatabase {
       throw new Error('Pesanan meja belum dibayar tidak ditemukan.');
     }
 
-    // 1. Update status menjadi completed
+    // 1. Update status menjadi completed dan ikat ke shift kasir yang menerima pelunasan
     const completedTrx: Transaksi = {
       ...target,
+      shift_id: paymentDetails.shift_id || target.shift_id,
+      karyawan_id: paymentDetails.karyawan_id || target.karyawan_id,
+      karyawan_nama: paymentDetails.karyawan_nama || target.karyawan_nama,
       metode_bayar: paymentDetails.metode_bayar,
       bayar: paymentDetails.bayar,
       kembali: paymentDetails.kembali,

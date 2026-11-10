@@ -187,7 +187,9 @@ export default function ShiftCloseModal({
           <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200 text-slate-800 space-y-1.5 text-xs">
             <div className="flex items-center justify-between font-bold text-blue-900 border-b border-blue-200 pb-1">
               <span>🏦 Uang Masuk ke Rekening Bank (Owner):</span>
-              <span className="font-mono font-black">{formatRupiah((calculatedShift.total_qris_masuk || 0) + (calculatedShift.total_transfer_masuk || 0))}</span>
+              <span className="font-mono font-black">
+                {formatRupiah((calculatedShift.total_qris_masuk || 0) + (calculatedShift.total_transfer_masuk || 0))}
+              </span>
             </div>
             <div className="flex justify-between text-slate-600 text-[11px]">
               <span>• QRIS Merchant Masuk:</span>
@@ -197,6 +199,52 @@ export default function ShiftCloseModal({
               <span>• Transfer Bank Masuk:</span>
               <span className="font-mono font-semibold">+{formatRupiah(calculatedShift.total_transfer_masuk || 0)}</span>
             </div>
+          </div>
+
+          {/* Online Delivery Merchant Summary (ShopeeFood, GoFood, GrabFood) */}
+          <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 text-slate-800 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between font-bold text-amber-950 border-b border-amber-200 pb-1">
+              <span>🛵 Saldo Merchant Online (Ojol / App):</span>
+              <span className="font-mono font-black">
+                {formatRupiah(
+                  (calculatedShift.total_shopeefood_masuk || 0) +
+                    (calculatedShift.total_gofood_masuk || 0) +
+                    (calculatedShift.total_grabfood_masuk || 0)
+                )}
+              </span>
+            </div>
+            <div className="flex justify-between text-slate-700 text-[11px]">
+              <span>• ShopeeFood / ShopeePay:</span>
+              <span className="font-mono font-semibold">+{formatRupiah(calculatedShift.total_shopeefood_masuk || 0)}</span>
+            </div>
+            <div className="flex justify-between text-slate-700 text-[11px]">
+              <span>• GoFood (GoBiz / GoPay):</span>
+              <span className="font-mono font-semibold">+{formatRupiah(calculatedShift.total_gofood_masuk || 0)}</span>
+            </div>
+            <div className="flex justify-between text-slate-700 text-[11px]">
+              <span>• GrabFood (GrabMerchant):</span>
+              <span className="font-mono font-semibold">+{formatRupiah(calculatedShift.total_grabfood_masuk || 0)}</span>
+            </div>
+          </div>
+
+          {/* Total Omzet Shift Ini */}
+          <div className="px-3.5 py-2.5 rounded-2xl bg-emerald-900 text-white flex items-center justify-between text-xs shadow-soft-sm">
+            <div>
+              <span className="font-extrabold block">Total Omzet Penjualan Shift Ini</span>
+              <span className="text-[10px] text-emerald-200">
+                Tunai + QRIS/Transfer + Shopee/Go/Grab ({calculatedShift.total_transaksi_shift || 0} struk lunas)
+              </span>
+            </div>
+            <span className="font-mono font-black text-base tabular-nums">
+              {formatRupiah(
+                (calculatedShift.total_tunai_masuk || 0) +
+                  (calculatedShift.total_qris_masuk || 0) +
+                  (calculatedShift.total_transfer_masuk || 0) +
+                  (calculatedShift.total_shopeefood_masuk || 0) +
+                  (calculatedShift.total_gofood_masuk || 0) +
+                  (calculatedShift.total_grabfood_masuk || 0)
+              )}
+            </span>
           </div>
 
           {/* Physical Cash Input */}

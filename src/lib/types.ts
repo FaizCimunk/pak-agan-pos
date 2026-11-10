@@ -125,6 +125,10 @@ export interface Shift {
   total_tunai_masuk: number;
   total_qris_masuk: number;
   total_transfer_masuk: number;
+  total_shopeefood_masuk?: number;
+  total_gofood_masuk?: number;
+  total_grabfood_masuk?: number;
+  total_transaksi_shift?: number;
   total_belanja_approved: number;
   total_kasbon_approved: number;
   saldo_akhir_sistem: number;

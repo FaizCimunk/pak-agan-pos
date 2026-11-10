@@ -75,6 +75,7 @@ export default function PosPage() {
   const router = useRouter();
   const currentCabangRef = useRef<Cabang | null>(null);
   currentCabangRef.current = currentCabang;
+  const hasPromptedInitialShiftRef = useRef<boolean>(false);
 
   // Initial Load & Device Binding
   const loadData = useCallback(async () => {
@@ -126,6 +127,11 @@ export default function PosPage() {
       if (targetCabang) {
         const shift = await db.getActiveShift(targetCabang.id);
         setActiveShift(shift);
+        // Wajibkan kasir mengisi modal awal kasir saat baru buka toko / belum ada shift aktif
+        if (!shift && !hasPromptedInitialShiftRef.current) {
+          hasPromptedInitialShiftRef.current = true;
+          setIsShiftOpenOpen(true);
+        }
         const kars = await db.getKaryawanByCabang(targetCabang.id);
         setKaryawanList(kars);
         const bills = await db.getOpenBills(targetCabang.id);
@@ -510,6 +516,9 @@ export default function PosPage() {
         metode_bayar: method,
         bayar,
         kembali,
+        shift_id: activeShift?.id,
+        karyawan_id: activeShift?.karyawan_id,
+        karyawan_nama: activeShift?.karyawan_nama,
       });
       setSelectedBillForPayment(null);
       setEditingBill(null);
