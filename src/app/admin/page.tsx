@@ -2410,8 +2410,8 @@ export default function AdminDashboardPage() {
                                   </td>
                                   <td className="py-3 px-4 font-mono text-[11px] text-slate-700 whitespace-nowrap">
                                     <span className="font-bold block">{abs.tanggal}</span>
-                                    <span className="text-[10px] text-slate-400">
-                                      {abs.jam_masuk} - {abs.jam_pulang || 'Shift Selesai'}
+                                    <span className="text-[10px] text-slate-400 font-sans">
+                                      Buka – Tutup Toko
                                     </span>
                                   </td>
                                   <td className="py-3 px-4">
@@ -2426,7 +2426,7 @@ export default function AdminDashboardPage() {
                                         ? 'bg-amber-50 text-amber-800 border border-amber-200'
                                         : 'bg-rose-50 text-rose-800 border border-rose-200'
                                     }`}>
-                                      {abs.status === 'setengah_hari' ? '1/2 Hari' : abs.status}
+                                      {abs.status === 'setengah_hari' ? 'Setengah Hari' : abs.status}
                                     </span>
                                   </td>
                                   <td className="py-3 px-4 text-right font-mono tabular-nums whitespace-nowrap">

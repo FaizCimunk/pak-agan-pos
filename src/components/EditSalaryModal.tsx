@@ -6,8 +6,6 @@ import { Karyawan } from '@/lib/types';
 import { db } from '@/lib/db';
 import { formatRupiah, formatNominal, parseNominal, formatKaryawanRole } from '@/lib/utils';
 
-const BANK_OPTIONS = ['DANA', 'BCA', 'BRI', 'Mandiri', 'BNI', 'SeaBank', 'GoPay', 'Tunai'];
-
 interface EditSalaryModalProps {
   karyawan: Karyawan;
   onClose: () => void;
@@ -23,7 +21,7 @@ export default function EditSalaryModal({
   const [gajiMingguan, setGajiMingguan] = useState<number>((karyawan.gaji_harian || 100000) * 6);
   const [tabunganMingguan, setTabunganMingguan] = useState<number>(karyawan.tabungan_rutin_mingguan ?? 0);
   const [plafonKasbon, setPlafonKasbon] = useState<number>(karyawan.plafon_kasbon || 500000);
-  const [bankNama, setBankNama] = useState<string>(karyawan.bank_nama || 'DANA');
+  const [bankNama, setBankNama] = useState<string>(karyawan.bank_nama || '');
   const [noRekening, setNoRekening] = useState<string>(karyawan.no_rekening || '');
   const [atasNamaRek, setAtasNamaRek] = useState<string>(karyawan.atas_nama_rekening || karyawan.nama || '');
   const [telepon, setTelepon] = useState<string>(karyawan.telepon || '');
@@ -307,44 +305,44 @@ export default function EditSalaryModal({
             <div className="flex items-center justify-between">
               <span className="font-extrabold text-sky-950 flex items-center space-x-1.5 text-xs">
                 <CreditCard className="w-4 h-4 text-sky-700" />
-                <span>Rekening Bank / DANA &amp; No. WA Transfer Gaji:</span>
+                <span>Rekening Bank / Kirim Gaji &amp; No. WA:</span>
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
-              {BANK_OPTIONS.map((b) => (
-                <button
-                  key={b}
-                  type="button"
-                  onClick={() => setBankNama(b)}
-                  className={`px-2 py-1 rounded-lg text-[10px] font-extrabold border transition-all ${
-                    bankNama === b
-                      ? 'bg-sky-700 text-white border-sky-800 shadow-2xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-sky-100/60'
-                  }`}
-                >
-                  {b}
-                </button>
-              ))}
+            <div>
+              <label className="text-[10.5px] font-bold text-slate-700 block mb-1">
+                Nama Bank / Aplikasi / Metode Kirim (Isi Sendiri):
+              </label>
+              <input
+                type="text"
+                value={bankNama}
+                onChange={(e) => setBankNama(e.target.value)}
+                placeholder="Ketik sendiri: DANA, BCA, BRI, BSI, OVO, SeaBank, Tunai..."
+                className="w-full px-3 py-1.5 bg-white border border-sky-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-sky-600"
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <label className="text-[10.5px] font-bold text-slate-700 block mb-1">
-                  {bankNama === 'Tunai' ? 'Keterangan:' : `Nomor ${bankNama}:`}
+                  {bankNama.trim()
+                    ? bankNama.trim().toLowerCase() === 'tunai'
+                      ? 'Keterangan Kirim:'
+                      : `Nomor ${bankNama.trim()}:`
+                    : 'Nomor Rekening / Tujuan:'}
                 </label>
                 <input
                   type="text"
                   value={noRekening}
                   onChange={(e) => setNoRekening(e.target.value)}
-                  placeholder={bankNama === 'DANA' || bankNama === 'GoPay' ? '0812xxxxxxxx' : 'Nomor rekening'}
+                  placeholder="No. rekening / No. HP / keterangan"
                   className="w-full px-3 py-1.5 bg-white border border-sky-200 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-sky-600"
                 />
               </div>
 
               <div>
                 <label className="text-[10.5px] font-bold text-slate-700 block mb-1">
-                  Atas Nama Rekening:
+                  Atas Nama Penerima:
                 </label>
                 <input
                   type="text"

@@ -57,9 +57,16 @@ export default function BranchAttendanceModal({
   const [isAddingNewName, setIsAddingNewName] = useState<boolean>(false);
   const [newNama, setNewNama] = useState<string>('');
   const [newRole, setNewRole] = useState<string>('Kitchen Serabi');
-  const [newUpah, setNewUpah] = useState<number>(100000);
-  const [newJamMasuk, setNewJamMasuk] = useState<string>('16:00');
-  const [newJamPulang, setNewJamPulang] = useState<string>('23:30');
+  const [newUpah] = useState<number>(100000);
+
+  const defaultStoreOpenTime = activeShift?.waktu_buka
+    ? new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(new Date(activeShift.waktu_buka))
+    : '08:00';
 
   // Load workers for this branch & records on selected date
   const loadBranchData = async () => {
@@ -77,8 +84,8 @@ export default function BranchAttendanceModal({
       // 1. Masukkan staf yang sudah punya catatan absensi di tanggal ini
       existingRecords.forEach(rec => {
         const staffObj = allStaff.find(s => s.id === rec.karyawan_id);
-        const jamMasuk = rec.jam_masuk || '16:00';
-        const jamPulang = rec.jam_pulang || '23:30';
+        const jamMasuk = rec.jam_masuk || defaultStoreOpenTime;
+        const jamPulang = rec.jam_pulang || '22:00';
         const status = rec.status || 'hadir';
         list.push({
           karyawan_id: rec.karyawan_id,
@@ -89,7 +96,7 @@ export default function BranchAttendanceModal({
           status,
           jam_masuk: jamMasuk,
           jam_pulang: jamPulang,
-          catatan: rec.catatan || '',
+          catatan: rec.catatan && !rec.catatan.includes('Shift Sore-Malam') ? rec.catatan : '',
           approval_status: rec.approval_status || 'approved',
           alasan_penolakan: rec.alasan_penolakan,
           initialSnapshot: `${status}|${jamMasuk}|${jamPulang}`,
@@ -106,9 +113,9 @@ export default function BranchAttendanceModal({
             tipe_gaji: 'harian',
             gaji_harian: st.gaji_harian || (st.gaji_pokok ? Math.round(st.gaji_pokok / 6) : 100000),
             status: 'hadir',
-            jam_masuk: '16:00',
-            jam_pulang: '23:30',
-            catatan: 'Shift Sore-Malam',
+            jam_masuk: defaultStoreOpenTime,
+            jam_pulang: '22:00',
+            catatan: '',
           });
         }
       });
@@ -156,9 +163,9 @@ export default function BranchAttendanceModal({
       tipe_gaji: 'harian',
       gaji_harian: Number(newUpah) || 100000,
       status: 'hadir',
-      jam_masuk: newJamMasuk || '16:00',
-      jam_pulang: newJamPulang || '23:30',
-      catatan: 'Shift Sore-Malam (Staf Tambahan)',
+      jam_masuk: defaultStoreOpenTime,
+      jam_pulang: '22:00',
+      catatan: 'Buka - Tutup Toko',
     };
 
     setWorkersList(prev => [...prev, newWorkerEntry]);
@@ -172,16 +179,9 @@ export default function BranchAttendanceModal({
       return {
         ...w,
         status,
-        jam_masuk: status === 'hadir' || status === 'setengah_hari' ? (w.jam_masuk || '16:00') : '',
-        jam_pulang: status === 'hadir' ? (w.jam_pulang || '23:30') : status === 'setengah_hari' ? '20:00' : '',
+        jam_masuk: status === 'hadir' || status === 'setengah_hari' ? (w.jam_masuk || defaultStoreOpenTime) : '',
+        jam_pulang: status === 'hadir' ? (w.jam_pulang || '22:00') : status === 'setengah_hari' ? '15:00' : '',
       };
-    }));
-  };
-
-  const updateWorkerField = (karyawanId: string, field: keyof WorkerAttendanceState, val: any) => {
-    setWorkersList(prev => prev.map(w => {
-      if (w.karyawan_id !== karyawanId) return w;
-      return { ...w, [field]: val };
     }));
   };
 
@@ -197,7 +197,9 @@ export default function BranchAttendanceModal({
     setSaving(true);
     try {
       const entries = workersList.map(w => {
-        const currentSnapshot = `${w.status}|${w.jam_masuk || '16:00'}|${w.jam_pulang || '23:30'}`;
+        const jMasuk = w.jam_masuk || defaultStoreOpenTime;
+        const jPulang = w.jam_pulang || '22:00';
+        const currentSnapshot = `${w.status}|${jMasuk}|${jPulang}`;
         const preserveApproved = w.approval_status === 'approved' && w.initialSnapshot === currentSnapshot;
         return {
           karyawan_id: w.karyawan_id,
@@ -205,8 +207,8 @@ export default function BranchAttendanceModal({
           cabang_id: cabang.id,
           cabang_nama: cabang.nama,
           tanggal: selectedDate,
-          jam_masuk: w.jam_masuk || '16:00',
-          jam_pulang: w.jam_pulang || '23:30',
+          jam_masuk: jMasuk,
+          jam_pulang: jPulang,
           status: w.status,
           upah_harian: Number(w.gaji_harian) || 100000,
           catatan: w.catatan,
@@ -334,34 +336,6 @@ export default function BranchAttendanceModal({
                     <option value="Staf Serabutan">Staf Serabutan / Bantuan</option>
                   </select>
                 </div>
-
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Jam Masuk
-                    </label>
-                    <input
-                      type="text"
-                      value={newJamMasuk}
-                      onChange={(e) => setNewJamMasuk(e.target.value)}
-                      placeholder="16:00"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-center text-slate-800 outline-none focus:border-brand-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Jam Pulang
-                    </label>
-                    <input
-                      type="text"
-                      value={newJamPulang}
-                      onChange={(e) => setNewJamPulang(e.target.value)}
-                      placeholder="23:30"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-center text-slate-800 outline-none focus:border-brand-primary"
-                    />
-                  </div>
-                </div>
               </div>
 
               <div className="flex justify-end pt-1">
@@ -411,41 +385,36 @@ export default function BranchAttendanceModal({
                   {/* Top Bar Staf */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div className="flex items-center space-x-2.5">
-                      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-xs">
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-xs shrink-0">
                         {worker.karyawan_nama.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="font-extrabold text-slate-900 text-sm">
-                            {worker.karyawan_nama}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-extrabold text-slate-900 text-sm">
+                          {worker.karyawan_nama}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
+                          {worker.role}
+                        </span>
+                        {worker.approval_status === 'approved' && (
+                          <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ✓ Di-ACC Pusat
                           </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
-                            {worker.role}
+                        )}
+                        {worker.approval_status === 'pending' && (
+                          <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
+                            ⏳ Menunggu ACC
                           </span>
-                          {worker.approval_status === 'approved' && (
-                            <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              ✓ Di-ACC Pusat
-                            </span>
-                          )}
-                          {worker.approval_status === 'pending' && (
-                            <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
-                              ⏳ Menunggu ACC
-                            </span>
-                          )}
-                          {worker.approval_status === 'rejected' && (
-                            <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                              ✕ Ditolak Pusat
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5 font-mono">
-                          <span>🕒 Shift: {worker.jam_masuk} - {worker.jam_pulang}</span>
-                        </div>
+                        )}
+                        {worker.approval_status === 'rejected' && (
+                          <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                            ✕ Ditolak Pusat
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    {/* Status Presensi */}
-                    <div className="flex items-center space-x-1">
+                    {/* Status Presensi (Buka - Tutup Toko) */}
+                    <div className="flex items-center flex-wrap gap-1.5">
                       {(['hadir', 'setengah_hari', 'izin', 'sakit', 'alpa'] as const).map(st => {
                         const isSelected = worker.status === st;
                         let activeStyle = '';
@@ -455,7 +424,7 @@ export default function BranchAttendanceModal({
                           label = 'Hadir';
                         } else if (st === 'setengah_hari') {
                           activeStyle = 'bg-sky-600 text-white shadow-xs';
-                          label = '1/2 Hari';
+                          label = 'Setengah Hari Kerja';
                         } else if (st === 'izin') {
                           activeStyle = 'bg-amber-500 text-white shadow-xs';
                           label = 'Izin';
@@ -472,7 +441,7 @@ export default function BranchAttendanceModal({
                             key={st}
                             type="button"
                             onClick={() => updateWorkerStatus(worker.karyawan_id, st)}
-                            className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold transition-all btn-tactile ${
+                            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold transition-all btn-tactile whitespace-nowrap ${
                               isSelected 
                                 ? activeStyle 
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -487,43 +456,11 @@ export default function BranchAttendanceModal({
                       <button
                         type="button"
                         onClick={() => handleRemoveWorker(worker.karyawan_id, worker.karyawan_nama)}
-                        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-1"
+                        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-auto sm:ml-1"
                         title="Hapus dari daftar hari ini"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    </div>
-                  </div>
-
-                  {/* Jam Kerja & Catatan */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-[11px] text-slate-400 font-medium">Jam:</span>
-                      <input
-                        type="text"
-                        value={worker.jam_masuk}
-                        onChange={(e) => updateWorkerField(worker.karyawan_id, 'jam_masuk', e.target.value)}
-                        placeholder="16:00"
-                        className="w-16 px-2 py-1 text-center bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-800 text-[11px]"
-                      />
-                      <span className="text-slate-300">-</span>
-                      <input
-                        type="text"
-                        value={worker.jam_pulang}
-                        onChange={(e) => updateWorkerField(worker.karyawan_id, 'jam_pulang', e.target.value)}
-                        placeholder="23:30"
-                        className="w-16 px-2 py-1 text-center bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-800 text-[11px]"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <input
-                        type="text"
-                        placeholder="Catatan tugas (opsional, misal: lembur 1 jam)"
-                        value={worker.catatan}
-                        onChange={(e) => updateWorkerField(worker.karyawan_id, 'catatan', e.target.value)}
-                        className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-[11px] placeholder:text-slate-400 outline-none focus:border-brand-primary"
-                      />
                     </div>
                   </div>
                 </div>

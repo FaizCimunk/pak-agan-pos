@@ -20,8 +20,6 @@ interface CreateKaryawanModalProps {
   onSuccess: () => void;
 }
 
-const BANK_OPTIONS = ['DANA', 'BCA', 'BRI', 'Mandiri', 'BNI', 'SeaBank', 'GoPay', 'Tunai'];
-
 export default function CreateKaryawanModal({
   cabangList,
   defaultCabangId,
@@ -34,7 +32,7 @@ export default function CreateKaryawanModal({
   );
   const [role, setRole] = useState<'kasir' | 'kitchen'>('kasir');
   const [telepon, setTelepon] = useState<string>('');
-  const [bankNama, setBankNama] = useState<string>('DANA');
+  const [bankNama, setBankNama] = useState<string>('');
   const [noRekening, setNoRekening] = useState<string>('');
   const [atasNamaRek, setAtasNamaRek] = useState<string>('');
   const [gajiHarianDisplay, setGajiHarianDisplay] = useState<string>('100.000');
@@ -52,7 +50,9 @@ export default function CreateKaryawanModal({
     const uHarian = parseNominal(gajiHarianDisplay) || 100000;
     const plafon = parseNominal(plafonKasbonDisplay) || 500000;
     const tabungan = parseNominal(tabunganMingguanDisplay) || 0;
-    const cleanPhone = telepon.trim() || (bankNama === 'DANA' && noRekening.trim() ? noRekening.trim() : '0812-0000-0000');
+    const cleanPhone =
+      telepon.trim() ||
+      (bankNama.toLowerCase().includes('dana') && noRekening.trim() ? noRekening.trim() : '0812-0000-0000');
 
     setSaving(true);
     try {
@@ -190,46 +190,45 @@ export default function CreateKaryawanModal({
             </div>
           </div>
 
-          {/* Rekening Bank / DANA Tujuan Transfer */}
+          {/* Rekening Bank / Tujuan Transfer */}
           <div className="p-3.5 bg-sky-50/70 rounded-2xl border border-sky-200 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold text-sky-950 flex items-center space-x-1.5">
                 <CreditCard className="w-3.5 h-3.5 text-sky-700" />
-                <span>Rekening Bank / DANA Tujuan Transfer Gaji:</span>
+                <span>Rekening Bank / Tujuan Kirim Gaji:</span>
               </span>
               <span className="text-[9px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-bold">
                 Siap Transfer Mingguan
               </span>
             </div>
 
-            {/* Pilihan Cepat Channel */}
-            <div className="flex flex-wrap gap-1.5">
-              {BANK_OPTIONS.map((b) => (
-                <button
-                  key={b}
-                  type="button"
-                  onClick={() => setBankNama(b)}
-                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-extrabold border transition-all ${
-                    bankNama === b
-                      ? 'bg-sky-700 text-white border-sky-800 shadow-2xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-sky-100/60'
-                  }`}
-                >
-                  {b}
-                </button>
-              ))}
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                Nama Bank / Aplikasi / Metode Kirim (Isi Sendiri):
+              </label>
+              <input
+                type="text"
+                value={bankNama}
+                onChange={(e) => setBankNama(e.target.value)}
+                placeholder="Ketik sendiri: DANA, BCA, BRI, BSI, OVO, SeaBank, Tunai..."
+                className="w-full px-3 py-1.5 bg-white border border-sky-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-sky-600"
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  {bankNama === 'Tunai' ? 'Keterangan Pembayaran:' : `Nomor ${bankNama}:`}
+                  {bankNama.trim()
+                    ? bankNama.trim().toLowerCase() === 'tunai'
+                      ? 'Keterangan Pembayaran:'
+                      : `Nomor ${bankNama.trim()}:`
+                    : 'Nomor Rekening / Tujuan:'}
                 </label>
                 <input
                   type="text"
                   value={noRekening}
                   onChange={(e) => setNoRekening(e.target.value)}
-                  placeholder={bankNama === 'DANA' || bankNama === 'GoPay' ? 'Contoh: 081234567890' : bankNama === 'Tunai' ? 'Serah Tunai Langsung' : 'Contoh: 1234567890'}
+                  placeholder="No. rekening / No. HP / keterangan"
                   className="w-full px-3 py-1.5 bg-white border border-sky-200 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-sky-600"
                 />
               </div>
