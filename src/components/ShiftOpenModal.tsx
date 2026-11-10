@@ -19,8 +19,6 @@ export default function ShiftOpenModal({
   onClose,
   onSuccess,
 }: ShiftOpenModalProps) {
-  const defaultPjOptionId = `pj-${cabang.id}`;
-  const [selectedKaryawanId, setSelectedKaryawanId] = useState<string>(defaultPjOptionId);
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [modalAwalInput, setModalAwalInput] = useState<string>('');
@@ -43,6 +41,9 @@ export default function ShiftOpenModal({
   const isSubmittingRef = useRef<boolean>(false);
 
   const pjNamaPusat = cabang.pj_nama?.trim() || cabang.kasir_username || `PJ ${cabang.nama}`;
+  const matchedWorker = karyawanList.find(
+    k => k.nama.toLowerCase().trim() === pjNamaPusat.toLowerCase().trim()
+  );
 
   const handleOpenShift = async () => {
     if (isSubmittingRef.current || loading) return;
@@ -61,35 +62,15 @@ export default function ShiftOpenModal({
     setLoading(true);
     try {
       const branchPass = (cabang.kasir_password_plain || '').trim();
-      let finalKaryawanId = '';
-      let finalKaryawanNama = '';
-
-      if (selectedKaryawanId === defaultPjOptionId || selectedKaryawanId.startsWith('kasir-')) {
-        if (!branchPass || cleanPass !== branchPass) {
-          setErrorMsg('Password Kasir Toko salah! Gunakan password resmi cabang yang diatur dari Dashboard Pusat.');
-          setLoading(false);
-          isSubmittingRef.current = false;
-          return;
-        }
-        // Cocokkan ID pekerja jika nama PJ dari Pusat berasal dari pekerja cabang
-        const matchedWorker = karyawanList.find(
-          k => k.nama.toLowerCase().trim() === pjNamaPusat.toLowerCase().trim()
-        );
-        finalKaryawanId = matchedWorker?.id || `kasir-${cabang.id}`;
-        finalKaryawanNama = matchedWorker?.nama || pjNamaPusat;
-      } else {
-        const pickedKar = karyawanList.find(k => k.id === selectedKaryawanId);
-        const verify = await db.verifyKaryawanPin(selectedKaryawanId, cleanPass);
-        const isBranchPassMatched = Boolean(branchPass && cleanPass === branchPass);
-        if (!verify.valid && !isBranchPassMatched) {
-          setErrorMsg('Password salah! Masukkan Password Kasir Toko atau Password pribadi staf dari Pusat.');
-          setLoading(false);
-          isSubmittingRef.current = false;
-          return;
-        }
-        finalKaryawanId = selectedKaryawanId;
-        finalKaryawanNama = verify.karyawan?.nama || pickedKar?.nama || pjNamaPusat;
+      if (!branchPass || cleanPass !== branchPass) {
+        setErrorMsg('Password Kasir Toko salah! Gunakan password resmi cabang yang diatur dari Dashboard Pusat.');
+        setLoading(false);
+        isSubmittingRef.current = false;
+        return;
       }
+
+      const finalKaryawanId = matchedWorker?.id || `kasir-${cabang.id}`;
+      const finalKaryawanNama = matchedWorker?.nama || pjNamaPusat;
 
       const shift = await db.openShift({
         cabang_id: cabang.id,
@@ -178,30 +159,28 @@ export default function ShiftOpenModal({
             </div>
           )}
 
-          {/* PJ Selector (Utama diatur dari Dashboard Pusat) */}
+          {/* PJ Toko Terkunci dari Dashboard Pusat (Tidak bisa diubah dari kasir) */}
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1.5 flex items-center space-x-1">
               <UserCheck className="w-3.5 h-3.5 text-brand-primary" />
               <span>Penanggung Jawab (PJ) Toko (Diatur Pusat)</span>
             </label>
-            <select
-              value={selectedKaryawanId}
-              onChange={(e) => setSelectedKaryawanId(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary cursor-pointer"
-            >
-              <option value={defaultPjOptionId}>
-                🏢 {pjNamaPusat} (PJ Resmi Pusat)
-              </option>
-              {karyawanList
-                .filter(k => k.id !== `kasir-${cabang.id}` && k.nama.toLowerCase().trim() !== pjNamaPusat.toLowerCase().trim())
-                .map(kar => (
-                  <option key={kar.id} value={kar.id}>
-                    👤 {kar.nama} ({kar.role.toUpperCase()})
-                  </option>
-                ))}
-            </select>
+            <div className="w-full px-3.5 py-2.5 bg-emerald-50/70 rounded-xl border border-emerald-200 flex items-center justify-between gap-2 select-none">
+              <div className="min-w-0">
+                <div className="text-xs font-extrabold text-slate-900 truncate">
+                  {matchedWorker?.nama || pjNamaPusat}
+                </div>
+                <div className="text-[10.5px] font-medium text-emerald-800 truncate">
+                  {cabang.pj_telepon ? `WA: ${cabang.pj_telepon}` : 'PJ Resmi Cabang'}
+                </div>
+              </div>
+              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-emerald-800 text-[10px] font-extrabold shrink-0">
+                <Lock className="w-2.5 h-2.5" />
+                <span>Terkunci Pusat</span>
+              </span>
+            </div>
             <p className="text-[10.5px] text-slate-400 mt-1">
-              *Nama PJ default mengikuti pengaturan cabang dari Dashboard Pusat.
+              *PJ toko hanya bisa diganti oleh Admin Pusat melalui menu Identitas Toko &amp; Struk.
             </p>
           </div>
 
