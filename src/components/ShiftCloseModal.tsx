@@ -21,6 +21,7 @@ interface ShiftCloseModalProps {
   cabang: Cabang;
   onClose: () => void;
   onSuccess: (closedShift: Shift) => void;
+  onShiftBalanceUpdated?: (refreshedShift: Shift) => void;
 }
 
 export default function ShiftCloseModal({
@@ -28,9 +29,10 @@ export default function ShiftCloseModal({
   cabang,
   onClose,
   onSuccess,
+  onShiftBalanceUpdated,
 }: ShiftCloseModalProps) {
   const [calculatedShift, setCalculatedShift] = useState<Shift>(shift);
-  const [saldoFisik, setSaldoFisik] = useState<number>(0);
+  const [saldoFisik, setSaldoFisik] = useState<number>(shift.saldo_akhir_sistem);
   const [catatan, setCatatan] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [showDenomHelper, setShowDenomHelper] = useState<boolean>(false);
@@ -50,28 +52,44 @@ export default function ShiftCloseModal({
     500: 0,
   });
 
-  // Calculate real-time shift numbers on mount
+  // Calculate real-time shift numbers on mount (instan dari cache lokal + segarkan dari cloud)
   useEffect(() => {
+    let cancelled = false;
     async function loadNumbers() {
-      const refreshed = await db.calculateShiftBalance(shift);
-      setCalculatedShift(refreshed);
-      // Pre-fill physical with system balance for easy counting
-      setSaldoFisik(refreshed.saldo_akhir_sistem);
+      // 1. Hydrate segera data lokal agar daftar "Bayar Nanti" & "Menunggu ACC" langsung terlihat tanpa tunggu jaringan
+      try {
+        const cachedExp = db.getPengeluaranListCached(cabang.id);
+        setPendingList(cachedExp.filter(e => e.status === 'pending'));
+        const localBills = await db.getOpenBills(cabang.id);
+        if (!cancelled) setUnpaidBills(localBills);
+      } catch (e) {
+        console.warn('Pre-load open bills/pending warning:', e);
+      }
 
+      // 2. Segarkan perhitungan kas sistem + daftar pengajuan pending terbaru dari Supabase
       try {
         const [allExp, openBillsList] = await Promise.all([
           db.getPengeluaranList(cabang.id),
           db.getOpenBills(cabang.id),
         ]);
-        const pending = allExp.filter(e => e.status === 'pending');
-        setPendingList(pending);
+        if (cancelled) return;
+        setPendingList(allExp.filter(e => e.status === 'pending'));
         setUnpaidBills(openBillsList);
+
+        const refreshed = await db.calculateShiftBalance(shift, { expenses: allExp });
+        if (cancelled) return;
+        setCalculatedShift(refreshed);
+        setSaldoFisik(refreshed.saldo_akhir_sistem);
+        onShiftBalanceUpdated?.(refreshed);
       } catch (err) {
-        console.warn('Failed loading pending expenses / open bills:', err);
+        console.warn('Failed loading shift closing numbers:', err);
       }
     }
     loadNumbers();
-  }, [shift, cabang.id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [shift.id, cabang.id]);
 
   const handleDenomChange = (denom: number, count: number) => {
     const nextCounts = { ...counts, [denom]: Math.max(0, count) };
@@ -180,15 +198,25 @@ export default function ShiftCloseModal({
 
           {/* Pending Expense Alert Banner (Belanja Toko & Kasbon Belum Di-Approve) */}
           {pendingList.length > 0 && (
-            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-1.5 shadow-2xs">
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-2 shadow-2xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center space-x-1.5 font-extrabold text-amber-950">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Ada {pendingList.length} Pengajuan Berstatus Menunggu (Pending)</span>
+                  <span>Ada {pendingList.length} Pengajuan Menunggu ACC Owner</span>
                 </div>
                 <span className="font-mono font-black text-amber-950 bg-amber-200/80 px-2 py-0.5 rounded-md text-[11px] shrink-0">
                   {formatRupiah(pendingList.reduce((s, e) => s + Number(e.nominal || 0), 0))}
                 </span>
+              </div>
+              <div className="bg-white/80 rounded-xl border border-amber-200 p-2 space-y-1 max-h-24 overflow-y-auto">
+                {pendingList.map((exp) => (
+                  <div key={exp.id} className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-slate-800 truncate pr-2">
+                      • [{exp.jenis === 'kasbon' ? 'Kasbon' : 'Belanja'}] {exp.keperluan || exp.pemohon_nama}
+                    </span>
+                    <span className="font-mono font-bold text-amber-800 shrink-0">{formatRupiah(exp.nominal)}</span>
+                  </div>
+                ))}
               </div>
               <p className="text-[11px] leading-relaxed text-amber-800">
                 Sesuai SOP, pengajuan yang belum di-ACC Admin Pusat <b>TIDAK memotong saldo laci saat tutup shift ini</b>. Jika Admin Pusat telat membuka Peninjauan dan meng-ACC di hari berikutnya, nominal tetap otomatis tercatat ke <b>tanggal pengajuan &amp; shift hari ini</b>.
@@ -350,6 +378,24 @@ export default function ShiftCloseModal({
               </div>
             )}
           </div>
+
+          {/* Ringkasan Peringatan Cepat di Bagian Bawah agar Kasir Tidak Terlewat Saat Scroll */}
+          {(pendingList.length > 0 || unpaidBills.length > 0) && (
+            <div className="p-2.5 rounded-xl bg-slate-900 text-white text-[11px] flex flex-wrap items-center justify-between gap-2">
+              {pendingList.length > 0 && (
+                <span className="inline-flex items-center gap-1 font-bold text-amber-300">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  {pendingList.length} Pengajuan Menunggu ACC ({formatRupiah(pendingList.reduce((s, e) => s + Number(e.nominal || 0), 0))})
+                </span>
+              )}
+              {unpaidBills.length > 0 && (
+                <span className="inline-flex items-center gap-1 font-bold text-rose-300">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  {unpaidBills.length} Bayar Nanti Belum Lunas ({formatRupiah(unpaidBills.reduce((s, b) => s + Number(b.total || 0), 0))})
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Selisih Indicator */}
           <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-bold ${

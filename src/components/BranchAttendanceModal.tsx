@@ -70,59 +70,69 @@ export default function BranchAttendanceModal({
       }).format(new Date(activeShift.waktu_buka))
     : '08:00';
 
-  // Load workers for this branch & records on selected date
+  const buildWorkersList = (allStaff: any[], existingRecords: any[]): WorkerAttendanceState[] => {
+    const branchStaff = allStaff.filter(k => isBranchMatch(k.cabang_id, cabang.id) && k.role !== 'owner');
+    const list: WorkerAttendanceState[] = [];
+
+    // 1. Masukkan staf yang sudah punya catatan absensi di tanggal ini
+    existingRecords.forEach(rec => {
+      const staffObj = allStaff.find(s => s.id === rec.karyawan_id);
+      const jamMasuk = rec.jam_masuk || defaultStoreOpenTime;
+      const jamPulang = rec.jam_pulang || '22:00';
+      const status = rec.status || 'hadir';
+      list.push({
+        karyawan_id: rec.karyawan_id,
+        karyawan_nama: rec.karyawan_nama || staffObj?.nama || 'Staf Harian',
+        role: staffObj?.role || 'helper',
+        tipe_gaji: 'harian',
+        gaji_harian: rec.upah_harian_terhitung || staffObj?.gaji_harian || 100000,
+        status,
+        jam_masuk: jamMasuk,
+        jam_pulang: jamPulang,
+        catatan: rec.catatan && !rec.catatan.includes('Shift Sore-Malam') ? rec.catatan : '',
+        approval_status: rec.approval_status || 'approved',
+        alasan_penolakan: rec.alasan_penolakan,
+        initialSnapshot: `${status}|${jamMasuk}|${jamPulang}`,
+      });
+    });
+
+    // 2. Tambahkan staf cabang reguler yang belum masuk ke absensi hari ini
+    branchStaff.forEach(st => {
+      if (!list.some(item => item.karyawan_id === st.id)) {
+        list.push({
+          karyawan_id: st.id,
+          karyawan_nama: st.nama,
+          role: st.role,
+          tipe_gaji: 'harian',
+          gaji_harian: st.gaji_harian || (st.gaji_pokok ? Math.round(st.gaji_pokok / 6) : 100000),
+          status: 'hadir',
+          jam_masuk: defaultStoreOpenTime,
+          jam_pulang: '22:00',
+          catatan: '',
+        });
+      }
+    });
+
+    return list;
+  };
+
+  // Load workers for this branch & records on selected date (instan dari cache, lalu segarkan dari cloud)
   const loadBranchData = async () => {
-    setLoading(true);
+    const cachedStaff = db.getAllKaryawanCached();
+    const cachedRecords = db.getAbsensiListCached(undefined, cabang.id, selectedDate);
+    if (cachedStaff.length > 0 || cachedRecords.length > 0) {
+      setWorkersList(buildWorkersList(cachedStaff, cachedRecords));
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const [allStaff, existingRecords] = await Promise.all([
         db.getAllKaryawan(),
         db.getAbsensiList(undefined, cabang.id, selectedDate),
       ]);
-
-      const branchStaff = allStaff.filter(k => isBranchMatch(k.cabang_id, cabang.id) && k.role !== 'owner');
-
-      const list: WorkerAttendanceState[] = [];
-
-      // 1. Masukkan staf yang sudah punya catatan absensi di tanggal ini
-      existingRecords.forEach(rec => {
-        const staffObj = allStaff.find(s => s.id === rec.karyawan_id);
-        const jamMasuk = rec.jam_masuk || defaultStoreOpenTime;
-        const jamPulang = rec.jam_pulang || '22:00';
-        const status = rec.status || 'hadir';
-        list.push({
-          karyawan_id: rec.karyawan_id,
-          karyawan_nama: rec.karyawan_nama || staffObj?.nama || 'Staf Harian',
-          role: staffObj?.role || 'helper',
-          tipe_gaji: 'harian',
-          gaji_harian: rec.upah_harian_terhitung || staffObj?.gaji_harian || 100000,
-          status,
-          jam_masuk: jamMasuk,
-          jam_pulang: jamPulang,
-          catatan: rec.catatan && !rec.catatan.includes('Shift Sore-Malam') ? rec.catatan : '',
-          approval_status: rec.approval_status || 'approved',
-          alasan_penolakan: rec.alasan_penolakan,
-          initialSnapshot: `${status}|${jamMasuk}|${jamPulang}`,
-        });
-      });
-
-      // 2. Tambahkan staf cabang reguler yang belum masuk ke absensi hari ini
-      branchStaff.forEach(st => {
-        if (!list.some(item => item.karyawan_id === st.id)) {
-          list.push({
-            karyawan_id: st.id,
-            karyawan_nama: st.nama,
-            role: st.role,
-            tipe_gaji: 'harian',
-            gaji_harian: st.gaji_harian || (st.gaji_pokok ? Math.round(st.gaji_pokok / 6) : 100000),
-            status: 'hadir',
-            jam_masuk: defaultStoreOpenTime,
-            jam_pulang: '22:00',
-            catatan: '',
-          });
-        }
-      });
-
-      setWorkersList(list);
+      setWorkersList(buildWorkersList(allStaff, existingRecords));
     } finally {
       setLoading(false);
     }

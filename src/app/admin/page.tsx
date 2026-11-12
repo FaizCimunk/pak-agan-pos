@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import AdminSidebar, { AdminTabId } from '@/components/AdminSidebar';
 import ApprovalActionModal from '@/components/ApprovalActionModal';
@@ -210,40 +210,67 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Load All Master Data
-  const refreshAllData = async () => {
-    const cabangs = await db.getCabangList();
-    setCabangList(cabangs);
+  const isRefreshingRef = useRef(false);
+  const queuedRefreshRef = useRef(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const menus = await db.getMenuList();
-    setMenuList(menus);
+  // Load All Master Data (paralel agar menu Approval & Absensi instan tanpa waterfall)
+  const refreshAllData = useCallback(async () => {
+    if (isRefreshingRef.current) {
+      queuedRefreshRef.current = true;
+      return;
+    }
+    isRefreshingRef.current = true;
+    try {
+      const [cabangs, menus, kars, trxs, expenses, payrolls, abs, fcPayments] = await Promise.all([
+        db.getCabangList(),
+        db.getMenuList(),
+        db.getAllKaryawan(),
+        db.getTransaksiList(),
+        db.getPengeluaranList(),
+        db.getPayrollList(),
+        db.getAbsensiList(),
+        db.getFixedCostPayments(),
+      ]);
 
-    const kars = await db.getAllKaryawan();
-    setKaryawanList(kars);
+      setCabangList(cabangs);
+      setMenuList(menus);
+      setKaryawanList(kars);
+      setTransaksiList(trxs);
+      setExpenseList(expenses);
+      setPayrollList(payrolls);
+      setAbsensiList(abs);
+      setFixedCostPayments(fcPayments);
 
-    const trxs = await db.getTransaksiList();
-    setTransaksiList(trxs);
-
-    const expenses = await db.getPengeluaranList();
-    setExpenseList(expenses);
-
-    const payrolls = await db.getPayrollList();
-    setPayrollList(payrolls);
-
-    const abs = await db.getAbsensiList();
-    setAbsensiList(abs);
-
-    const fcPayments = await db.getFixedCostPayments();
-    setFixedCostPayments(fcPayments);
-
-    const shifts = await db.getShiftList();
-    setShiftList(shifts);
-  };
+      const shifts = await db.getShiftList(undefined, {
+        transactions: trxs,
+        expenses,
+        karyawans: kars,
+        cabangs,
+      });
+      setShiftList(shifts);
+    } catch (err) {
+      console.warn('refreshAllData error:', err);
+    } finally {
+      isRefreshingRef.current = false;
+      if (queuedRefreshRef.current) {
+        queuedRefreshRef.current = false;
+        refreshAllData();
+      }
+    }
+  }, []);
 
   useEffect(() => {
     refreshAllData();
 
-    const handleUpdate = () => refreshAllData();
+    const scheduleRefresh = () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => {
+        refreshAllData();
+      }, 150);
+    };
+
+    const handleUpdate = () => scheduleRefresh();
     window.addEventListener('pak_agan_db_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
@@ -252,38 +279,31 @@ export default function AdminDashboardPage() {
     if (isSupabaseConfigured && supabase) {
       channel = supabase
         .channel('admin_live_feed')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'transaksi' }, () => {
-          refreshAllData();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pengeluaran_kasbon' }, () => {
-          refreshAllData();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, () => {
-          refreshAllData();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'shift' }, () => {
-          refreshAllData();
-        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'transaksi' }, scheduleRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pengeluaran_kasbon' }, scheduleRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, scheduleRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'shift' }, scheduleRefresh)
         .subscribe();
     }
 
-    // 2. Polling cadangan setiap 10 detik agar data transaksi live selalu segar (kecuali jika ada modal terbuka)
+    // 2. Polling cadangan setiap 15 detik agar data transaksi live selalu segar (kecuali jika ada modal terbuka)
     const pollInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.querySelector('.fixed.inset-0.z-50')) {
         return; // Jangan refresh saat pengguna sedang mengisi form modal
       }
       refreshAllData();
-    }, 10000);
+    }, 15000);
 
     return () => {
       window.removeEventListener('pak_agan_db_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
       clearInterval(pollInterval);
       if (channel && supabase) {
         supabase.removeChannel(channel);
       }
     };
-  }, []);
+  }, [refreshAllData]);
 
   // Filtered Transaksi
   const filteredTransaksi = useMemo(() => {

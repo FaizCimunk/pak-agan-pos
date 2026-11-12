@@ -33,6 +33,7 @@ interface ExpenseRequestModalProps {
   shift: Shift;
   onClose: () => void;
   onSuccess: (item: PengeluaranKasbon) => void;
+  onRefreshBalance?: (refreshedShift: Shift) => void;
 }
 
 export default function ExpenseRequestModal({
@@ -40,6 +41,7 @@ export default function ExpenseRequestModal({
   shift,
   onClose,
   onSuccess,
+  onRefreshBalance,
 }: ExpenseRequestModalProps) {
   const [activeTab, setActiveTab] = useState<'form' | 'history'>('form');
   const [keperluan, setKeperluan] = useState<string>('');
@@ -59,17 +61,31 @@ export default function ExpenseRequestModal({
     'Beli Daun Pisang Serabi 2 Ikat',
   ];
 
+  const filterShiftExpenses = (list: PengeluaranKasbon[]) => {
+    const shiftOpenDate = getShiftOperationalDate(shift) || toWibBusinessDateString(new Date());
+    return list.filter(e => {
+      if (e.jenis !== 'belanja' && e.jenis !== 'kasbon') return false;
+      const expDate = toWibBusinessDateString(e.tanggal);
+      return expDate === shiftOpenDate || e.shift_id === shift.id;
+    });
+  };
+
   const loadExpenses = async () => {
-    setLoadingHistory(true);
+    const cached = db.getPengeluaranListCached(cabang.id);
+    if (cached.length > 0) {
+      setExpensesList(filterShiftExpenses(cached));
+      setLoadingHistory(false);
+    } else {
+      setLoadingHistory(true);
+    }
+
     try {
       const list = await db.getPengeluaranList(cabang.id);
-      const shiftOpenDate = getShiftOperationalDate(shift) || toWibBusinessDateString(new Date());
-      const filtered = list.filter(e => {
-        if (e.jenis !== 'belanja') return false;
-        const expDate = toWibBusinessDateString(e.tanggal);
-        return expDate === shiftOpenDate || e.shift_id === shift.id;
-      });
-      setExpensesList(filtered);
+      setExpensesList(filterShiftExpenses(list));
+      if (onRefreshBalance) {
+        const refreshed = await db.calculateShiftBalance(shift, { expenses: list });
+        onRefreshBalance(refreshed);
+      }
     } catch (err) {
       console.error('Failed to load expenses history:', err);
     } finally {
@@ -468,10 +484,19 @@ export default function ExpenseRequestModal({
                       {/* Top Meta */}
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <div>
-                          <span className="text-[10px] text-slate-400 font-mono block">
-                            🕒 {formatWaktu(item.tanggal)} • Oleh: {item.pemohon_nama || 'Kasir'}
-                          </span>
-                          <h4 className="font-extrabold text-xs text-slate-900 mt-0.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                              item.jenis === 'kasbon'
+                                ? 'bg-indigo-100 text-indigo-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {item.jenis === 'kasbon' ? 'Kasbon / Ambil Kasir' : 'Belanja Toko'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              🕒 {formatWaktu(item.tanggal)} • Oleh: {item.pemohon_nama || 'Kasir'}
+                            </span>
+                          </div>
+                          <h4 className="font-extrabold text-xs text-slate-900 mt-1">
                             {item.keperluan}
                           </h4>
                         </div>
@@ -479,7 +504,9 @@ export default function ExpenseRequestModal({
                           <span className="text-sm font-mono font-black text-slate-900 block tabular-nums">
                             {formatRupiah(item.nominal)}
                           </span>
-                          <span className="text-[9px] text-slate-400 font-medium">Via Kas Laci</span>
+                          <span className="text-[9px] text-slate-500 font-semibold">
+                            {item.metode_pencairan === 'transfer' ? 'Transfer Bank' : 'Via Kas Laci'}
+                          </span>
                         </div>
                       </div>
 

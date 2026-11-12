@@ -39,11 +39,23 @@ export default function ApprovalActionModal({
   } | null>(null);
 
   useEffect(() => {
+    // Hydrate cepat dari cache lokal agar modal terbuka instan tanpa jeda
+    const cachedWorkers = db.getAllKaryawanCached();
+    const cachedKar = cachedWorkers.find(
+      w => w.id === item.karyawan_id || w.nama.toLowerCase().trim() === (item.pemohon_nama || '').toLowerCase().trim()
+    );
+    if (cachedKar && item.jenis === 'kasbon') {
+      setTargetPhone(cachedKar.telepon || item.pemohon_telepon || '');
+      setRecipientName(cachedKar.nama || item.pemohon_nama || 'Penanggung Jawab');
+    }
+
+    let cancelled = false;
     async function loadBranch() {
       const [branches, workers] = await Promise.all([
         db.getCabangList(),
         db.getAllKaryawan(),
       ]);
+      if (cancelled) return;
       const b = branches.find(c => isBranchMatch(c.id, item.cabang_id));
       const kar = workers.find(
         w => w.id === item.karyawan_id || w.nama.toLowerCase().trim() === (item.pemohon_nama || '').toLowerCase().trim()
@@ -63,6 +75,9 @@ export default function ApprovalActionModal({
       }
     }
     loadBranch();
+    return () => {
+      cancelled = true;
+    };
   }, [item]);
 
   // Generate ready-to-send WhatsApp message to penanggung jawab / pemohon

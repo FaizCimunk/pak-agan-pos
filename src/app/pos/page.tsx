@@ -29,6 +29,7 @@ import {
   PaymentMethod 
 } from '@/lib/types';
 import { db, generateUUID, isBranchMatch } from '@/lib/db';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { printerService, getItemKitchenStation } from '@/lib/printer';
 import { queueOfflineTransaction } from '@/lib/offline-sync';
 import { generateInvoiceNumber, formatRupiah, getTodayDateString, toWibDateString, toWibBusinessDateString } from '@/lib/utils';
@@ -77,25 +78,50 @@ export default function PosPage() {
   currentCabangRef.current = currentCabang;
   const hasPromptedInitialShiftRef = useRef<boolean>(false);
 
-  // Initial Load & Device Binding
-  const loadData = useCallback(async () => {
+  const isSyncingPosRef = useRef<boolean>(false);
+  const queuedPosSyncRef = useRef<boolean>(false);
+  const posSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const syncPosState = useCallback(async (promptShiftIfMissing = false) => {
+    if (isSyncingPosRef.current) {
+      queuedPosSyncRef.current = true;
+      return;
+    }
+    isSyncingPosRef.current = true;
     try {
-      const cabangs = await db.getCabangList();
+      const preferredCabangId =
+        currentCabangRef.current?.id ||
+        (typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null) ||
+        undefined;
+
+      const [cabangs, menus, kategories, allKars, trxs, exps] = await Promise.all([
+        db.getCabangList(),
+        db.getMenuList(),
+        db.getKategoriList(),
+        db.getAllKaryawan(),
+        db.getTransaksiList(preferredCabangId),
+        db.getPengeluaranList(preferredCabangId),
+      ]);
+
       setCabangList(cabangs);
+      setMenuList(menus);
+      setKategoriList(kategories);
+      setTransaksiList(trxs);
+      setExpenseList(exps);
 
-      // Check persistent locked branch
-      let lockedCabangId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null;
-      let targetCabang = cabangs.find(c => isBranchMatch(c.id, lockedCabangId));
+      const lockedCabangId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null;
+      let targetCabang =
+        cabangs.find(c => isBranchMatch(c.id, currentCabangRef.current?.id || lockedCabangId)) ||
+        cabangs[0] ||
+        null;
 
-      if (!targetCabang) {
-        // Default to Cabang 1 on first launch, or prompt setup
-        targetCabang = cabangs[0] || null;
-        if (targetCabang && typeof window !== 'undefined') {
-          localStorage.setItem(DEVICE_LOCK_KEY, targetCabang.id);
-        }
+      if (!targetCabang && cabangs.length > 0) {
+        targetCabang = cabangs[0];
+      }
+      if (targetCabang && typeof window !== 'undefined' && !lockedCabangId) {
+        localStorage.setItem(DEVICE_LOCK_KEY, targetCabang.id);
       }
 
-      // Check / auto-ensure kasir session if device is bound
       if (typeof window !== 'undefined') {
         const isSession = sessionStorage.getItem('pakagan_kasir_session');
         const isOwner = sessionStorage.getItem('pakagan_owner_authenticated');
@@ -111,90 +137,73 @@ export default function PosPage() {
           sessionStorage.removeItem('pakagan_kasir_session');
           sessionStorage.removeItem('pakagan_user');
         }
-        alert(`AKSES DITOLAK:\nAkses tablet kasir "${targetCabang.nama}" sedang DIGEMBOK oleh Admin Pusat (Pak Agan)! Hubungi Owner untuk membuka gembok.`);
+        alert(`AKSES DITOLAK:\nAkses tablet kasir "${targetCabang.nama}" sedang DIGEMBOK / DINONAKTIFKAN oleh Admin Pusat (Pak Agan)! Hubungi Owner untuk membuka gembok.`);
         window.location.replace('/');
         return;
       }
 
       setCurrentCabang(targetCabang);
 
-      const menus = await db.getMenuList();
-      setMenuList(menus);
-
-      const kategories = await db.getKategoriList();
-      setKategoriList(kategories);
-
       if (targetCabang) {
-        const shift = await db.getActiveShift(targetCabang.id);
+        const kars = allKars.filter(k => isBranchMatch(k.cabang_id, targetCabang!.id) && k.is_active);
+        setKaryawanList(kars);
+
+        const [shift, bills] = await Promise.all([
+          db.getActiveShift(targetCabang.id, { transactions: trxs, expenses: exps }),
+          db.getOpenBills(targetCabang.id),
+        ]);
         setActiveShift(shift);
-        // Wajibkan kasir mengisi modal awal kasir saat baru buka toko / belum ada shift aktif
-        if (!shift && !hasPromptedInitialShiftRef.current) {
+        setOpenBills(bills);
+
+        if (promptShiftIfMissing && !shift && !hasPromptedInitialShiftRef.current) {
           hasPromptedInitialShiftRef.current = true;
           setIsShiftOpenOpen(true);
         }
-        const kars = await db.getKaryawanByCabang(targetCabang.id);
-        setKaryawanList(kars);
-        const bills = await db.getOpenBills(targetCabang.id);
-        setOpenBills(bills);
       }
-
-      const trxs = await db.getTransaksiList();
-      setTransaksiList(trxs);
-      const exps = await db.getPengeluaranList();
-      setExpenseList(exps);
     } catch (err) {
-      console.error('Error loading POS data:', err);
+      console.error('Error syncing POS data:', err);
+    } finally {
+      isSyncingPosRef.current = false;
+      if (queuedPosSyncRef.current) {
+        queuedPosSyncRef.current = false;
+        syncPosState(false);
+      }
     }
   }, []);
+
+  // Initial Load & Device Binding
+  const loadData = useCallback(async () => {
+    await syncPosState(true);
+  }, [syncPosState]);
 
   useEffect(() => {
     loadData();
 
-    // SINKRONISASI REALTIME KASIR: Nama toko, alamat, promo struk baru & deteksi gembok
-    const handleStorageUpdate = async () => {
-      try {
-        const cabangs = await db.getCabangList();
-        setCabangList(cabangs);
-
-        const lockedId = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_LOCK_KEY) : null;
-        const target = cabangs.find(c => isBranchMatch(c.id, currentCabangRef.current?.id || lockedId)) || cabangs[0] || null;
-
-        if (target) {
-          // Cek gembok keamanan realtime saat POS sedang berjalan
-          if (target.is_kasir_locked) {
-            if (typeof window !== 'undefined') {
-              sessionStorage.removeItem('pakagan_kasir_session');
-              sessionStorage.removeItem('pakagan_user');
-            }
-            alert(`PERHATIAN KEAMANAN:\nAkses tablet kasir "${target.nama}" telah DIGEMBOK / DINONAKTIFKAN oleh Admin Pusat! Aplikasi kasir otomatis keluar.`);
-            window.location.replace('/');
-            return;
-          }
-
-          // Sinkronisasi realtime profil cabang terkini ke state POS
-          setCurrentCabang(target);
-          const shift = await db.getActiveShift(target.id);
-          setActiveShift(shift);
-          const kars = await db.getKaryawanByCabang(target.id);
-          setKaryawanList(kars);
-          const bills = await db.getOpenBills(target.id);
-          setOpenBills(bills);
-        }
-
-        const menus = await db.getMenuList();
-        setMenuList(menus);
-        const trxs = await db.getTransaksiList();
-        setTransaksiList(trxs);
-        const exps = await db.getPengeluaranList();
-        setExpenseList(exps);
-      } catch (err) {
-        console.warn('Storage sync error:', err);
-      }
+    // SINKRONISASI REALTIME KASIR: Nama toko, promo, Approval ACC Admin & Saldo Laci Shift
+    const scheduleSync = () => {
+      if (posSyncTimerRef.current) clearTimeout(posSyncTimerRef.current);
+      posSyncTimerRef.current = setTimeout(() => {
+        syncPosState(false);
+      }, 150);
     };
 
+    const handleStorageUpdate = () => scheduleSync();
     window.addEventListener('pak_agan_db_updated', handleStorageUpdate);
     window.addEventListener('pak_agan_open_bills_updated', handleStorageUpdate);
     window.addEventListener('storage', handleStorageUpdate);
+
+    // Supabase Realtime untuk push instan ketika Admin ACC/Tolak pengajuan belanja/kasbon atau update cabang
+    let posChannel: any = null;
+    if (isSupabaseConfigured && supabase) {
+      posChannel = supabase
+        .channel('pos_live_sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pengeluaran_kasbon' }, scheduleSync)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'shift' }, scheduleSync)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'transaksi' }, scheduleSync)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'cabang' }, scheduleSync)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, scheduleSync)
+        .subscribe();
+    }
 
     // Auto-flush antrean offline saat tablet terhubung kembali ke internet
     const handleOnline = async () => {
@@ -218,21 +227,28 @@ export default function PosPage() {
       handleOnline();
     }
 
-    // Interval berkala auto-sync setiap 30 detik (jaga-jaga jika event online tidak tertangkap OS)
+    // Interval cadangan setiap 15 detik agar approval/saldo laci tetap ter-update meski realtime websocket putus di 4G
     const syncInterval = setInterval(() => {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         handleOnline();
+        if (typeof document === 'undefined' || !document.querySelector('.fixed.inset-0.z-50')) {
+          syncPosState(false);
+        }
       }
-    }, 30000);
+    }, 15000);
 
     return () => {
       clearInterval(syncInterval);
+      if (posSyncTimerRef.current) clearTimeout(posSyncTimerRef.current);
       window.removeEventListener('pak_agan_db_updated', handleStorageUpdate);
       window.removeEventListener('pak_agan_open_bills_updated', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('online', handleOnline);
+      if (posChannel && supabase) {
+        supabase.removeChannel(posChannel);
+      }
     };
-  }, [loadData]);
+  }, [loadData, syncPosState]);
 
   // Lock Device to a specific Cabang
   const handleLockDevice = async (cabangId: string) => {
@@ -819,6 +835,7 @@ export default function PosPage() {
           shift={activeShift}
           cabang={currentCabang}
           onClose={() => setIsShiftCloseOpen(false)}
+          onShiftBalanceUpdated={(refreshed) => setActiveShift(refreshed)}
           onSuccess={async () => {
             setActiveShift(null);
             setIsShiftCloseOpen(false);
@@ -875,11 +892,9 @@ export default function PosPage() {
           cabang={currentCabang}
           shift={activeShift}
           onClose={() => setIsExpenseOpen(false)}
+          onRefreshBalance={(refreshed) => setActiveShift(refreshed)}
           onSuccess={async () => {
-            if (activeShift) {
-              const refreshed = await db.calculateShiftBalance(activeShift);
-              setActiveShift(refreshed);
-            }
+            await syncPosState(false);
           }}
         />
       )}

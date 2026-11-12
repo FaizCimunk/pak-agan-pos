@@ -76,6 +76,15 @@ function loadLocal<T>(key: string, defaultVal: T): T {
   }
 }
 
+function saveLocalCache<T>(key: string, val: T): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch (e) {
+    console.warn('Gagal menyimpan cache ke localStorage:', e);
+  }
+}
+
 function saveLocal<T>(key: string, val: T): void {
   if (typeof window === 'undefined') return;
   try {
@@ -84,6 +93,20 @@ function saveLocal<T>(key: string, val: T): void {
     window.dispatchEvent(new Event('pak_agan_db_updated'));
   } catch (e) {
     console.warn('Gagal menyimpan ke localStorage:', e);
+  }
+}
+
+async function withQueryTimeout<T>(promise: PromiseLike<T>, ms = 4500): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Query timeout after ${ms}ms`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -355,11 +378,13 @@ export class PosDatabase {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase.from('cabang').select('*').order('nomor', { ascending: true });
+        const { data, error } = await withQueryTimeout(
+          supabase.from('cabang').select('*').order('nomor', { ascending: true })
+        );
         if (!error && data && data.length > 0) {
           syncCabangNamesToMap(data);
           const hydrated = hydrateCabangList(data);
-          saveLocal(STORAGE_KEYS.CABANG, hydrated);
+          saveLocalCache(STORAGE_KEYS.CABANG, hydrated);
           return hydrated;
         }
       } catch (e) {
@@ -374,7 +399,7 @@ export class PosDatabase {
           local.push(initCbg);
         }
       }
-      saveLocal(STORAGE_KEYS.CABANG, local);
+      saveLocalCache(STORAGE_KEYS.CABANG, local);
     }
     syncCabangNamesToMap(local);
     return hydrateCabangList(local);
@@ -642,12 +667,21 @@ export class PosDatabase {
   // --------------------------------------------------------------------------
   // KARYAWAN & PIN AUTH
   // --------------------------------------------------------------------------
+  getAllKaryawanCached(): Karyawan[] {
+    const local = loadLocal<Karyawan[]>(STORAGE_KEYS.KARYAWAN, INITIAL_KARYAWAN);
+    return local.map(decodeKaryawanRecord);
+  }
+
   async getAllKaryawan(): Promise<Karyawan[]> {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase.from('karyawan').select('*').order('nama', { ascending: true });
+        const { data, error } = await withQueryTimeout(
+          supabase.from('karyawan').select('*').order('nama', { ascending: true })
+        );
         if (!error && data && data.length > 0) {
-          return data.map(decodeKaryawanRecord);
+          const decoded = data.map(decodeKaryawanRecord);
+          saveLocalCache(STORAGE_KEYS.KARYAWAN, decoded);
+          return decoded;
         }
       } catch (e) {
         console.warn('Fallback to local karyawan:', e);
@@ -1140,11 +1174,31 @@ export class PosDatabase {
     return stripped ? `${stripped} ${marker}` : marker;
   }
 
+  getAbsensiListCached(karyawanId?: string, cabangId?: string, tanggal?: string): Absensi[] {
+    let result = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI)
+      .map(a => this.decodeAbsensiRecord(a))
+      .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+    if (cabangId && cabangId !== 'all') {
+      result = result.filter(a => isBranchMatch(a.cabang_id, cabangId));
+    }
+    if (karyawanId && karyawanId !== 'all') {
+      result = result.filter(a => a.karyawan_id === karyawanId || getKaryawanUuid(a.karyawan_id) === getKaryawanUuid(karyawanId));
+    }
+    if (tanggal) {
+      result = result.filter(a => a.tanggal === tanggal);
+    }
+    return result;
+  }
+
   async getAbsensiList(karyawanId?: string, cabangId?: string, tanggal?: string): Promise<Absensi[]> {
     let cloudList: Absensi[] = [];
     if (isSupabaseConfigured && supabase) {
       try {
-        let query = supabase.from('absensi').select('*').order('tanggal', { ascending: false });
+        let query = supabase
+          .from('absensi')
+          .select('*')
+          .order('tanggal', { ascending: false })
+          .limit(tanggal ? 200 : 350);
         if (karyawanId && karyawanId !== 'all') {
           const karUuid = getKaryawanUuid(karyawanId);
           if (karUuid) query = query.eq('karyawan_id', karUuid);
@@ -1154,7 +1208,7 @@ export class PosDatabase {
           if (cbgUuid) query = query.eq('cabang_id', cbgUuid);
         }
         if (tanggal) query = query.eq('tanggal', tanggal);
-        const { data, error } = await query;
+        const { data, error } = await withQueryTimeout(query);
         if (!error && data) {
           cloudList = data.map((d: any) => this.decodeAbsensiRecord(d));
         }
@@ -1200,7 +1254,7 @@ export class PosDatabase {
       }
     }
     if (hasOutdated) {
-      saveLocal(STORAGE_KEYS.ABSENSI, all);
+      saveLocalCache(STORAGE_KEYS.ABSENSI, all);
     }
 
     const getKey = (a: Absensi) => {
@@ -1232,6 +1286,9 @@ export class PosDatabase {
     const combined = Array.from(combinedMap.values()).sort(
       (a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
     );
+    if (cloudList.length > 0) {
+      saveLocalCache(STORAGE_KEYS.ABSENSI, combined);
+    }
 
     let result = combined;
     if (cabangId && cabangId !== 'all') {
@@ -1570,7 +1627,28 @@ export class PosDatabase {
     }
   }
 
-  async getActiveShift(cabangId: string): Promise<Shift | null> {
+  getActiveShiftCached(cabangId: string): Shift | null {
+    const branchUuid = getBranchUuid(cabangId) || cabangId;
+    const key = STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + branchUuid;
+    const shift =
+      loadLocal<Shift | null>(key, null) ||
+      loadLocal<Shift | null>(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabangId, null);
+    if (
+      shift &&
+      shift.status === 'open' &&
+      isBranchMatch(shift.cabang_id, cabangId) &&
+      !this.isSyntheticAutoShift(shift) &&
+      this.isShiftFromActiveBusinessDay(shift.waktu_buka)
+    ) {
+      return shift;
+    }
+    return null;
+  }
+
+  async getActiveShift(
+    cabangId: string,
+    prefetched?: { transactions?: Transaksi[]; expenses?: PengeluaranKasbon[] }
+  ): Promise<Shift | null> {
     const branchUuid = getBranchUuid(cabangId) || cabangId;
     const key = STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + branchUuid;
     const shift =
@@ -1579,7 +1657,7 @@ export class PosDatabase {
 
     if (shift && shift.status === 'open' && isBranchMatch(shift.cabang_id, cabangId)) {
       if (!this.isSyntheticAutoShift(shift) && this.isShiftFromActiveBusinessDay(shift.waktu_buka)) {
-        return await this.calculateShiftBalance(shift);
+        return await this.calculateShiftBalance(shift, prefetched);
       }
       await this.closeStaleShiftSilently(shift);
     }
@@ -1587,13 +1665,15 @@ export class PosDatabase {
     // 1. Periksa cloud Supabase apakah ada shift aktif hari ini untuk cabang ini
     if (isSupabaseConfigured && supabase && branchUuid) {
       try {
-        const { data, error } = await supabase
-          .from('shift')
-          .select('*')
-          .eq('cabang_id', branchUuid)
-          .eq('status', 'open')
-          .order('waktu_buka', { ascending: false })
-          .limit(5);
+        const { data, error } = await withQueryTimeout(
+          supabase
+            .from('shift')
+            .select('*')
+            .eq('cabang_id', branchUuid)
+            .eq('status', 'open')
+            .order('waktu_buka', { ascending: false })
+            .limit(5)
+        );
 
         if (!error && data && data.length > 0) {
           for (const row of data) {
@@ -1624,9 +1704,9 @@ export class PosDatabase {
             };
 
             if (!this.isSyntheticAutoShift(supaShift) && this.isShiftFromActiveBusinessDay(supaShift.waktu_buka)) {
-              saveLocal(key, supaShift);
-              saveLocal(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabangId, supaShift);
-              return await this.calculateShiftBalance(supaShift);
+              saveLocalCache(key, supaShift);
+              saveLocalCache(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabangId, supaShift);
+              return await this.calculateShiftBalance(supaShift, prefetched);
             } else {
               await this.closeStaleShiftSilently(supaShift);
             }
@@ -1647,9 +1727,9 @@ export class PosDatabase {
         this.isShiftFromActiveBusinessDay(s.waktu_buka)
     );
     if (existingOpen) {
-      saveLocal(key, existingOpen);
-      saveLocal(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabangId, existingOpen);
-      return await this.calculateShiftBalance(existingOpen);
+      saveLocalCache(key, existingOpen);
+      saveLocalCache(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabangId, existingOpen);
+      return await this.calculateShiftBalance(existingOpen, prefetched);
     }
 
     // Tidak ada shift aktif: kembalikan null agar kasir wajib mengisi modal awal laci terlebih dahulu
@@ -1696,22 +1776,43 @@ export class PosDatabase {
       status: 'open',
     };
 
+    saveLocalCache(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + branchUuid, newShift);
     saveLocal(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabang_id, newShift);
 
     const shifts = loadLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
     shifts.push(newShift);
-    saveLocal(STORAGE_KEYS.SHIFTS, shifts);
+    saveLocalCache(STORAGE_KEYS.SHIFTS, shifts);
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('shift').insert([{
-          id: shiftUuid,
-          cabang_id: branchUuid,
-          karyawan_id: karUuid,
-          waktu_buka: newShift.waktu_buka,
-          modal_awal: modal_awal,
-          status: 'open'
-        }]);
+        const { error: insertErr } = await withQueryTimeout(
+          supabase.from('shift').insert([{
+            id: shiftUuid,
+            cabang_id: branchUuid,
+            karyawan_id: karUuid,
+            waktu_buka: newShift.waktu_buka,
+            modal_awal: modal_awal,
+            status: 'open'
+          }])
+        );
+        if (insertErr) {
+          console.warn('Supabase openShift insert error, retrying fallback karyawan_id:', insertErr);
+          const { data: fallbackKar } = await withQueryTimeout(
+            supabase.from('karyawan').select('id').limit(1).maybeSingle()
+          );
+          if (fallbackKar?.id) {
+            await withQueryTimeout(
+              supabase.from('shift').insert([{
+                id: shiftUuid,
+                cabang_id: branchUuid,
+                karyawan_id: fallbackKar.id,
+                waktu_buka: newShift.waktu_buka,
+                modal_awal: modal_awal,
+                status: 'open'
+              }])
+            );
+          }
+        }
       } catch (e) {
         console.warn('Supabase openShift insert error:', e);
       }
@@ -1765,9 +1866,18 @@ export class PosDatabase {
   }
 
   // Calculate live shift balance from transactions and approved expenses
-  async calculateShiftBalance(shift: Shift): Promise<Shift> {
-    const transactions = await this.getTransaksiList(shift.cabang_id);
-    const expenses = await this.getPengeluaranList(shift.cabang_id);
+  async calculateShiftBalance(
+    shift: Shift,
+    prefetched?: { transactions?: Transaksi[]; expenses?: PengeluaranKasbon[] }
+  ): Promise<Shift> {
+    const [transactions, expenses] = await Promise.all([
+      prefetched?.transactions
+        ? Promise.resolve(prefetched.transactions)
+        : this.getTransaksiList(shift.cabang_id),
+      prefetched?.expenses
+        ? Promise.resolve(prefetched.expenses)
+        : this.getPengeluaranList(shift.cabang_id),
+    ]);
 
     // Sum transactions in this shift strictly (prevent leaking earlier shifts into a newly opened shift)
     const shiftOpenTime = new Date(shift.waktu_buka).getTime();
@@ -1811,7 +1921,7 @@ export class PosDatabase {
     // Sum approved expenses taken from drawer ('laci') strictly within this shift window
     const shiftExpenses = expenses.filter(e => {
       if (e.status !== 'approved') return false;
-      if (e.metode_pencairan !== 'laci') return false;
+      if (e.metode_pencairan === 'transfer') return false;
       if (!isBranchMatch(e.cabang_id, shift.cabang_id)) return false;
       if (e.shift_id && isValidUuid(e.shift_id)) {
         return e.shift_id === shift.id;
@@ -1848,6 +1958,14 @@ export class PosDatabase {
       total_kasbon_approved: kasbonApproved,
       saldo_akhir_sistem: saldoSistem,
     };
+
+    if (updatedShift.status === 'open') {
+      const branchUuid = getBranchUuid(updatedShift.cabang_id) || updatedShift.cabang_id;
+      saveLocalCache(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + branchUuid, updatedShift);
+      if (updatedShift.cabang_id !== branchUuid) {
+        saveLocalCache(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + updatedShift.cabang_id, updatedShift);
+      }
+    }
 
     return updatedShift;
   }
@@ -1989,7 +2107,15 @@ export class PosDatabase {
   }
 
   // Ambil seluruh riwayat shift (buka & tutup buku kasir) terintegrasi Supabase + lokal + kalkulasi ulang
-  async getShiftList(cabangId?: string): Promise<Shift[]> {
+  async getShiftList(
+    cabangId?: string,
+    prefetched?: {
+      transactions?: Transaksi[];
+      expenses?: PengeluaranKasbon[];
+      karyawans?: Karyawan[];
+      cabangs?: Cabang[];
+    }
+  ): Promise<Shift[]> {
     let cloudShifts: any[] = [];
     if (isSupabaseConfigured && supabase) {
       try {
@@ -1998,7 +2124,7 @@ export class PosDatabase {
           const targetUuid = getBranchUuid(cabangId);
           if (targetUuid) query = query.eq('cabang_id', targetUuid);
         }
-        const { data, error } = await query;
+        const { data, error } = await withQueryTimeout(query);
         if (!error && data) {
           cloudShifts = data;
         }
@@ -2047,11 +2173,12 @@ export class PosDatabase {
       }
     }
 
+    const scopeCabang = cabangId && cabangId !== 'all' ? cabangId : undefined;
     const [transactions, expenses, karyawans, cabangs] = await Promise.all([
-      this.getTransaksiList(cabangId && cabangId !== 'all' ? cabangId : undefined),
-      this.getPengeluaranList(cabangId && cabangId !== 'all' ? cabangId : undefined),
-      this.getAllKaryawan(),
-      this.getCabangList(),
+      prefetched?.transactions ? Promise.resolve(prefetched.transactions) : this.getTransaksiList(scopeCabang),
+      prefetched?.expenses ? Promise.resolve(prefetched.expenses) : this.getPengeluaranList(scopeCabang),
+      prefetched?.karyawans ? Promise.resolve(prefetched.karyawans) : this.getAllKaryawan(),
+      prefetched?.cabangs ? Promise.resolve(prefetched.cabangs) : this.getCabangList(),
     ]);
 
     const enriched: Shift[] = Array.from(mergedMap.values())
@@ -2087,7 +2214,7 @@ export class PosDatabase {
 
         const shiftExpApproved = expenses.filter(e => {
           if (e.status !== 'approved') return false;
-          if (e.metode_pencairan !== 'laci') return false;
+          if (e.metode_pencairan === 'transfer') return false;
           if (!isBranchMatch(e.cabang_id, s.cabang_id)) return false;
           if (e.shift_id && isValidUuid(e.shift_id)) return e.shift_id === s.id;
           if (e.shift_id && e.shift_id === s.id) return true;
@@ -2153,14 +2280,18 @@ export class PosDatabase {
     let cloudList: Transaksi[] = [];
     if (isSupabaseConfigured && supabase) {
       try {
-        let query = supabase.from('transaksi').select('*, items:transaksi_item(*)').order('waktu', { ascending: false });
+        let query = supabase
+          .from('transaksi')
+          .select('*, items:transaksi_item(*)')
+          .order('waktu', { ascending: false })
+          .limit(cabangId && cabangId !== 'all' ? 300 : 500);
         if (cabangId && cabangId !== 'all') {
           const targetUuid = getBranchUuid(cabangId);
           if (targetUuid) {
             query = query.eq('cabang_id', targetUuid);
           }
         }
-        const { data, error } = await query;
+        const { data, error } = await withQueryTimeout(query);
         if (!error && data) {
           cloudList = data.map((d: any) => ({
             id: d.id,
@@ -2448,16 +2579,34 @@ export class PosDatabase {
   // --------------------------------------------------------------------------
   // APPROVAL CENTER: BELANJA & KASBON
   // --------------------------------------------------------------------------
+  getPengeluaranListCached(cabangId?: string): PengeluaranKasbon[] {
+    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES)
+      .map(exp => ({
+        ...exp,
+        cabang_nama: resolveLiveBranchName(exp.cabang_id, exp.cabang_nama),
+      }))
+      .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+
+    if (cabangId && cabangId !== 'all') {
+      return all.filter(e => isBranchMatch(e.cabang_id, cabangId));
+    }
+    return all;
+  }
+
   async getPengeluaranList(cabangId?: string): Promise<PengeluaranKasbon[]> {
     let cloudExpenses: PengeluaranKasbon[] = [];
     if (isSupabaseConfigured && supabase) {
       try {
-        let query = supabase.from('pengeluaran_kasbon').select('*').order('tanggal', { ascending: false });
+        let query = supabase
+          .from('pengeluaran_kasbon')
+          .select('*')
+          .order('tanggal', { ascending: false })
+          .limit(cabangId && cabangId !== 'all' ? 250 : 400);
         if (cabangId && cabangId !== 'all') {
           const targetUuid = getBranchUuid(cabangId);
           if (targetUuid) query = query.eq('cabang_id', targetUuid);
         }
-        const { data, error } = await query;
+        const { data, error } = await withQueryTimeout(query);
         if (!error && data) {
           cloudExpenses = data.map((d: any) => ({
             ...d,
@@ -2475,10 +2624,36 @@ export class PosDatabase {
       combinedMap.set(exp.id, exp);
     }
     for (const exp of all) {
-      if (!combinedMap.has(exp.id)) {
+      const existingCloud = combinedMap.get(exp.id);
+      if (!existingCloud) {
         combinedMap.set(exp.id, {
           ...exp,
           cabang_nama: resolveLiveBranchName(exp.cabang_id, exp.cabang_nama),
+        });
+      } else {
+        const localNewerDecision =
+          (exp.approved_at && (!existingCloud.approved_at || exp.approved_at >= existingCloud.approved_at)) ||
+          (exp.status !== 'pending' && existingCloud.status === 'pending');
+        const keepLocalSettled = Boolean(exp.is_settled && !existingCloud.is_settled);
+        combinedMap.set(exp.id, {
+          ...existingCloud,
+          shift_id: existingCloud.shift_id || exp.shift_id,
+          karyawan_id: existingCloud.karyawan_id || exp.karyawan_id,
+          ...(localNewerDecision
+            ? {
+                status: exp.status,
+                metode_pencairan: exp.metode_pencairan ?? existingCloud.metode_pencairan,
+                bukti_transfer_url: exp.bukti_transfer_url ?? existingCloud.bukti_transfer_url,
+                approved_by: exp.approved_by ?? existingCloud.approved_by,
+                approved_at: exp.approved_at ?? existingCloud.approved_at,
+                alasan_penolakan: exp.alasan_penolakan ?? existingCloud.alasan_penolakan,
+              }
+            : {}),
+          ...(keepLocalSettled
+            ? {
+                is_settled: true,
+              }
+            : {}),
         });
       }
     }
@@ -2486,6 +2661,9 @@ export class PosDatabase {
     const combined = Array.from(combinedMap.values()).sort(
       (a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
     );
+    if (cloudExpenses.length > 0) {
+      saveLocalCache(STORAGE_KEYS.EXPENSES, combined);
+    }
 
     if (cabangId && cabangId !== 'all') {
       return combined.filter(e => isBranchMatch(e.cabang_id, cabangId));
@@ -2516,29 +2694,48 @@ export class PosDatabase {
 
     const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
     all.unshift(newItem);
-    saveLocal(STORAGE_KEYS.EXPENSES, all);
+    saveLocalCache(STORAGE_KEYS.EXPENSES, all);
 
     if (isSupabaseConfigured && supabase) {
+      const insertPayload = {
+        id: newId,
+        cabang_id: branchUuid,
+        shift_id: shiftUuid,
+        karyawan_id: karyawanUuid,
+        pemohon_nama: item.pemohon_nama,
+        pemohon_telepon: item.pemohon_telepon || null,
+        jenis: item.jenis,
+        kategori_belanja: item.kategori_belanja || null,
+        menu_id: menuUuid,
+        qty_porsi: item.qty_porsi || null,
+        keperluan: item.keperluan,
+        nominal: item.nominal,
+        status: 'pending',
+        metode_pencairan: item.metode_pencairan || null,
+        bukti_transfer_url: item.bukti_transfer_url || null,
+        is_settled: false,
+        tanggal: newItem.tanggal,
+      };
       try {
-        await supabase.from('pengeluaran_kasbon').insert([{
-          id: newId,
-          cabang_id: branchUuid,
-          shift_id: shiftUuid,
-          karyawan_id: karyawanUuid,
-          pemohon_nama: item.pemohon_nama,
-          pemohon_telepon: item.pemohon_telepon || null,
-          jenis: item.jenis,
-          kategori_belanja: item.kategori_belanja || null,
-          menu_id: menuUuid,
-          qty_porsi: item.qty_porsi || null,
-          keperluan: item.keperluan,
-          nominal: item.nominal,
-          status: 'pending',
-          metode_pencairan: item.metode_pencairan || null,
-          bukti_transfer_url: item.bukti_transfer_url || null,
-          is_settled: false,
-          tanggal: newItem.tanggal,
-        }]);
+        const { error: insertErr } = await withQueryTimeout(
+          supabase.from('pengeluaran_kasbon').insert([insertPayload])
+        );
+        if (insertErr) {
+          console.warn('Supabase createPengeluaran insert error, retrying without nullable FKs:', insertErr);
+          const { error: retryErr } = await withQueryTimeout(
+            supabase.from('pengeluaran_kasbon').insert([
+              {
+                ...insertPayload,
+                shift_id: null,
+                karyawan_id: null,
+                menu_id: null,
+              },
+            ])
+          );
+          if (retryErr) {
+            console.warn('Supabase createPengeluaran retry error:', retryErr);
+          }
+        }
       } catch (e) {
         console.warn('Failed insert to supabase pengeluaran:', e);
       }
@@ -2560,7 +2757,7 @@ export class PosDatabase {
     const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
     let targetExp = all.find(e => e.id === id);
 
-    const updated = all.some(e => e.id === id)
+    let updated = all.some(e => e.id === id)
       ? all.map(e => {
           if (e.id === id) {
             targetExp = {
@@ -2577,35 +2774,110 @@ export class PosDatabase {
         })
       : all;
 
-    saveLocal(STORAGE_KEYS.EXPENSES, updated);
+    saveLocalCache(STORAGE_KEYS.EXPENSES, updated);
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('pengeluaran_kasbon').update({
+        const updatePayload: Record<string, any> = {
           status: 'approved',
           metode_pencairan: params.metode,
-          bukti_transfer_url: params.buktiTransferUrl,
           approved_by: approver,
           approved_at: nowIso,
-        }).eq('id', id);
+        };
+        if (params.buktiTransferUrl) {
+          updatePayload.bukti_transfer_url = params.buktiTransferUrl;
+        }
 
-        if (!targetExp) {
-          const { data } = await supabase.from('pengeluaran_kasbon').select('*').eq('id', id).maybeSingle();
-          if (data) targetExp = data as PengeluaranKasbon;
+        const { data: updatedRow, error: updateErr } = await withQueryTimeout(
+          supabase.from('pengeluaran_kasbon').update(updatePayload).eq('id', id).select('*').maybeSingle()
+        );
+
+        if (updateErr) {
+          console.warn('Supabase approvePengeluaran update error:', updateErr);
+        }
+
+        if (updatedRow) {
+          targetExp = {
+            ...(targetExp || {}),
+            ...(updatedRow as PengeluaranKasbon),
+            cabang_nama: resolveLiveBranchName(updatedRow.cabang_id, updatedRow.cabang_nama),
+          };
+        } else if (targetExp) {
+          // Jika baris belum ada di Supabase (misal dibuat saat offline), upsert sekalian
+          const branchUuid = getBranchUuid(targetExp.cabang_id) || CABANG_MAP_INFO[0].uuid;
+          await withQueryTimeout(
+            supabase.from('pengeluaran_kasbon').upsert([
+              {
+                id: targetExp.id,
+                cabang_id: branchUuid,
+                shift_id: isValidUuid(targetExp.shift_id) ? targetExp.shift_id : null,
+                karyawan_id: getKaryawanUuid(targetExp.karyawan_id),
+                pemohon_nama: targetExp.pemohon_nama,
+                pemohon_telepon: targetExp.pemohon_telepon || null,
+                jenis: targetExp.jenis,
+                kategori_belanja: targetExp.kategori_belanja || null,
+                keperluan: targetExp.keperluan,
+                nominal: targetExp.nominal,
+                status: 'approved',
+                metode_pencairan: params.metode,
+                bukti_transfer_url: params.buktiTransferUrl || targetExp.bukti_transfer_url || null,
+                approved_by: approver,
+                approved_at: nowIso,
+                is_settled: Boolean(targetExp.is_settled),
+                tanggal: targetExp.tanggal,
+              },
+            ])
+          );
+        }
+
+        if (targetExp) {
+          const existsInUpdated = updated.some(e => e.id === targetExp!.id);
+          updated = existsInUpdated
+            ? updated.map(e => (e.id === targetExp!.id ? targetExp! : e))
+            : [targetExp, ...updated];
+          saveLocalCache(STORAGE_KEYS.EXPENSES, updated);
         }
       } catch (e) {
         console.warn('Failed update approval to supabase:', e);
       }
     }
 
-    // Jika pengajuan berasal dari shift yang sudah tutup buku (admin telat ACC di hari berikutnya),
-    // hitung ulang saldo shift tersebut agar riwayat tutup buku & selisih tetap akurat di hari kejadiannya.
+    // Hitung ulang saldo shift terkait (baik shift aktif maupun shift yang sudah tutup buku)
+    // agar kasir dan riwayat tutup buku langsung sinkron tanpa menunggu reload.
     if (targetExp?.shift_id) {
       try {
         const shifts = loadLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
-        const targetShift = shifts.find(s => s.id === targetExp!.shift_id);
+        let targetShift = shifts.find(s => s.id === targetExp!.shift_id);
+
+        if (!targetShift && isSupabaseConfigured && supabase && isValidUuid(targetExp.shift_id)) {
+          const { data: cloudShiftRow } = await withQueryTimeout(
+            supabase.from('shift').select('*').eq('id', targetExp.shift_id).maybeSingle()
+          );
+          if (cloudShiftRow) {
+            targetShift = {
+              id: cloudShiftRow.id,
+              cabang_id: cloudShiftRow.cabang_id,
+              cabang_nama: resolveLiveBranchName(cloudShiftRow.cabang_id),
+              karyawan_id: cloudShiftRow.karyawan_id || '',
+              waktu_buka: cloudShiftRow.waktu_buka,
+              waktu_tutup: cloudShiftRow.waktu_tutup || null,
+              modal_awal: Number(cloudShiftRow.modal_awal || 0),
+              total_tunai_masuk: Number(cloudShiftRow.total_tunai_masuk || 0),
+              total_qris_masuk: Number(cloudShiftRow.total_qris_masuk || 0),
+              total_transfer_masuk: Number(cloudShiftRow.total_transfer_masuk || 0),
+              total_belanja_approved: Number(cloudShiftRow.total_belanja_approved || 0),
+              total_kasbon_approved: Number(cloudShiftRow.total_kasbon_approved || 0),
+              saldo_akhir_sistem: Number(cloudShiftRow.saldo_akhir_sistem || 0),
+              saldo_akhir_fisik: Number(cloudShiftRow.saldo_akhir_fisik || 0),
+              selisih: Number(cloudShiftRow.selisih || 0),
+              status: cloudShiftRow.status === 'closed' ? 'closed' : 'open',
+              catatan: cloudShiftRow.catatan || null,
+            };
+          }
+        }
+
         if (targetShift) {
-          const recalculated = await this.calculateShiftBalance(targetShift);
+          const recalculated = await this.calculateShiftBalance(targetShift, { expenses: updated });
           const nextFisik = Number(targetShift.saldo_akhir_fisik || 0);
           const nextSelisih = targetShift.status === 'closed' ? nextFisik - recalculated.saldo_akhir_sistem : 0;
           const syncedShift: Shift = {
@@ -2613,23 +2885,28 @@ export class PosDatabase {
             saldo_akhir_fisik: nextFisik,
             selisih: nextSelisih,
           };
-          const nextShifts = shifts.map(s => (s.id === syncedShift.id ? syncedShift : s));
-          saveLocal(STORAGE_KEYS.SHIFTS, nextShifts);
+          const hasShiftLocally = shifts.some(s => s.id === syncedShift.id);
+          const nextShifts = hasShiftLocally
+            ? shifts.map(s => (s.id === syncedShift.id ? syncedShift : s))
+            : [syncedShift, ...shifts];
+          saveLocalCache(STORAGE_KEYS.SHIFTS, nextShifts);
 
           if (isSupabaseConfigured && supabase && isValidUuid(syncedShift.id)) {
-            await supabase
-              .from('shift')
-              .update({
-                total_belanja_approved: syncedShift.total_belanja_approved,
-                total_kasbon_approved: syncedShift.total_kasbon_approved,
-                saldo_akhir_sistem: syncedShift.saldo_akhir_sistem,
-                selisih: syncedShift.selisih,
-              })
-              .eq('id', syncedShift.id);
+            await withQueryTimeout(
+              supabase
+                .from('shift')
+                .update({
+                  total_belanja_approved: syncedShift.total_belanja_approved,
+                  total_kasbon_approved: syncedShift.total_kasbon_approved,
+                  saldo_akhir_sistem: syncedShift.saldo_akhir_sistem,
+                  selisih: syncedShift.selisih,
+                })
+                .eq('id', syncedShift.id)
+            );
           }
         }
       } catch (syncErr) {
-        console.warn('Late approval shift resync skipped:', syncErr);
+        console.warn('Shift resync after approval skipped:', syncErr);
       }
     }
 
