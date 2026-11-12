@@ -798,11 +798,16 @@ export default function FixedCostPaymentManager({
                       </td>
                       <td className="py-3.5 px-3.5">
                         {lain > 0 ? (
-                          <div>
+                          <div className="space-y-0.5 max-w-[180px]">
                             <span className="font-mono font-bold text-amber-950 block">{formatRupiah(lain)}/bln</span>
-                            <span className="text-[10px] text-slate-500 block truncate max-w-[130px]" title={c.keterangan_biaya_lain}>
+                            <span className="text-[10px] text-slate-500 block line-clamp-2" title={c.keterangan_biaya_lain}>
                               {c.keterangan_biaya_lain || 'Beban Lain'}
                             </span>
+                            {Array.isArray(c.biaya_lain_items) && c.biaya_lain_items.length > 1 && (
+                              <span className="inline-block px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 text-[9px] font-bold">
+                                {c.biaya_lain_items.length} Rincian Beban
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-slate-400 italic text-[11px]">-</span>

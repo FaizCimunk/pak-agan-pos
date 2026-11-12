@@ -31,6 +31,7 @@ interface MutasiPenjualanStatementProps {
   transaksiList: Transaksi[];
   cabangList: Cabang[];
   selectedCabangId?: string;
+  selectedDate?: string;
 }
 
 type PeriodMode = 'hari' | 'bulan' | 'tahun' | 'semua';
@@ -39,12 +40,13 @@ export default function MutasiPenjualanStatement({
   transaksiList,
   cabangList,
   selectedCabangId: propSelectedCabangId = 'all',
+  selectedDate: propSelectedDate,
 }: MutasiPenjualanStatementProps) {
   // Period & Date Filter States
   const [periodMode, setPeriodMode] = useState<PeriodMode>('hari');
 
-  // Selalu default ke tanggal kalender HARI INI secara dinamis (misal 7 Nov 2026)
-  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayDateString());
+  // Selalu default ke tanggal kalender aktif secara dinamis
+  const [selectedDate, setSelectedDate] = useState<string>(() => propSelectedDate || getTodayDateString());
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
 
@@ -60,13 +62,20 @@ export default function MutasiPenjualanStatement({
   // Receipt Modal State
   const [receiptTrx, setReceiptTrx] = useState<Transaksi | null>(null);
 
-  // Sync propSelectedCabangId if parent changes
+  // Sync propSelectedCabangId & propSelectedDate if parent changes
   useEffect(() => {
     if (propSelectedCabangId) {
       setBranchFilter(propSelectedCabangId);
       setCurrentPage(1);
     }
   }, [propSelectedCabangId]);
+
+  useEffect(() => {
+    if (propSelectedDate) {
+      setSelectedDate(propSelectedDate);
+      setCurrentPage(1);
+    }
+  }, [propSelectedDate]);
 
   // Reset page when any filter changes
   useEffect(() => {

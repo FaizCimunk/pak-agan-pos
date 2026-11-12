@@ -481,6 +481,19 @@ class BluetoothPrinterService {
     builder.row('TOTAL OMZET SHIFT:', formatRupiah(totalOmzetShift));
     builder.bold(false);
 
+    if (shift.catatan && shift.catatan.trim()) {
+      builder.line('-', 32);
+      builder.bold(true);
+      builder.text('CATATAN / KETERANGAN:');
+      builder.newLine();
+      builder.bold(false);
+      const rawNote = shift.catatan.trim();
+      for (let i = 0; i < rawNote.length; i += 32) {
+        builder.text(rawNote.slice(i, i + 32));
+        builder.newLine();
+      }
+    }
+
     builder.line('=', 32);
     builder.alignCenter();
     builder.text('Tanda Tangan PJ Kasir:');

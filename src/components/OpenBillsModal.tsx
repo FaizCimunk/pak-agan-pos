@@ -178,8 +178,8 @@ export default function OpenBillsModal({
                     </button>
 
                     {/* Right: Total & Primary Actions */}
-                    <div className="flex items-center justify-between sm:justify-end space-x-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                      <div className="text-left sm:text-right mr-1">
+                    <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                      <div className="text-left sm:text-right mr-1 min-w-[90px]">
                         <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
                           Total Tagihan
                         </div>
@@ -188,7 +188,7 @@ export default function OpenBillsModal({
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-1.5">
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
                         {/* Tombol Tambah Menu (selalu tampil label di HP & desktop) */}
                         <button
                           type="button"
@@ -222,7 +222,7 @@ export default function OpenBillsModal({
                         <button
                           type="button"
                           onClick={() => toggleExpand(bill.id)}
-                          className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors"
+                          className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors shrink-0"
                           title={isExpanded ? 'Tutup rincian' : 'Lihat rincian & edit isi'}
                         >
                           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}

@@ -29,12 +29,13 @@ import {
   PengeluaranKasbon, 
   Payroll,
   Absensi,
+  Shift,
   FixedCostHarianCabang,
   PembayaranFixedCostBulanan
 } from '@/lib/types';
 import { db, isBranchMatch, isAbsensiApproved } from '@/lib/db';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole, getTodayDateString } from '@/lib/utils';
+import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole, getTodayDateString, toWibDateString } from '@/lib/utils';
 
 import { 
   TrendingUp, 
@@ -46,6 +47,7 @@ import {
   Calendar,
   ShieldCheck,
   ShieldAlert,
+  AlertTriangle,
   ArrowRight,
   DollarSign,
   CalendarCheck,
@@ -72,7 +74,9 @@ import {
   Sparkles,
   Menu,
   CreditCard,
-  ChevronDown
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const OWNER_AUTH_KEY = 'pakagan_owner_authenticated';
@@ -98,10 +102,18 @@ export default function AdminDashboardPage() {
   const [expenseList, setExpenseList] = useState<PengeluaranKasbon[]>([]);
   const [payrollList, setPayrollList] = useState<Payroll[]>([]);
   const [absensiList, setAbsensiList] = useState<Absensi[]>([]);
+  const [shiftList, setShiftList] = useState<Shift[]>([]);
+  const [shiftHistoryDateMode, setShiftHistoryDateMode] = useState<'selected' | 'all'>('selected');
 
   // State Rekap Uang Masuk Bersih Rekening Boss
   const [selectedBossSummaryDate, setSelectedBossSummaryDate] = useState<string>(getTodayDateString());
   const [showAdvancedTables, setShowAdvancedTables] = useState<boolean>(false);
+
+  const stepBossSummaryDate = (offsetDays: number) => {
+    const base = selectedBossSummaryDate ? new Date(`${selectedBossSummaryDate}T00:00:00`) : new Date();
+    base.setDate(base.getDate() + offsetDays);
+    setSelectedBossSummaryDate(getTodayDateString(base));
+  };
 
   // Modals
   const [selectedCabangForEdit, setSelectedCabangForEdit] = useState<Cabang | null>(null);
@@ -223,6 +235,9 @@ export default function AdminDashboardPage() {
 
     const fcPayments = await db.getFixedCostPayments();
     setFixedCostPayments(fcPayments);
+
+    const shifts = await db.getShiftList();
+    setShiftList(shifts);
   };
 
   useEffect(() => {
@@ -244,6 +259,9 @@ export default function AdminDashboardPage() {
           refreshAllData();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, () => {
+          refreshAllData();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'shift' }, () => {
           refreshAllData();
         })
         .subscribe();
@@ -311,9 +329,28 @@ export default function AdminDashboardPage() {
 
   const totalUnsettledKasbon = useMemo(() => {
     return expenseList
-      .filter(e => e.jenis === 'kasbon' && e.status === 'approved' && !e.is_settled)
+      .filter(e =>
+        e.jenis === 'kasbon' &&
+        e.status === 'approved' &&
+        !e.is_settled &&
+        (selectedCabangId === 'all' || isBranchMatch(e.cabang_id, selectedCabangId))
+      )
       .reduce((sum, e) => sum + e.nominal, 0);
-  }, [expenseList]);
+  }, [expenseList, selectedCabangId]);
+
+  const filteredShiftHistory = useMemo(() => {
+    return shiftList
+      .filter(s => {
+        const matchBranch = selectedCabangId === 'all' || isBranchMatch(s.cabang_id, selectedCabangId);
+        if (!matchBranch) return false;
+        if (shiftHistoryDateMode === 'selected') {
+          const shiftDate = toWibDateString(s.waktu_tutup || s.waktu_buka);
+          return shiftDate === selectedBossSummaryDate;
+        }
+        return true;
+      })
+      .sort((a, b) => new Date(b.waktu_buka).getTime() - new Date(a.waktu_buka).getTime());
+  }, [shiftList, selectedCabangId, shiftHistoryDateMode, selectedBossSummaryDate]);
 
   // Filtered Absensi List berdasarkan Cabang, Tanggal Terpilih, & Status ACC Boss
   const filteredAbsensiList = useMemo(() => {
@@ -328,14 +365,14 @@ export default function AdminDashboardPage() {
       .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
   }, [absensiList, selectedCabangId, absensiDateFilterMode, selectedAbsensiDate, absensiApprovalFilter]);
 
-  // Filtered Approval Expenses dengan Jejak Audit Tanggal & Filter Status
+  // Filtered Approval Expenses dengan Jejak Audit Tanggal Pengajuan Asli & Filter Status
   const filteredApprovalExpenses = useMemo(() => {
     return expenseList.filter(exp => {
       if (approvalCabangFilter !== 'all' && !isBranchMatch(exp.cabang_id, approvalCabangFilter)) return false;
       if (approvalJenisFilter !== 'all' && exp.jenis !== approvalJenisFilter) return false;
       if (approvalStatusFilter !== 'all' && exp.status !== approvalStatusFilter) return false;
       if (approvalDateMode === 'selected') {
-        const itemDate = (exp.approved_at || exp.tanggal || '').slice(0, 10);
+        const itemDate = toWibDateString(exp.tanggal);
         if (itemDate !== approvalDateFilter) return false;
       }
       if (approvalSearch.trim()) {
@@ -541,12 +578,24 @@ export default function AdminDashboardPage() {
       }
     });
 
+    const currentMonthKey = (targetDate || getTodayDateString()).slice(0, 7);
+
     const branchBreakdowns = cabangList.map(cabang => {
       // 1. Sewa, Wifi/Listrik, Iuran Harian (Bulanan / 30) + Beban Tambahan
       const sewaHarian = Math.round((cabang.sewa_bulanan || 3000000) / 30);
       const wifiListrikHarian = Math.round((cabang.listrik_air_bulanan || 600000) / 30);
       const iuranHarian = Math.round((cabang.iuran_kebersihan_bulanan || 150000) / 30);
       const biayaLainHarian = Math.round((cabang.biaya_lain_bulanan || 0) / 30);
+
+      const sewaPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sewa' || p.jenis_biaya === 'semua_paket'));
+      const wifiPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'listrik_wifi' || p.jenis_biaya === 'semua_paket'));
+      const iuranPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sampah_kebersihan' || p.jenis_biaya === 'semua_paket'));
+
+      const effectiveSewaHarian = fixedCostDeductionMode === 'kas_riil' && sewaPay?.status === 'lunas' ? 0 : sewaHarian;
+      const effectiveWifiHarian = fixedCostDeductionMode === 'kas_riil' && wifiPay?.status === 'lunas' ? 0 : wifiListrikHarian;
+      const effectiveIuranHarian = fixedCostDeductionMode === 'kas_riil' && iuranPay?.status === 'lunas' ? 0 : iuranHarian;
+      const effectiveBiayaLainHarian = biayaLainHarian;
+      const effectiveFixedCost = effectiveSewaHarian + effectiveWifiHarian + effectiveIuranHarian + effectiveBiayaLainHarian;
 
       // 2. Upah Karyawan:
       // a. Presensi Riil Hari Ini (Hanya Yang Sudah Di-ACC Owner)
@@ -564,8 +613,8 @@ export default function AdminDashboardPage() {
 
       const totalGajiKaryawan = upahDeductionMode === 'standar_harian' ? standardDailyWage : actualPresensiGaji;
 
-      // 3. Omzet & Total HPP Bahan Baku Terpakai
-      const branchTrx = transaksiList.filter(t => isBranchMatch(t.cabang_id, cabang.id) && t.status === 'completed' && t.waktu.startsWith(targetDate));
+      // 3. Omzet & Total HPP Bahan Baku Terpakai (pakai tanggal WIB transaksi)
+      const branchTrx = transaksiList.filter(t => isBranchMatch(t.cabang_id, cabang.id) && t.status === 'completed' && toWibDateString(t.waktu) === targetDate);
       let omzetKotor = 0;
       let totalHppBahan = 0;
 
@@ -591,18 +640,18 @@ export default function AdminDashboardPage() {
         });
       });
 
-      // 4. Belanja Operasional Toko Laci Approved Hari Ini (Gas LPG, Es Batu, Kresek, dll)
+      // 4. Belanja Operasional Toko Laci Approved (tetap diatribusikan ke tanggal pengajuan e.tanggal WIB walau di-ACC keesokan harinya)
       const branchBelanja = expenseList.filter(e => 
         isBranchMatch(e.cabang_id, cabang.id) && 
         e.jenis === 'belanja' && 
         e.status === 'approved' &&
         (e.metode_pencairan === 'laci' || !e.metode_pencairan) &&
-        ((e.approved_at && e.approved_at.slice(0, 10) === targetDate) || (e.tanggal && e.tanggal.slice(0, 10) === targetDate))
+        toWibDateString(e.tanggal) === targetDate
       );
       const totalBelanjaLaci = branchBelanja.reduce((sum, e) => sum + (e.nominal || 0), 0);
 
-      // Total Potongan Harian = Sewa + Wifi/Listrik + Iuran + Beban Tambahan + Gaji Karyawan + HPP Bahan + Belanja Laci Toko
-      const totalPotongan = sewaHarian + wifiListrikHarian + iuranHarian + biayaLainHarian + totalGajiKaryawan + totalHppBahan + totalBelanjaLaci;
+      // Total Potongan Harian = Fixed Cost Efektif + Gaji Karyawan + HPP Bahan + Belanja Laci Toko
+      const totalPotongan = effectiveFixedCost + totalGajiKaryawan + totalHppBahan + totalBelanjaLaci;
       const uangBersihBoss = omzetKotor - totalPotongan;
 
       return {
@@ -611,6 +660,11 @@ export default function AdminDashboardPage() {
         wifiListrikHarian,
         iuranHarian,
         biayaLainHarian,
+        effectiveSewaHarian,
+        effectiveWifiHarian,
+        effectiveIuranHarian,
+        effectiveBiayaLainHarian,
+        effectiveFixedCost,
         totalGajiKaryawan,
         standardDailyWage,
         actualPresensiGaji,
@@ -625,10 +679,10 @@ export default function AdminDashboardPage() {
     });
 
     const totalOmzet10Toko = branchBreakdowns.reduce((sum, b) => sum + b.omzetKotor, 0);
-    const totalSewa10Toko = branchBreakdowns.reduce((sum, b) => sum + b.sewaHarian, 0);
-    const totalWifiListrik10Toko = branchBreakdowns.reduce((sum, b) => sum + b.wifiListrikHarian, 0);
-    const totalIuran10Toko = branchBreakdowns.reduce((sum, b) => sum + b.iuranHarian, 0);
-    const totalBiayaLain10Toko = branchBreakdowns.reduce((sum, b) => sum + (b.biayaLainHarian || 0), 0);
+    const totalSewa10Toko = branchBreakdowns.reduce((sum, b) => sum + b.effectiveSewaHarian, 0);
+    const totalWifiListrik10Toko = branchBreakdowns.reduce((sum, b) => sum + b.effectiveWifiHarian, 0);
+    const totalIuran10Toko = branchBreakdowns.reduce((sum, b) => sum + b.effectiveIuranHarian, 0);
+    const totalBiayaLain10Toko = branchBreakdowns.reduce((sum, b) => sum + (b.effectiveBiayaLainHarian || 0), 0);
     const totalGaji10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalGajiKaryawan, 0);
     const totalStandarGaji10Toko = branchBreakdowns.reduce((sum, b) => sum + b.standardDailyWage, 0);
     const totalPresensiGaji10Toko = branchBreakdowns.reduce((sum, b) => sum + b.actualPresensiGaji, 0);
@@ -653,7 +707,7 @@ export default function AdminDashboardPage() {
       totalPotongan10Toko,
       totalBersihBoss10Toko,
     };
-  }, [cabangList, menuList, absensiList, transaksiList, expenseList, selectedBossSummaryDate, karyawanList, upahDeductionMode]);
+  }, [cabangList, menuList, absensiList, transaksiList, expenseList, selectedBossSummaryDate, karyawanList, upahDeductionMode, fixedCostPayments, fixedCostDeductionMode]);
 
   // --------------------------------------------------------------------------
   // EXECUTIVE SUMMARY HARIAN (KONSOLIDASI 10 CABANG ATAU PER CABANG PILIHAN)
@@ -752,7 +806,7 @@ export default function AdminDashboardPage() {
     const targetDate = selectedBossSummaryDate;
     const dayTrx = transaksiList.filter(t => 
       t.status === 'completed' && 
-      t.waktu.startsWith(targetDate) &&
+      toWibDateString(t.waktu) === targetDate &&
       (selectedCabangId === 'all' || isBranchMatch(t.cabang_id, selectedCabangId))
     );
 
@@ -908,15 +962,40 @@ export default function AdminDashboardPage() {
                   </select>
                 </div>
 
-                <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                  <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Tanggal:</span>
+                <div className="flex items-center space-x-1 bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-200">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-700 shrink-0 ml-1" />
+                  <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap hidden sm:inline">Tanggal:</span>
+                  <button
+                    type="button"
+                    onClick={() => stepBossSummaryDate(-1)}
+                    title="Mundur 1 Hari"
+                    className="p-1 rounded-lg hover:bg-white hover:shadow-sm text-slate-600 transition cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
                   <input
                     type="date"
                     value={selectedBossSummaryDate}
                     onChange={(e) => setSelectedBossSummaryDate(e.target.value)}
                     className="bg-transparent font-mono text-xs font-extrabold text-slate-800 outline-none cursor-pointer"
                   />
+                  <button
+                    type="button"
+                    onClick={() => stepBossSummaryDate(1)}
+                    title="Maju 1 Hari"
+                    className="p-1 rounded-lg hover:bg-white hover:shadow-sm text-slate-600 transition cursor-pointer"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                  {selectedBossSummaryDate !== getTodayDateString() && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedBossSummaryDate(getTodayDateString())}
+                      className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition cursor-pointer"
+                    >
+                      Hari Ini
+                    </button>
+                  )}
                 </div>
 
                 <button
@@ -934,7 +1013,9 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="p-4 sm:p-5 rounded-2xl bg-white border-t-[4px] border-emerald-600 border-x border-b border-slate-200/80 shadow-soft-sm">
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Omzet Tanggal Ini</span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                    {selectedBossSummaryDate === getTodayDateString() ? 'Omzet Hari Ini' : 'Omzet Tanggal Dipilih'}
+                  </span>
                   <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                     {selectedBossSummaryDate}
                   </span>
@@ -943,7 +1024,7 @@ export default function AdminDashboardPage() {
                   {formatRupiah(activeExecutiveSummary.omzet)}
                 </div>
                 <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">
-                  {selectedCabangId === 'all' ? '10 Cabang' : cabangList.find(c => c.id === selectedCabangId)?.kode || 'Cabang'} • Riwayat total: {formatRupiah(totalOmzetGlobal)}
+                  {selectedCabangId === 'all' ? `${cabangList.length || 10} Cabang` : cabangList.find(c => c.id === selectedCabangId)?.kode || 'Cabang'} • Riwayat total: {formatRupiah(totalOmzetGlobal)}
                 </span>
               </div>
 
@@ -989,7 +1070,9 @@ export default function AdminDashboardPage() {
                   </div>
                   <div>
                     <h3 className="text-base font-extrabold text-slate-900">
-                      Posisi Saldo Realtime: Uang Hari Ini Ada di Mana Saja?
+                      {selectedBossSummaryDate === getTodayDateString()
+                        ? 'Posisi Saldo Realtime: Uang Hari Ini Ada di Mana Saja?'
+                        : `Posisi Saldo Tanggal ${selectedBossSummaryDate}: Arus Uang per Channel`}
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Laporan uang masuk kasir tanggal <strong>{selectedBossSummaryDate}</strong>: uang fisik di laci vs QRIS/transfer pusat vs dompet ShopeeFood, GoFood &amp; GrabFood.
@@ -1378,129 +1461,370 @@ export default function AdminDashboardPage() {
 
             </div>
 
-            {/* BAGIAN 4: TABEL LAPORAN OMZET & LABA BERSIH 10 TOKO */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden space-y-4 p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                <div className="flex items-center space-x-2">
-                  <Store className="w-5 h-5 text-emerald-700" />
+            {/* BAGIAN 4: TABEL LAPORAN OMZET & LABA BERSIH PER OUTLET */}
+            {(() => {
+              const displayedBreakdowns = selectedCabangId === 'all'
+                ? bossDailyProfits.branchBreakdowns
+                : bossDailyProfits.branchBreakdowns.filter(b => b.cabang.id === selectedCabangId);
+              const footOmzet = displayedBreakdowns.reduce((sum, b) => sum + b.omzetKotor, 0);
+              const footFixedCost = displayedBreakdowns.reduce((sum, b) => sum + b.effectiveFixedCost, 0);
+              const footHpp = displayedBreakdowns.reduce((sum, b) => sum + b.totalHppBahan, 0);
+              const footGaji = displayedBreakdowns.reduce((sum, b) => sum + b.totalGajiKaryawan, 0);
+              const footBelanja = displayedBreakdowns.reduce((sum, b) => sum + b.totalBelanjaLaci, 0);
+              const footBersih = displayedBreakdowns.reduce((sum, b) => sum + b.uangBersihBoss, 0);
+
+              return (
+                <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden space-y-4 p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div className="flex items-center space-x-2">
+                      <Store className="w-5 h-5 text-emerald-700" />
+                      <div>
+                        <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
+                          Laporan Kinerja &amp; Uang Bersih per Outlet ({selectedCabangId === 'all' ? `${cabangList.length || 10} Cabang Resmi` : displayedBreakdowns[0]?.cabang.kode || 'Cabang Terpilih'})
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Laporan otomatis tanggal <strong>{selectedBossSummaryDate}</strong> • Mode Fixed Cost:{' '}
+                          <strong>{fixedCostDeductionMode === 'kas_riil' ? 'Kas Riil (Lunas Bulanan Rp 0/hr)' : 'Cadangan Amortisasi (/30 Hari)'}</strong>.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                      {selectedCabangId !== 'all' && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCabangId('all')}
+                          className="text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl border border-slate-300 transition cursor-pointer"
+                        >
+                          Tampilkan Semua ({bossDailyProfits.branchBreakdowns.length})
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={navigateToFixedCost}
+                        className="text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center space-x-1.5 transition cursor-pointer"
+                      >
+                        <Building2 className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Ubah Settingan Biaya Tetap Toko →</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-900 text-white uppercase text-[10px] font-black tracking-wider">
+                        <tr>
+                          <th className="py-3 px-3.5">Outlet Cabang</th>
+                          <th className="py-3 px-3.5 text-right">Omzet Kotor</th>
+                          <th className="py-3 px-3.5 text-right text-rose-300">Potongan Fixed Cost</th>
+                          <th className="py-3 px-3.5 text-right text-amber-300">HPP Bahan Baku</th>
+                          <th className="py-3 px-3.5 text-right text-blue-300">
+                            Upah Staf {upahDeductionMode === 'standar_harian' ? '(/Hari)' : 'ACC'}
+                          </th>
+                          <th className="py-3 px-3.5 text-right text-purple-300">Belanja Toko Laci</th>
+                          <th className="py-3 px-3.5 text-right bg-slate-950 text-amber-300">Uang Bersih Toko</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {displayedBreakdowns.map(b => {
+                          const isSelected = selectedCabangId !== 'all' && b.cabang.id === selectedCabangId;
+                          const fixedCostToko = b.effectiveFixedCost;
+
+                          return (
+                            <tr 
+                              key={b.cabang.id} 
+                              className={`transition-colors cursor-pointer ${
+                                isSelected 
+                                  ? 'bg-emerald-50/90 ring-2 ring-emerald-500 font-medium' 
+                                  : 'hover:bg-slate-50'
+                              }`}
+                              onClick={() => setSelectedCabangId(selectedCabangId === b.cabang.id ? 'all' : b.cabang.id)}
+                              title="Klik untuk filter ringkasan toko ini"
+                            >
+                              <td className="py-3 px-3.5">
+                                <div className="flex items-center space-x-1.5">
+                                  <span className="font-mono text-[10px] font-bold text-slate-400 block">#{b.cabang.nomor} • {b.cabang.kode}</span>
+                                  {isSelected && (
+                                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[9px] font-bold">
+                                      Terpilih
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="font-extrabold text-slate-900 text-xs block">{b.cabang.nama}</span>
+                                <span className="text-[10px] text-slate-500 block">{b.cabang.kota} • PJ: {b.cabang.pj_nama || '-'}</span>
+                              </td>
+                              <td className="py-3 px-3.5 text-right font-mono font-extrabold text-slate-900 text-xs">
+                                {formatRupiah(b.omzetKotor)}
+                              </td>
+                              <td className="py-3 px-3.5 text-right font-mono font-bold text-rose-600 text-xs whitespace-nowrap">
+                                {fixedCostToko > 0 ? `-${formatRupiah(fixedCostToko)}` : 'Rp 0'}
+                                <span className="text-[9px] text-slate-400 block font-normal">
+                                  {fixedCostToko === 0 && fixedCostDeductionMode === 'kas_riil'
+                                    ? 'Lunas Kas Riil'
+                                    : 'Sewa+Wifi+Iuran+Lain'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3.5 text-right font-mono font-bold text-amber-700 text-xs whitespace-nowrap">
+                                -{formatRupiah(b.totalHppBahan)}
+                                <span className="text-[9px] text-slate-400 block font-normal">Porsi Terjual</span>
+                              </td>
+                              <td className="py-3 px-3.5 text-right font-mono font-bold text-blue-700 text-xs whitespace-nowrap">
+                                -{formatRupiah(b.totalGajiKaryawan)}
+                                <span className="text-[9px] text-slate-400 block font-normal">
+                                  {upahDeductionMode === 'standar_harian' 
+                                    ? `${b.branchWorkersCount} Staf Terplot (/6 Hari)` 
+                                    : `${b.stafHadirCount} Staf Di-ACC`}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3.5 text-right font-mono font-bold text-purple-700 text-xs whitespace-nowrap">
+                                {b.totalBelanjaLaci > 0 ? `-${formatRupiah(b.totalBelanjaLaci)}` : 'Rp 0'}
+                                <span className="text-[9px] text-slate-400 block font-normal">Gas/Es/Operasional</span>
+                              </td>
+                              <td className={`py-3 px-3.5 text-right font-mono font-black text-sm bg-slate-50 whitespace-nowrap ${b.uangBersihBoss < 0 ? 'text-rose-700' : 'text-emerald-800'}`}>
+                                {formatRupiah(b.uangBersihBoss)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-slate-100 font-extrabold border-t-2 border-slate-300 text-xs">
+                        <tr>
+                          <td className="py-3 px-3.5 uppercase text-slate-700">
+                            {selectedCabangId === 'all' ? `Total ${displayedBreakdowns.length} Outlet` : 'Total Cabang Terpilih'}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-mono text-slate-900">
+                            {formatRupiah(footOmzet)}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-mono text-rose-600 whitespace-nowrap">
+                            {footFixedCost > 0 ? `-${formatRupiah(footFixedCost)}` : 'Rp 0'}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-mono text-amber-700 whitespace-nowrap">
+                            -{formatRupiah(footHpp)}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-mono text-blue-700 whitespace-nowrap">
+                            -{formatRupiah(footGaji)}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-mono text-purple-700 whitespace-nowrap">
+                            -{formatRupiah(footBelanja)}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-mono font-black text-sm bg-slate-200 text-slate-950 whitespace-nowrap">
+                            {formatRupiah(footBersih)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* BAGIAN 5: RIWAYAT HARIAN TUTUP BUKU KASIR SETIAP CABANG */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden p-5 space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
+                <div className="flex items-start space-x-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5" />
+                  </div>
                   <div>
                     <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
-                      Laporan Kinerja &amp; Uang Bersih per Outlet (10 Cabang Resmi)
+                      Riwayat Harian Tutup Buku &amp; Laci Kasir
                     </h3>
-                    <p className="text-xs text-slate-500">
-                      Laporan otomatis tanggal <strong>{selectedBossSummaryDate}</strong> setelah dipotong biaya tetap, modal HPP, upah staf, dan belanja laci disetujui.
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Audit serah terima laci kasir per tanggal &amp; cabang, lengkap dengan catatan pending ACC &amp; tagihan belum terbayar / kerugian.
                     </p>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={navigateToFixedCost}
-                  className="text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center space-x-1.5 transition self-start sm:self-auto cursor-pointer"
-                >
-                  <Building2 className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Ubah Settingan Biaya Tetap Toko →</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setShiftHistoryDateMode('selected')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                        shiftHistoryDateMode === 'selected'
+                          ? 'bg-white text-emerald-800 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Tanggal {selectedBossSummaryDate}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShiftHistoryDateMode('all')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                        shiftHistoryDateMode === 'all'
+                          ? 'bg-white text-emerald-800 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Semua Riwayat Tanggal
+                    </button>
+                  </div>
+
+                  <span className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-[11px] font-mono font-bold">
+                    {filteredShiftHistory.length} Shift
+                  </span>
+                </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900 text-white uppercase text-[10px] font-black tracking-wider">
-                    <tr>
-                      <th className="py-3 px-3.5">Outlet Cabang</th>
-                      <th className="py-3 px-3.5 text-right">Omzet Kotor</th>
-                      <th className="py-3 px-3.5 text-right text-rose-300">Potongan Fixed Cost</th>
-                      <th className="py-3 px-3.5 text-right text-amber-300">HPP Bahan Baku</th>
-                      <th className="py-3 px-3.5 text-right text-blue-300">
-                        Upah Staf {upahDeductionMode === 'standar_harian' ? '(/Hari)' : 'ACC'}
-                      </th>
-                      <th className="py-3 px-3.5 text-right text-purple-300">Belanja Toko Laci</th>
-                      <th className="py-3 px-3.5 text-right bg-slate-950 text-amber-300">Uang Bersih Toko</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {bossDailyProfits.branchBreakdowns.map(b => {
-                      const isSelected = selectedCabangId !== 'all' && b.cabang.id === selectedCabangId;
-                      const fixedCostToko = b.sewaHarian + b.wifiListrikHarian + b.iuranHarian + (b.biayaLainHarian || 0);
+              {filteredShiftHistory.length === 0 ? (
+                <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                  <p className="text-xs font-bold text-slate-500">
+                    Belum ada catatan buka/tutup shift kasir pada{' '}
+                    <strong>{shiftHistoryDateMode === 'selected' ? `tanggal ${selectedBossSummaryDate}` : 'periode ini'}</strong>
+                    {selectedCabangId !== 'all' ? ' untuk cabang terpilih' : ''}.
+                  </p>
+                  {shiftHistoryDateMode === 'selected' && shiftList.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShiftHistoryDateMode('all')}
+                      className="text-xs font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                    >
+                      Lihat semua {shiftList.length} riwayat tanggal tutup buku →
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-900 text-white uppercase text-[10px] font-black tracking-wider">
+                      <tr>
+                        <th className="py-3 px-3.5">Tanggal &amp; Jam</th>
+                        <th className="py-3 px-3.5">Cabang &amp; Kasir</th>
+                        <th className="py-3 px-3.5 text-right">Omzet Shift</th>
+                        <th className="py-3 px-3.5 text-right">Modal &amp; Laci Keluar</th>
+                        <th className="py-3 px-3.5 text-right">Sistem vs Fisik</th>
+                        <th className="py-3 px-3.5 text-right">Selisih</th>
+                        <th className="py-3 px-3.5 min-w-[230px]">Keterangan &amp; Alert Risiko</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {filteredShiftHistory.map(shift => {
+                        const branchObj = cabangList.find(c => isBranchMatch(c.id, shift.cabang_id));
+                        const workerObj = karyawanList.find(k => k.id === shift.karyawan_id);
+                        const shiftDate = toWibDateString(shift.waktu_tutup || shift.waktu_buka);
+                        const nonTunaiTotal = (shift.total_qris_masuk || 0) + (shift.total_transfer_masuk || 0);
+                        const ojolTotal = (shift.total_shopeefood_masuk || 0) + (shift.total_gofood_masuk || 0) + (shift.total_grabfood_masuk || 0);
+                        const hasPending = (shift.pending_expenses_count || 0) > 0;
+                        const hasUnpaidLoss = (shift.unpaid_bills_count || 0) > 0 || (shift.catatan || '').toLowerCase().includes('kerugian');
+                        const selisihVal = shift.selisih || 0;
 
-                      return (
-                        <tr 
-                          key={b.cabang.id} 
-                          className={`transition-colors cursor-pointer ${
-                            isSelected 
-                              ? 'bg-emerald-50/90 ring-2 ring-emerald-500 font-medium' 
-                              : 'hover:bg-slate-50'
-                          }`}
-                          onClick={() => setSelectedCabangId(selectedCabangId === b.cabang.id ? 'all' : b.cabang.id)}
-                          title="Klik untuk filter ringkasan toko ini"
-                        >
-                          <td className="py-3 px-3.5">
-                            <div className="flex items-center space-x-1.5">
-                              <span className="font-mono text-[10px] font-bold text-slate-400 block">#{b.cabang.nomor} • {b.cabang.kode}</span>
-                              {isSelected && (
-                                <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[9px] font-bold">
-                                  Terpilih
-                                </span>
+                        return (
+                          <tr key={shift.id} className="hover:bg-slate-50/90 align-top">
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              <div className="font-mono font-extrabold text-slate-900">{shiftDate}</div>
+                              <div className="text-[10px] text-slate-500 mt-0.5">
+                                Buka: {formatWaktu(shift.waktu_buka)}
+                              </div>
+                              <div className="text-[10px] text-slate-500">
+                                Tutup: {shift.waktu_tutup ? formatWaktu(shift.waktu_tutup) : '-'}
+                              </div>
+                              <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-[9px] font-black ${
+                                shift.status === 'closed'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-200 animate-pulse'
+                              }`}>
+                                {shift.status === 'closed' ? '✓ TUTUP BUKU' : '● MASIH BUKA'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-3.5">
+                              <div className="font-extrabold text-slate-900">
+                                {branchObj?.kode || shift.cabang_nama || shift.cabang_id}
+                              </div>
+                              <div className="text-[10px] text-slate-500 max-w-[160px] truncate">
+                                {branchObj?.nama || shift.cabang_nama}
+                              </div>
+                              <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 text-[10px] font-bold">
+                                Kasir: {workerObj?.nama || shift.karyawan_nama || shift.karyawan_id}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-3.5 text-right font-mono whitespace-nowrap">
+                              <div className="font-extrabold text-emerald-800">
+                                Tunai: {formatRupiah(shift.total_tunai_masuk || 0)}
+                              </div>
+                              <div className="text-[10px] text-blue-700 font-semibold">
+                                Non-Tunai: {formatRupiah(nonTunaiTotal)}
+                              </div>
+                              {ojolTotal > 0 && (
+                                <div className="text-[10px] text-amber-700 font-semibold">
+                                  Ojol: {formatRupiah(ojolTotal)}
+                                </div>
                               )}
-                            </div>
-                            <span className="font-extrabold text-slate-900 text-xs block">{b.cabang.nama}</span>
-                            <span className="text-[10px] text-slate-500 block">{b.cabang.kota} • PJ: {b.cabang.pj_nama || '-'}</span>
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono font-extrabold text-slate-900 text-xs">
-                            {formatRupiah(b.omzetKotor)}
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono font-bold text-rose-600 text-xs whitespace-nowrap">
-                            -{formatRupiah(fixedCostToko)}
-                            <span className="text-[9px] text-slate-400 block font-normal">Sewa+Wifi+Sampah</span>
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono font-bold text-amber-700 text-xs whitespace-nowrap">
-                            -{formatRupiah(b.totalHppBahan)}
-                            <span className="text-[9px] text-slate-400 block font-normal">Porsi Terjual</span>
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono font-bold text-blue-700 text-xs whitespace-nowrap">
-                            -{formatRupiah(b.totalGajiKaryawan)}
-                            <span className="text-[9px] text-slate-400 block font-normal">
-                              {upahDeductionMode === 'standar_harian' 
-                                ? `${b.branchWorkersCount} Staf Terplot (/6 Hari)` 
-                                : `${b.stafHadirCount} Staf Di-ACC`}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono font-bold text-purple-700 text-xs whitespace-nowrap">
-                            {b.totalBelanjaLaci > 0 ? `-${formatRupiah(b.totalBelanjaLaci)}` : 'Rp 0'}
-                            <span className="text-[9px] text-slate-400 block font-normal">Gas/Es/Operasional</span>
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono font-black text-sm bg-slate-50 text-emerald-800 whitespace-nowrap">
-                            {formatRupiah(b.uangBersihBoss)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="bg-slate-100 font-extrabold border-t-2 border-slate-300 text-xs">
-                    <tr>
-                      <td className="py-3 px-3.5 uppercase text-slate-700">Total 10 Outlet</td>
-                      <td className="py-3 px-3.5 text-right font-mono text-slate-900">
-                        {formatRupiah(bossDailyProfits.totalOmzet10Toko)}
-                      </td>
-                      <td className="py-3 px-3.5 text-right font-mono text-rose-600 whitespace-nowrap">
-                        -{formatRupiah(bossDailyProfits.totalSewa10Toko + bossDailyProfits.totalWifiListrik10Toko + bossDailyProfits.totalIuran10Toko + (bossDailyProfits.totalBiayaLain10Toko || 0))}
-                      </td>
-                      <td className="py-3 px-3.5 text-right font-mono text-amber-700 whitespace-nowrap">
-                        -{formatRupiah(bossDailyProfits.totalHpp10Toko)}
-                      </td>
-                      <td className="py-3 px-3.5 text-right font-mono text-blue-700 whitespace-nowrap">
-                        -{formatRupiah(bossDailyProfits.totalGaji10Toko)}
-                      </td>
-                      <td className="py-3 px-3.5 text-right font-mono text-purple-700 whitespace-nowrap">
-                        -{formatRupiah(bossDailyProfits.totalBelanja10Toko)}
-                      </td>
-                      <td className="py-3 px-3.5 text-right font-mono font-black text-sm bg-slate-200 text-slate-950 whitespace-nowrap">
-                        {formatRupiah(bossDailyProfits.totalBersihBoss10Toko)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+                            </td>
+
+                            <td className="py-3 px-3.5 text-right font-mono whitespace-nowrap">
+                              <div className="font-bold text-slate-700">
+                                Modal: {formatRupiah(shift.modal_awal || 0)}
+                              </div>
+                              <div className="text-[10px] text-rose-700">
+                                Belanja ACC: -{formatRupiah(shift.total_belanja_approved || 0)}
+                              </div>
+                              <div className="text-[10px] text-purple-700">
+                                Kasbon ACC: -{formatRupiah(shift.total_kasbon_approved || 0)}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-3.5 text-right font-mono whitespace-nowrap">
+                              <div className="text-[10px] text-slate-500">
+                                Sistem: <strong className="text-slate-900">{formatRupiah(shift.saldo_akhir_sistem || 0)}</strong>
+                              </div>
+                              <div className="text-xs font-extrabold text-slate-950 mt-0.5">
+                                Fisik: {shift.status === 'closed' ? formatRupiah(shift.saldo_akhir_fisik || 0) : 'Belum hitung'}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-3.5 text-right font-mono whitespace-nowrap">
+                              {shift.status === 'closed' ? (
+                                <span className={`inline-block px-2 py-1 rounded-lg text-[11px] font-black border ${
+                                  selisihVal === 0
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    : selisihVal > 0
+                                    ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                    : 'bg-rose-50 text-rose-800 border-rose-200'
+                                }`}>
+                                  {selisihVal === 0 ? 'PAS Rp 0' : `${selisihVal > 0 ? '+' : ''}${formatRupiah(selisihVal)}`}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400">Aktif</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3.5 space-y-1.5">
+                              {hasPending && (
+                                <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold mr-1">
+                                  <AlertTriangle className="w-3 h-3 shrink-0" />
+                                  <span>
+                                    {shift.pending_expenses_count} Pending ACC ({formatRupiah(shift.pending_expenses_total || 0)})
+                                  </span>
+                                </div>
+                              )}
+                              {hasUnpaidLoss && (
+                                <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[10px] font-bold">
+                                  <ShieldAlert className="w-3 h-3 shrink-0" />
+                                  <span>
+                                    {(shift.unpaid_bills_count || 0) > 0
+                                      ? `${shift.unpaid_bills_count} Nota Blm Bayar (${formatRupiah(shift.unpaid_bills_total || 0)})`
+                                      : 'Catatan Kerugian / Nota'}
+                                  </span>
+                                </div>
+                              )}
+                              {shift.catatan ? (
+                                <p className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-2 rounded-xl border border-slate-200/80">
+                                  {shift.catatan}
+                                </p>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 italic">Tidak ada catatan tambahan</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* Quick-Access Banner: Menu 2 Buku Mutasi Transaksi */}
@@ -1621,6 +1945,7 @@ export default function AdminDashboardPage() {
               transaksiList={transaksiList}
               cabangList={cabangList}
               selectedCabangId={selectedCabangId}
+              selectedDate={selectedBossSummaryDate}
             />
           </div>
         )}
@@ -2049,8 +2374,13 @@ export default function AdminDashboardPage() {
                                   {exp.approved_by || 'Pak Agan (Owner)'}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-mono block">
-                                  📅 {exp.approved_at ? formatWaktu(exp.approved_at) : formatWaktu(exp.tanggal)}
+                                  ACC: {exp.approved_at ? formatWaktu(exp.approved_at) : formatWaktu(exp.tanggal)}
                                 </span>
+                                {exp.approved_at && toWibDateString(exp.approved_at) !== toWibDateString(exp.tanggal) && (
+                                  <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block">
+                                    Masuk lap. tgl pengajuan: {toWibDateString(exp.tanggal)}
+                                  </span>
+                                )}
                               </div>
                             ) : exp.status === 'rejected' ? (
                               <div className="space-y-0.5">
@@ -2058,13 +2388,18 @@ export default function AdminDashboardPage() {
                                   {exp.approved_by || 'Pak Agan (Owner)'}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-mono block">
-                                  📅 {exp.approved_at ? formatWaktu(exp.approved_at) : formatWaktu(exp.tanggal)}
+                                  Ditolak: {exp.approved_at ? formatWaktu(exp.approved_at) : formatWaktu(exp.tanggal)}
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-amber-700 font-bold text-[10px] bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-block">
-                                Menunggu Validasi
-                              </span>
+                              <div className="space-y-0.5">
+                                <span className="text-amber-700 font-bold text-[10px] bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-block">
+                                  Menunggu Validasi
+                                </span>
+                                <span className="text-[9px] text-slate-400 block font-mono">
+                                  Diajukan: {toWibDateString(exp.tanggal)}
+                                </span>
+                              </div>
                             )}
                           </td>
                           <td className="py-3 px-4 text-center whitespace-nowrap">
@@ -3761,8 +4096,9 @@ export default function AdminDashboardPage() {
           karyawanList={karyawanList}
           transaksiList={transaksiList}
           expenseList={expenseList}
+          shifts={shiftList}
           defaultCabangId={selectedCabangId !== 'all' ? selectedCabangId : undefined}
-          defaultDate={getTodayDateString()}
+          defaultDate={selectedBossSummaryDate}
           onClose={() => setShowDailyReportModal(false)}
         />
       )}

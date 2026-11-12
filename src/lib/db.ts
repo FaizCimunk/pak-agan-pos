@@ -43,7 +43,7 @@ import {
   INITIAL_TABUNGAN_KARYAWAN,
   DEFAULT_PIN_HASH 
 } from './mock-data';
-import { hashPin } from './utils';
+import { hashPin, parseCustomFixedCosts, serializeCustomFixedCosts, toWibDateString } from './utils';
 
 // Local storage keys for hybrid offline/standalone simulation
 const STORAGE_KEYS = {
@@ -347,13 +347,20 @@ export class PosDatabase {
   // CABANG (10 CABANG RESMI)
   // --------------------------------------------------------------------------
   async getCabangList(): Promise<Cabang[]> {
+    const hydrateCabangList = (items: Cabang[]): Cabang[] =>
+      items.map(c => ({
+        ...c,
+        biaya_lain_items: parseCustomFixedCosts(c),
+      }));
+
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase.from('cabang').select('*').order('nomor', { ascending: true });
         if (!error && data && data.length > 0) {
           syncCabangNamesToMap(data);
-          saveLocal(STORAGE_KEYS.CABANG, data);
-          return data;
+          const hydrated = hydrateCabangList(data);
+          saveLocal(STORAGE_KEYS.CABANG, hydrated);
+          return hydrated;
         }
       } catch (e) {
         console.warn('Fallback to local cabang data:', e);
@@ -370,7 +377,7 @@ export class PosDatabase {
       saveLocal(STORAGE_KEYS.CABANG, local);
     }
     syncCabangNamesToMap(local);
-    return local;
+    return hydrateCabangList(local);
   }
 
   async getAllCabang(): Promise<Cabang[]> {
@@ -388,12 +395,29 @@ export class PosDatabase {
     if (index === -1) throw new Error(`Cabang dengan ID ${id} tidak ditemukan.`);
 
     // Kunci Paten Sistem: id, uuid, nomor, dan kode tidak pernah diubah agar semua relasi tetap utuh
-    const { id: _ignoredId, kode: _ignoredKode, nomor: _ignoredNomor, ...safeUpdates } = updates as any;
+    const {
+      id: _ignoredId,
+      kode: _ignoredKode,
+      nomor: _ignoredNomor,
+      biaya_lain_items: incomingItems,
+      ...restUpdates
+    } = updates as any;
+
+    let mergedUpdates: any = { ...restUpdates };
+    if (Array.isArray(incomingItems)) {
+      const serialized = serializeCustomFixedCosts(incomingItems);
+      mergedUpdates.biaya_lain_bulanan = serialized.biaya_lain_bulanan;
+      mergedUpdates.keterangan_biaya_lain = serialized.keterangan_biaya_lain;
+    }
 
     const updatedCabang: Cabang = {
       ...list[index],
-      ...safeUpdates,
+      ...mergedUpdates,
     };
+    updatedCabang.biaya_lain_items = Array.isArray(incomingItems)
+      ? serializeCustomFixedCosts(incomingItems).biaya_lain_items
+      : parseCustomFixedCosts(updatedCabang);
+
     list[index] = updatedCabang;
     syncCabangNamesToMap([updatedCabang]);
     saveLocal(STORAGE_KEYS.CABANG, list);
@@ -404,7 +428,7 @@ export class PosDatabase {
     if (isSupabaseConfigured && supabase) {
       try {
         const targetUuid = getBranchUuid(id) || id;
-        const { error } = await supabase.from('cabang').update(safeUpdates).eq('id', targetUuid);
+        const { error } = await supabase.from('cabang').update(mergedUpdates).eq('id', targetUuid);
         if (error) {
           console.warn('Supabase updateCabang error:', error);
         }
@@ -1697,7 +1721,7 @@ export class PosDatabase {
     try {
       const now = new Date();
       const jamMasukAktual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      const todayDate = now.toISOString().slice(0, 10);
+      const todayDate = this.getWibDateString(now);
       const absensiList = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
       const existingAbs = absensiList.find(a => a.karyawan_id === karyawan_id && a.tanggal === todayDate);
 
@@ -1831,7 +1855,11 @@ export class PosDatabase {
   async closeShift(
     cabangId: string, 
     saldoFisikLaci: number, 
-    catatan?: string
+    catatan?: string,
+    options?: {
+      writeOffOpenBills?: boolean;
+      unpaidBills?: Transaksi[];
+    }
   ): Promise<Shift | null> {
     const active = await this.getActiveShift(cabangId);
     if (!active) return null;
@@ -1839,14 +1867,66 @@ export class PosDatabase {
     const calculated = await this.calculateShiftBalance(active);
     const selisih = saldoFisikLaci - calculated.saldo_akhir_sistem;
 
+    const allExpenses = await this.getPengeluaranList(cabangId);
+    const pendingForShift = allExpenses.filter(
+      e =>
+        e.status === 'pending' &&
+        isBranchMatch(e.cabang_id, cabangId) &&
+        (!e.shift_id || e.shift_id === active.id || new Date(e.tanggal).getTime() >= new Date(active.waktu_buka).getTime() - 5 * 60 * 1000)
+    );
+    const pendingTotal = pendingForShift.reduce((s, e) => s + Number(e.nominal || 0), 0);
+
+    const unpaidBills = options?.unpaidBills ?? (await this.getOpenBills(cabangId));
+    const unpaidTotal = unpaidBills.reduce((s, b) => s + Number(b.total || 0), 0);
+
+    const noteParts: string[] = [];
+    if (catatan && catatan.trim()) {
+      noteParts.push(catatan.trim());
+    } else {
+      noteParts.push(selisih === 0 ? 'Kas cocok pas' : selisih > 0 ? `Surplus +${selisih}` : `Tekor ${selisih}`);
+    }
+
+    if (unpaidBills.length > 0 && unpaidTotal > 0) {
+      const billLabels = unpaidBills
+        .slice(0, 3)
+        .map(b => `${b.penanda || b.meja || b.nama_pelanggan || b.invoice_no}`)
+        .join(', ');
+      const extraMore = unpaidBills.length > 3 ? ` +${unpaidBills.length - 3} lainnya` : '';
+      const tag = options?.writeOffOpenBills ? 'KERUGIAN BELUM BAYAR' : 'TAGIHAN BELUM BAYAR';
+      noteParts.push(
+        `[${tag}: ${unpaidBills.length} pesanan (Rp ${unpaidTotal.toLocaleString('id-ID')}) - ${billLabels}${extraMore}]`
+      );
+    }
+
+    if (pendingForShift.length > 0 && pendingTotal > 0) {
+      noteParts.push(
+        `[PENDING ACC PUSAT: ${pendingForShift.length} pengajuan (Rp ${pendingTotal.toLocaleString('id-ID')})]`
+      );
+    }
+
     const closedShift: Shift = {
       ...calculated,
       waktu_tutup: new Date().toISOString(),
       saldo_akhir_fisik: saldoFisikLaci,
       selisih: selisih,
       status: 'closed',
-      catatan: catatan || (selisih === 0 ? 'Kas cocok pas' : selisih > 0 ? `Surplus +${selisih}` : `Tekor ${selisih}`),
+      catatan: noteParts.join(' | '),
+      pending_expenses_count: pendingForShift.length,
+      pending_expenses_total: pendingTotal,
+      unpaid_bills_count: unpaidBills.length,
+      unpaid_bills_total: unpaidTotal,
     };
+
+    // Jika kasir menandai tagihan belum bayar sebagai kerugian shift ini, bersihkan dari antrean open bills
+    if (options?.writeOffOpenBills && unpaidBills.length > 0) {
+      const closedIds = new Set(unpaidBills.map(b => b.id));
+      const existingBills = loadLocal<Transaksi[]>(STORAGE_KEYS.OPEN_BILLS, []);
+      const remainingBills = existingBills.filter(b => !closedIds.has(b.id) && !isBranchMatch(b.cabang_id, cabangId));
+      saveLocal(STORAGE_KEYS.OPEN_BILLS, remainingBills);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('pak_agan_open_bills_updated'));
+      }
+    }
 
     // Remove active shift
     const branchUuid = getBranchUuid(cabangId) || cabangId;
@@ -1890,21 +1970,180 @@ export class PosDatabase {
     try {
       const now = new Date();
       const jamPulangAktual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      const todayDate = (active.waktu_buka ? new Date(active.waktu_buka) : now).toISOString().slice(0, 10);
+      const todayDate = this.getWibDateString(active.waktu_buka || now);
       const absensiList = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
       const existingAbs = absensiList.find(a => a.karyawan_id === active.karyawan_id && a.tanggal === todayDate);
       if (existingAbs) {
         existingAbs.jam_pulang = jamPulangAktual;
         saveLocal(STORAGE_KEYS.ABSENSI, absensiList);
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('pak_agan_db_updated'));
-        }
       }
     } catch (e) {
       console.warn('Gagal update jam_pulang saat closeShift:', e);
     }
 
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+
     return closedShift;
+  }
+
+  // Ambil seluruh riwayat shift (buka & tutup buku kasir) terintegrasi Supabase + lokal + kalkulasi ulang
+  async getShiftList(cabangId?: string): Promise<Shift[]> {
+    let cloudShifts: any[] = [];
+    if (isSupabaseConfigured && supabase) {
+      try {
+        let query = supabase.from('shift').select('*').order('waktu_buka', { ascending: false }).limit(200);
+        if (cabangId && cabangId !== 'all') {
+          const targetUuid = getBranchUuid(cabangId);
+          if (targetUuid) query = query.eq('cabang_id', targetUuid);
+        }
+        const { data, error } = await query;
+        if (!error && data) {
+          cloudShifts = data;
+        }
+      } catch (e) {
+        console.warn('Supabase getShiftList fallback local:', e);
+      }
+    }
+
+    const localShifts = loadLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
+    const mergedMap = new Map<string, Shift>();
+
+    for (const row of cloudShifts) {
+      if (this.isSyntheticAutoShift(row)) continue;
+      mergedMap.set(row.id, {
+        id: row.id,
+        cabang_id: row.cabang_id,
+        cabang_nama: resolveLiveBranchName(row.cabang_id),
+        karyawan_id: row.karyawan_id || '',
+        karyawan_nama: row.karyawan_nama || undefined,
+        waktu_buka: row.waktu_buka,
+        waktu_tutup: row.waktu_tutup || null,
+        modal_awal: Number(row.modal_awal || 0),
+        total_tunai_masuk: Number(row.total_tunai_masuk || 0),
+        total_qris_masuk: Number(row.total_qris_masuk || 0),
+        total_transfer_masuk: Number(row.total_transfer_masuk || 0),
+        total_belanja_approved: Number(row.total_belanja_approved || 0),
+        total_kasbon_approved: Number(row.total_kasbon_approved || 0),
+        saldo_akhir_sistem: Number(row.saldo_akhir_sistem || 0),
+        saldo_akhir_fisik: Number(row.saldo_akhir_fisik || 0),
+        selisih: Number(row.selisih || 0),
+        status: row.status === 'closed' ? 'closed' : 'open',
+        catatan: row.catatan || null,
+        created_at: row.created_at,
+      });
+    }
+
+    for (const ls of localShifts) {
+      if (this.isSyntheticAutoShift(ls)) continue;
+      const existing = mergedMap.get(ls.id);
+      if (!existing || (ls.status === 'closed' && existing.status === 'open') || (!existing.catatan && ls.catatan)) {
+        mergedMap.set(ls.id, {
+          ...existing,
+          ...ls,
+          cabang_nama: resolveLiveBranchName(ls.cabang_id, ls.cabang_nama),
+        });
+      }
+    }
+
+    const [transactions, expenses, karyawans, cabangs] = await Promise.all([
+      this.getTransaksiList(cabangId && cabangId !== 'all' ? cabangId : undefined),
+      this.getPengeluaranList(cabangId && cabangId !== 'all' ? cabangId : undefined),
+      this.getAllKaryawan(),
+      this.getCabangList(),
+    ]);
+
+    const enriched: Shift[] = Array.from(mergedMap.values())
+      .filter(s => !cabangId || cabangId === 'all' || isBranchMatch(s.cabang_id, cabangId))
+      .map(s => {
+        const shiftOpenTime = new Date(s.waktu_buka).getTime();
+        const shiftCloseTime = s.waktu_tutup ? new Date(s.waktu_tutup).getTime() : null;
+
+        const shiftTrx = transactions.filter(t => {
+          if (t.status !== 'completed') return false;
+          if (!isBranchMatch(t.cabang_id, s.cabang_id)) return false;
+          if (t.shift_id && isValidUuid(t.shift_id)) return t.shift_id === s.id;
+          if (t.shift_id && t.shift_id === s.id) return true;
+          const trxTime = new Date(t.waktu).getTime();
+          if (isNaN(trxTime) || isNaN(shiftOpenTime)) return false;
+          if (trxTime < shiftOpenTime - 5 * 60 * 1000) return false;
+          if (shiftCloseTime && trxTime > shiftCloseTime) return false;
+          return true;
+        });
+
+        let tunai = 0, qris = 0, transfer = 0, shopee = 0, gofood = 0, grab = 0;
+        for (const trx of shiftTrx) {
+          const pay = (trx.metode_bayar || '').toLowerCase().trim();
+          const amt = Number(trx.total || 0);
+          if (pay === 'tunai' || pay === 'cash') tunai += amt;
+          else if (pay === 'qris') qris += amt;
+          else if (pay.includes('transfer') || pay === 'tf' || pay === 'bank') transfer += amt;
+          else if (pay.includes('shopee')) shopee += amt;
+          else if (pay.includes('gofood') || pay.includes('gopay')) gofood += amt;
+          else if (pay.includes('grab') || pay.includes('ovo')) grab += amt;
+          else transfer += amt;
+        }
+
+        const shiftExpApproved = expenses.filter(e => {
+          if (e.status !== 'approved') return false;
+          if (e.metode_pencairan !== 'laci') return false;
+          if (!isBranchMatch(e.cabang_id, s.cabang_id)) return false;
+          if (e.shift_id && isValidUuid(e.shift_id)) return e.shift_id === s.id;
+          if (e.shift_id && e.shift_id === s.id) return true;
+          const expTime = new Date(e.tanggal).getTime();
+          if (isNaN(expTime) || isNaN(shiftOpenTime)) return false;
+          if (expTime < shiftOpenTime - 5 * 60 * 1000) return false;
+          if (shiftCloseTime && expTime > shiftCloseTime) return false;
+          return true;
+        });
+
+        const shiftExpPending = expenses.filter(e => {
+          if (e.status !== 'pending') return false;
+          if (!isBranchMatch(e.cabang_id, s.cabang_id)) return false;
+          if (e.shift_id && isValidUuid(e.shift_id)) return e.shift_id === s.id;
+          if (e.shift_id && e.shift_id === s.id) return true;
+          const expTime = new Date(e.tanggal).getTime();
+          if (isNaN(expTime) || isNaN(shiftOpenTime)) return false;
+          if (expTime < shiftOpenTime - 5 * 60 * 1000) return false;
+          if (shiftCloseTime && expTime > shiftCloseTime) return false;
+          return true;
+        });
+
+        const belanjaApp = shiftExpApproved
+          .filter(e => e.jenis === 'belanja')
+          .reduce((sum, e) => sum + Number(e.nominal || 0), 0);
+        const kasbonApp = shiftExpApproved
+          .filter(e => e.jenis === 'kasbon')
+          .reduce((sum, e) => sum + Number(e.nominal || 0), 0);
+
+        const saldoSistem = s.modal_awal + tunai - belanjaApp - kasbonApp;
+        const fisik = Number(s.saldo_akhir_fisik || 0);
+        const branchObj = cabangs.find(c => isBranchMatch(c.id, s.cabang_id));
+        const karObj = karyawans.find(k => k.id === s.karyawan_id);
+
+        return {
+          ...s,
+          cabang_nama: resolveLiveBranchName(s.cabang_id, branchObj?.nama || s.cabang_nama),
+          karyawan_nama: karObj?.nama || s.karyawan_nama || branchObj?.pj_nama || 'Kasir Outlet',
+          total_tunai_masuk: tunai,
+          total_qris_masuk: qris,
+          total_transfer_masuk: transfer,
+          total_shopeefood_masuk: shopee,
+          total_gofood_masuk: gofood,
+          total_grabfood_masuk: grab,
+          total_transaksi_shift: shiftTrx.length,
+          total_belanja_approved: belanjaApp,
+          total_kasbon_approved: kasbonApp,
+          pending_expenses_count: shiftExpPending.length,
+          pending_expenses_total: shiftExpPending.reduce((sum, e) => sum + Number(e.nominal || 0), 0),
+          saldo_akhir_sistem: saldoSistem,
+          saldo_akhir_fisik: fisik,
+          selisih: s.status === 'closed' ? fisik - saldoSistem : 0,
+        };
+      });
+
+    return enriched.sort((a, b) => new Date(b.waktu_buka).getTime() - new Date(a.waktu_buka).getTime());
   }
 
   // --------------------------------------------------------------------------
@@ -2316,16 +2555,103 @@ export class PosDatabase {
     id: string, 
     params: { metode: MetodePencairan; buktiTransferUrl?: string; approvedBy?: string }
   ): Promise<boolean> {
+    const nowIso = new Date().toISOString();
+    const approver = params.approvedBy || 'Pak Agan (Owner)';
+    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
+    let targetExp = all.find(e => e.id === id);
+
+    const updated = all.some(e => e.id === id)
+      ? all.map(e => {
+          if (e.id === id) {
+            targetExp = {
+              ...e,
+              status: 'approved' as const,
+              metode_pencairan: params.metode,
+              bukti_transfer_url: params.buktiTransferUrl || e.bukti_transfer_url,
+              approved_by: approver,
+              approved_at: nowIso,
+            };
+            return targetExp;
+          }
+          return e;
+        })
+      : all;
+
+    saveLocal(STORAGE_KEYS.EXPENSES, updated);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('pengeluaran_kasbon').update({
+          status: 'approved',
+          metode_pencairan: params.metode,
+          bukti_transfer_url: params.buktiTransferUrl,
+          approved_by: approver,
+          approved_at: nowIso,
+        }).eq('id', id);
+
+        if (!targetExp) {
+          const { data } = await supabase.from('pengeluaran_kasbon').select('*').eq('id', id).maybeSingle();
+          if (data) targetExp = data as PengeluaranKasbon;
+        }
+      } catch (e) {
+        console.warn('Failed update approval to supabase:', e);
+      }
+    }
+
+    // Jika pengajuan berasal dari shift yang sudah tutup buku (admin telat ACC di hari berikutnya),
+    // hitung ulang saldo shift tersebut agar riwayat tutup buku & selisih tetap akurat di hari kejadiannya.
+    if (targetExp?.shift_id) {
+      try {
+        const shifts = loadLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
+        const targetShift = shifts.find(s => s.id === targetExp!.shift_id);
+        if (targetShift) {
+          const recalculated = await this.calculateShiftBalance(targetShift);
+          const nextFisik = Number(targetShift.saldo_akhir_fisik || 0);
+          const nextSelisih = targetShift.status === 'closed' ? nextFisik - recalculated.saldo_akhir_sistem : 0;
+          const syncedShift: Shift = {
+            ...recalculated,
+            saldo_akhir_fisik: nextFisik,
+            selisih: nextSelisih,
+          };
+          const nextShifts = shifts.map(s => (s.id === syncedShift.id ? syncedShift : s));
+          saveLocal(STORAGE_KEYS.SHIFTS, nextShifts);
+
+          if (isSupabaseConfigured && supabase && isValidUuid(syncedShift.id)) {
+            await supabase
+              .from('shift')
+              .update({
+                total_belanja_approved: syncedShift.total_belanja_approved,
+                total_kasbon_approved: syncedShift.total_kasbon_approved,
+                saldo_akhir_sistem: syncedShift.saldo_akhir_sistem,
+                selisih: syncedShift.selisih,
+              })
+              .eq('id', syncedShift.id);
+          }
+        }
+      } catch (syncErr) {
+        console.warn('Late approval shift resync skipped:', syncErr);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+
+    return true;
+  }
+
+  async rejectPengeluaran(id: string, alasan: string, rejectedBy?: string): Promise<boolean> {
+    const nowIso = new Date().toISOString();
+    const approver = rejectedBy || 'Pak Agan (Owner)';
     const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
     const updated = all.map(e => {
       if (e.id === id) {
         return {
           ...e,
-          status: 'approved' as const,
-          metode_pencairan: params.metode,
-          bukti_transfer_url: params.buktiTransferUrl || e.bukti_transfer_url,
-          approved_by: params.approvedBy || 'Pak Agan (Owner)',
-          approved_at: new Date().toISOString(),
+          status: 'rejected' as const,
+          alasan_penolakan: alasan,
+          approved_by: approver,
+          approved_at: nowIso,
         };
       }
       return e;
@@ -2336,36 +2662,20 @@ export class PosDatabase {
     if (isSupabaseConfigured && supabase) {
       try {
         await supabase.from('pengeluaran_kasbon').update({
-          status: 'approved',
-          metode_pencairan: params.metode,
-          bukti_transfer_url: params.buktiTransferUrl,
-          approved_by: params.approvedBy || 'Pak Agan (Owner)',
-          approved_at: new Date().toISOString(),
+          status: 'rejected',
+          alasan_penolakan: alasan,
+          approved_by: approver,
+          approved_at: nowIso,
         }).eq('id', id);
       } catch (e) {
-        console.warn('Failed update approval to supabase:', e);
+        console.warn('Failed update rejection to supabase:', e);
       }
     }
 
-    return true;
-  }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
 
-  async rejectPengeluaran(id: string, alasan: string, rejectedBy?: string): Promise<boolean> {
-    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
-    const updated = all.map(e => {
-      if (e.id === id) {
-        return {
-          ...e,
-          status: 'rejected' as const,
-          alasan_penolakan: alasan,
-          approved_by: rejectedBy || 'Pak Agan (Owner)',
-          approved_at: new Date().toISOString(),
-        };
-      }
-      return e;
-    });
-
-    saveLocal(STORAGE_KEYS.EXPENSES, updated);
     return true;
   }
 
@@ -3057,10 +3367,12 @@ export class PosDatabase {
     const sewaBulanan = cabang?.sewa_bulanan || 3000000;
     const listrikAirBulanan = cabang?.listrik_air_bulanan || 600000;
     const iuranBulanan = cabang?.iuran_kebersihan_bulanan || 150000;
+    const biayaLainBulanan = cabang?.biaya_lain_bulanan || 0;
 
     const sewaHarian = Math.round(sewaBulanan / 30);
     const wifiListrikHarian = Math.round(listrikAirBulanan / 30);
     const iuranHarian = Math.round(iuranBulanan / 30);
+    const biayaLainHarian = Math.round(biayaLainBulanan / 30);
 
     // 2. Gaji Karyawan yang Hadir Hari Ini (Tulis Nama)
     const absensiHariIni = await this.getAbsensiList(undefined, cabangId, tanggal);
@@ -3069,7 +3381,7 @@ export class PosDatabase {
     // 3. Omzet Kotor Kasir & Total HPP Bahan Baku Terpakai Hari Ini
     const transactions = await this.getTransaksiList(cabangId);
     const dayTransactions = transactions.filter(t => 
-      t.status === 'completed' && t.waktu.startsWith(tanggal)
+      t.status === 'completed' && toWibDateString(t.waktu) === tanggal
     );
 
     let omzetKotor = 0;
@@ -3110,12 +3422,12 @@ export class PosDatabase {
       e.status === 'approved' && 
       e.jenis === 'belanja' && 
       e.metode_pencairan === 'laci' && 
-      e.tanggal.startsWith(tanggal)
+      toWibDateString(e.tanggal) === tanggal
     );
     const totalBelanjaLaci = dayExpenses.reduce((sum, e) => sum + e.nominal, 0);
 
-    // Total Potongan Harian = Sewa Ruko + Wifi/Listrik + Iuran + Gaji Karyawan + HPP Bahan (+ Belanja Laci)
-    const totalPotonganHarian = sewaHarian + wifiListrikHarian + iuranHarian + totalGajiKaryawan + totalHppBahan + totalBelanjaLaci;
+    // Total Potongan Harian = Sewa Ruko + Wifi/Listrik + Iuran + Beban Tambahan + Gaji Karyawan + HPP Bahan (+ Belanja Laci)
+    const totalPotonganHarian = sewaHarian + wifiListrikHarian + iuranHarian + biayaLainHarian + totalGajiKaryawan + totalHppBahan + totalBelanjaLaci;
 
     // Uang Bersih Masuk Rekening Boss = Omzet Kotor - Total Potongan Harian
     const uangBersihRekeningBoss = omzetKotor - totalPotonganHarian;

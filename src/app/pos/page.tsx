@@ -819,9 +819,10 @@ export default function PosPage() {
           shift={activeShift}
           cabang={currentCabang}
           onClose={() => setIsShiftCloseOpen(false)}
-          onSuccess={(closed) => {
+          onSuccess={async () => {
             setActiveShift(null);
             setIsShiftCloseOpen(false);
+            await loadData();
           }}
         />
       )}

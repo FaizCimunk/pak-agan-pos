@@ -46,6 +46,121 @@ export function getTodayDateString(d: Date = new Date()): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// Konversi tanggal/timestamp ISO apa pun ke tanggal YYYY-MM-DD zona waktu WIB (Asia/Jakarta)
+export function toWibDateString(dateInput?: string | Date | null): string {
+  if (!dateInput) return '';
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const d = new Date(trimmed);
+    if (isNaN(d.getTime())) return trimmed.slice(0, 10);
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d);
+  }
+  if (isNaN(dateInput.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(dateInput);
+}
+
+export interface CustomFixedCostEntry {
+  id: string;
+  nama: string;
+  nominal: number;
+}
+
+// Parse keterangan_biaya_lain & biaya_lain_bulanan menjadi array beban tetap tambahan (> 1 item)
+export function parseCustomFixedCosts(cabang?: {
+  biaya_lain_bulanan?: number;
+  keterangan_biaya_lain?: string;
+  biaya_lain_items?: CustomFixedCostEntry[];
+} | null): CustomFixedCostEntry[] {
+  if (!cabang) return [];
+  if (Array.isArray(cabang.biaya_lain_items) && cabang.biaya_lain_items.length > 0) {
+    return cabang.biaya_lain_items.map((it, idx) => ({
+      id: it.id || `custom-${idx + 1}`,
+      nama: String(it.nama || ''),
+      nominal: Number(it.nominal || 0),
+    }));
+  }
+
+  const totalNominal = Number(cabang.biaya_lain_bulanan || 0);
+  const rawDesc = (cabang.keterangan_biaya_lain || '').trim();
+  if (!rawDesc && totalNominal <= 0) return [];
+
+  if (rawDesc.includes('|') || /\(Rp\s*[\d.,]+\)/i.test(rawDesc)) {
+    const parts = rawDesc.split('|').map(p => p.trim()).filter(Boolean);
+    const parsed: CustomFixedCostEntry[] = [];
+    parts.forEach((part, idx) => {
+      const m = part.match(/^(.*?)\s*\(Rp\s*([\d.,]+)\)\s*$/i);
+      if (m) {
+        parsed.push({
+          id: `custom-${idx + 1}`,
+          nama: m[1].trim() || `Beban Tambahan ${idx + 1}`,
+          nominal: parseNominal(m[2]),
+        });
+      } else {
+        parsed.push({
+          id: `custom-${idx + 1}`,
+          nama: part,
+          nominal: parts.length === 1 ? totalNominal : 0,
+        });
+      }
+    });
+    if (parsed.length > 0) return parsed;
+  }
+
+  return [
+    {
+      id: 'custom-1',
+      nama: rawDesc || 'Beban Tetap Tambahan',
+      nominal: totalNominal,
+    },
+  ];
+}
+
+// Serialisasi array beban tambahan agar kompatibel 100% dengan kolom Supabase keterangan_biaya_lain & biaya_lain_bulanan
+export function serializeCustomFixedCosts(items: CustomFixedCostEntry[]): {
+  biaya_lain_bulanan: number;
+  keterangan_biaya_lain: string;
+  biaya_lain_items: CustomFixedCostEntry[];
+} {
+  const cleaned = items
+    .map((it, idx) => ({
+      id: it.id || `custom-${idx + 1}`,
+      nama: (it.nama || '').trim(),
+      nominal: Math.max(0, Number(it.nominal || 0)),
+    }))
+    .filter(it => it.nominal > 0 || it.nama.length > 0);
+
+  const total = cleaned.reduce((sum, it) => sum + it.nominal, 0);
+  if (cleaned.length === 0 || total <= 0) {
+    return {
+      biaya_lain_bulanan: 0,
+      keterangan_biaya_lain: '',
+      biaya_lain_items: [],
+    };
+  }
+
+  const summary = cleaned
+    .filter(it => it.nominal > 0 || it.nama.length > 0)
+    .map(it => `${it.nama || 'Beban Tambahan'} (Rp ${formatNominal(it.nominal)})`)
+    .join(' | ');
+
+  return {
+    biaya_lain_bulanan: total,
+    keterangan_biaya_lain: summary,
+    biaya_lain_items: cleaned,
+  };
+}
+
 // Format Date & Time to Indonesian representation (e.g. "7 Nov 2026, 20:30")
 export function formatWaktu(dateString?: string | null, includeSeconds: boolean = false): string {
   if (!dateString) return '-';

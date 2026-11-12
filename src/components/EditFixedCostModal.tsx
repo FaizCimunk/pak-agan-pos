@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Building2, Check, AlertCircle, CheckCircle2, DollarSign, PlusCircle, Trash2 } from 'lucide-react';
-import { Cabang } from '@/lib/types';
+import { Cabang, CustomFixedCostItem } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatNominal, parseNominal, formatRupiah } from '@/lib/utils';
+import { formatNominal, parseNominal, formatRupiah, parseCustomFixedCosts, serializeCustomFixedCosts } from '@/lib/utils';
 
 interface EditFixedCostModalProps {
   cabang: Cabang | null;
@@ -20,9 +20,7 @@ export default function EditFixedCostModal({
   const [sewaBulanan, setSewaBulanan] = useState<number>(3500000);
   const [listrikAirBulanan, setListrikAirBulanan] = useState<number>(650000);
   const [iuranKebersihanBulanan, setIuranKebersihanBulanan] = useState<number>(150000);
-  const [biayaLainBulanan, setBiayaLainBulanan] = useState<number>(0);
-  const [keteranganBiayaLain, setKeteranganBiayaLain] = useState<string>('Biaya Keamanan & Retribusi Tambahan');
-  const [showBiayaLain, setShowBiayaLain] = useState<boolean>(false);
+  const [customItems, setCustomItems] = useState<CustomFixedCostItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
@@ -32,22 +30,38 @@ export default function EditFixedCostModal({
       setSewaBulanan(cabang.sewa_bulanan || 3500000);
       setListrikAirBulanan(cabang.listrik_air_bulanan || 650000);
       setIuranKebersihanBulanan(cabang.iuran_kebersihan_bulanan || 150000);
-      setBiayaLainBulanan(cabang.biaya_lain_bulanan || 0);
-      setKeteranganBiayaLain(cabang.keterangan_biaya_lain || 'Biaya Keamanan & Retribusi Tambahan');
-      if (cabang.biaya_lain_bulanan && cabang.biaya_lain_bulanan > 0) {
-        setShowBiayaLain(true);
-      }
+      setCustomItems(parseCustomFixedCosts(cabang));
     }
   }, [cabang]);
 
   if (!cabang) return null;
 
-  const totalBulanan = sewaBulanan + listrikAirBulanan + iuranKebersihanBulanan + (showBiayaLain ? biayaLainBulanan : 0);
+  const totalBiayaLainBulanan = customItems.reduce((sum, item) => sum + Math.max(0, Number(item.nominal || 0)), 0);
+  const totalBulanan = sewaBulanan + listrikAirBulanan + iuranKebersihanBulanan + totalBiayaLainBulanan;
   const sewaHarian = Math.round(sewaBulanan / 30);
   const wifiHarian = Math.round(listrikAirBulanan / 30);
   const iuranHarian = Math.round(iuranKebersihanBulanan / 30);
-  const lainHarian = Math.round((showBiayaLain ? biayaLainBulanan : 0) / 30);
+  const lainHarian = Math.round(totalBiayaLainBulanan / 30);
   const totalHarian = Math.round(totalBulanan / 30);
+
+  const handleAddCustomItem = () => {
+    setCustomItems(prev => [
+      ...prev,
+      {
+        id: `custom-${Date.now()}-${prev.length + 1}`,
+        nama: '',
+        nominal: 0,
+      },
+    ]);
+  };
+
+  const handleUpdateCustomItem = (id: string, patch: Partial<CustomFixedCostItem>) => {
+    setCustomItems(prev => prev.map(it => (it.id === id ? { ...it, ...patch } : it)));
+  };
+
+  const handleRemoveCustomItem = (id: string) => {
+    setCustomItems(prev => prev.filter(it => it.id !== id));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,12 +69,14 @@ export default function EditFixedCostModal({
     setErrorMsg('');
 
     try {
+      const serialized = serializeCustomFixedCosts(customItems);
       const updated = await db.updateCabang(cabang.id, {
         sewa_bulanan: sewaBulanan,
         listrik_air_bulanan: listrikAirBulanan,
         iuran_kebersihan_bulanan: iuranKebersihanBulanan,
-        biaya_lain_bulanan: showBiayaLain ? biayaLainBulanan : 0,
-        keterangan_biaya_lain: showBiayaLain ? keteranganBiayaLain : '',
+        biaya_lain_bulanan: serialized.biaya_lain_bulanan,
+        keterangan_biaya_lain: serialized.keterangan_biaya_lain,
+        biaya_lain_items: serialized.biaya_lain_items,
       });
 
       setSuccessMsg(`Fixed Cost untuk ${cabang.nama} berhasil diperbarui!`);
@@ -200,63 +216,82 @@ export default function EditFixedCostModal({
             </p>
           </div>
 
-          {/* 4. Beban Tetap Tambahan Lainnya (Fleksibel) */}
-          {showBiayaLain ? (
-            <div className="space-y-2 bg-amber-50/60 p-3.5 rounded-2xl border border-amber-300">
-              <div className="flex items-center justify-between">
-                <label className="font-extrabold text-slate-800 flex items-center gap-1.5 text-xs">
-                  <span className="w-5 h-5 rounded-md bg-amber-200 text-amber-900 flex items-center justify-center font-bold text-[10px]">4</span>
-                  Beban Tetap Tambahan Khusus Toko Ini
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowBiayaLain(false);
-                    setBiayaLainBulanan(0);
-                  }}
-                  className="text-rose-600 hover:text-rose-800 text-[11px] font-bold inline-flex items-center space-x-1 cursor-pointer"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  <span>Hapus Beban Ini</span>
-                </button>
-              </div>
+          {/* 4. Beban Tetap Tambahan Lainnya (Bisa Tambah Lebih Dari 1 Item) */}
+          <div className="space-y-2.5">
+            {customItems.length > 0 && (
+              <div className="space-y-2 bg-amber-50/60 p-3.5 rounded-2xl border border-amber-300">
+                <div className="flex items-center justify-between">
+                  <label className="font-extrabold text-slate-800 flex items-center gap-1.5 text-xs">
+                    <span className="w-5 h-5 rounded-md bg-amber-200 text-amber-900 flex items-center justify-center font-bold text-[10px]">4</span>
+                    Beban Tetap Tambahan ({customItems.length} Item)
+                  </label>
+                  <span className="font-mono text-[11px] font-bold text-emerald-800">
+                    Total ≈ {formatRupiah(lainHarian)}/hari
+                  </span>
+                </div>
 
-              <div>
-                <input
-                  type="text"
-                  value={keteranganBiayaLain}
-                  onChange={(e) => setKeteranganBiayaLain(e.target.value)}
-                  placeholder="Misal: Iuran Paguyuban Pasar / Keamanan Malam RT"
-                  className="w-full px-3 py-1.5 bg-white rounded-xl border border-amber-300 text-xs text-slate-900 font-bold focus:outline-none focus:border-emerald-600"
-                />
-              </div>
+                <div className="space-y-2.5">
+                  {customItems.map((item, idx) => {
+                    const itemDaily = Math.round(Math.max(0, Number(item.nominal || 0)) / 30);
+                    return (
+                      <div key={item.id} className="p-2.5 rounded-xl bg-white border border-amber-200 space-y-2 shadow-2xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-black text-amber-900 uppercase tracking-wider">
+                            Beban Tambahan #{idx + 1}
+                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[10px] font-mono font-bold text-emerald-700">
+                              ≈ {formatRupiah(itemDaily)}/hr
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCustomItem(item.id)}
+                              className="text-rose-600 hover:text-rose-800 text-[10px] font-bold inline-flex items-center space-x-0.5 cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Hapus</span>
+                            </button>
+                          </div>
+                        </div>
 
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">Rp</span>
-                <input
-                  type="text"
-                  value={biayaLainBulanan === 0 ? '' : formatNominal(biayaLainBulanan)}
-                  onChange={(e) => setBiayaLainBulanan(parseNominal(e.target.value))}
-                  placeholder="100.000"
-                  className="w-full pl-9 pr-3 py-2 bg-white rounded-xl border border-amber-300 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
-                />
-              </div>
+                        <input
+                          type="text"
+                          value={item.nama}
+                          onChange={(e) => handleUpdateCustomItem(item.id, { nama: e.target.value })}
+                          placeholder="Misal: Biaya Alat Rusak / Keamanan RT / Paguyuban"
+                          className="w-full px-3 py-1.5 bg-slate-50 rounded-xl border border-amber-200 text-xs text-slate-900 font-bold focus:outline-none focus:border-emerald-600"
+                        />
 
-              <div className="flex items-center justify-between text-[10px] text-amber-900 font-bold">
-                <span>*Otomatis dipotong dari omzet harian:</span>
-                <span className="font-mono text-emerald-800">≈ {formatRupiah(lainHarian)}/hari</span>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">Rp</span>
+                          <input
+                            type="text"
+                            value={item.nominal === 0 ? '' : formatNominal(item.nominal)}
+                            onChange={(e) => handleUpdateCustomItem(item.id, { nominal: parseNominal(e.target.value) })}
+                            placeholder="100.000"
+                            className="w-full pl-9 pr-3 py-2 bg-white rounded-xl border border-amber-300 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ) : (
+            )}
+
             <button
               type="button"
-              onClick={() => setShowBiayaLain(true)}
+              onClick={handleAddCustomItem}
               className="w-full py-2.5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-600 text-slate-600 hover:text-emerald-700 font-extrabold text-xs flex items-center justify-center space-x-1.5 transition cursor-pointer bg-slate-50/50 hover:bg-emerald-50/30"
             >
               <PlusCircle className="w-4 h-4 text-emerald-600" />
-              <span>+ Tambah Biaya Tetap Toko Lainnya (Keamanan / Paguyuban / Alat)</span>
+              <span>
+                {customItems.length > 0
+                  ? '+ Tambah Beban Tetap Lainnya Lagi'
+                  : '+ Tambah Biaya Tetap Toko Lainnya (Keamanan / Paguyuban / Alat)'}
+              </span>
             </button>
-          )}
+          </div>
 
           {/* Kotak Ringkasan Beban Harian Toko */}
           <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-100 to-amber-200 border border-amber-300 text-slate-950 flex items-center justify-between shadow-xs">

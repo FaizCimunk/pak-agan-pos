@@ -1,5 +1,11 @@
 // TypeScript Interfaces & Data Models for Minuman Herbal Pak Agan POS
 
+export interface CustomFixedCostItem {
+  id: string;
+  nama: string;
+  nominal: number;
+}
+
 export interface Cabang {
   id: string;
   nomor: number;
@@ -14,6 +20,7 @@ export interface Cabang {
   iuran_kebersihan_bulanan?: number; // Retribusi sampah, keamanan pasar/lingkungan per bulan
   biaya_lain_bulanan?: number; // Beban tetap tambahan per bulan (keamanan RT, paguyuban, maintenance alat)
   keterangan_biaya_lain?: string; // Nama/deskripsi beban tetap tambahan
+  biaya_lain_items?: CustomFixedCostItem[]; // Rincian multi-item beban tetap tambahan per bulan
   qris_merchant_name: string;
   qris_image_url?: string;
   is_active: boolean;
@@ -117,6 +124,7 @@ export interface MenuItem {
 export interface Shift {
   id: string;
   cabang_id: string;
+  cabang_nama?: string;
   karyawan_id: string;
   karyawan_nama?: string;
   waktu_buka: string;
@@ -131,6 +139,10 @@ export interface Shift {
   total_transaksi_shift?: number;
   total_belanja_approved: number;
   total_kasbon_approved: number;
+  pending_expenses_count?: number;
+  pending_expenses_total?: number;
+  unpaid_bills_count?: number;
+  unpaid_bills_total?: number;
   saldo_akhir_sistem: number;
   saldo_akhir_fisik: number;
   selisih: number;

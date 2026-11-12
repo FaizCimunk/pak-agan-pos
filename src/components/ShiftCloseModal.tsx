@@ -11,7 +11,7 @@ import {
   Coins,
   DollarSign
 } from 'lucide-react';
-import { Shift, Cabang, PengeluaranKasbon } from '@/lib/types';
+import { Shift, Cabang, PengeluaranKasbon, Transaksi } from '@/lib/types';
 import { db } from '@/lib/db';
 import { printerService } from '@/lib/printer';
 import { formatRupiah, formatNominal, parseNominal } from '@/lib/utils';
@@ -35,6 +35,8 @@ export default function ShiftCloseModal({
   const [loading, setLoading] = useState<boolean>(false);
   const [showDenomHelper, setShowDenomHelper] = useState<boolean>(false);
   const [pendingList, setPendingList] = useState<PengeluaranKasbon[]>([]);
+  const [unpaidBills, setUnpaidBills] = useState<Transaksi[]>([]);
+  const [writeOffUnpaidBills, setWriteOffUnpaidBills] = useState<boolean>(false);
 
   // Denominations counter
   const [counts, setCounts] = useState<{ [key: number]: number }>({
@@ -57,11 +59,15 @@ export default function ShiftCloseModal({
       setSaldoFisik(refreshed.saldo_akhir_sistem);
 
       try {
-        const allExp = await db.getPengeluaranList(cabang.id);
+        const [allExp, openBillsList] = await Promise.all([
+          db.getPengeluaranList(cabang.id),
+          db.getOpenBills(cabang.id),
+        ]);
         const pending = allExp.filter(e => e.status === 'pending');
         setPendingList(pending);
+        setUnpaidBills(openBillsList);
       } catch (err) {
-        console.warn('Failed loading pending expenses:', err);
+        console.warn('Failed loading pending expenses / open bills:', err);
       }
     }
     loadNumbers();
@@ -82,11 +88,18 @@ export default function ShiftCloseModal({
     isSubmittingRef.current = true;
     setLoading(true);
     try {
-      const closed = await db.closeShift(cabang.id, saldoFisik, catatan);
+      const closed = await db.closeShift(cabang.id, saldoFisik, catatan, {
+        writeOffOpenBills: writeOffUnpaidBills,
+        unpaidBills,
+      });
       if (closed) {
-        // Try Bluetooth ESC/POS printing
-        const bytes = printerService.buildShiftCloseCommands(closed, cabang);
-        await printerService.printRaw(bytes);
+        // Try Bluetooth ESC/POS printing (best-effort)
+        try {
+          const bytes = printerService.buildShiftCloseCommands(closed, cabang);
+          await printerService.printRaw(bytes);
+        } catch (printErr) {
+          console.warn('Bluetooth shift print skipped:', printErr);
+        }
 
         onSuccess(closed);
       }
@@ -168,18 +181,60 @@ export default function ShiftCloseModal({
           {/* Pending Expense Alert Banner (Belanja Toko & Kasbon Belum Di-Approve) */}
           {pendingList.length > 0 && (
             <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-1.5 shadow-2xs">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center space-x-1.5 font-extrabold text-amber-950">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>Ada {pendingList.length} Pengajuan Berstatus Menunggu (Pending)</span>
                 </div>
-                <span className="font-mono font-black text-amber-950 bg-amber-200/80 px-2 py-0.5 rounded-md text-[11px]">
+                <span className="font-mono font-black text-amber-950 bg-amber-200/80 px-2 py-0.5 rounded-md text-[11px] shrink-0">
                   {formatRupiah(pendingList.reduce((s, e) => s + Number(e.nominal || 0), 0))}
                 </span>
               </div>
               <p className="text-[11px] leading-relaxed text-amber-800">
-                Sesuai SOP, pengajuan belanja toko / kasbon yang <b>belum di-approve Admin Pusat</b> di Peninjauan Dashboard Utama <b>TIDAK memotong saldo laci kasir</b> saat ini. Begitu di-approve, nominal akan otomatis terpotong resmi.
+                Sesuai SOP, pengajuan yang belum di-ACC Admin Pusat <b>TIDAK memotong saldo laci saat tutup shift ini</b>. Jika Admin Pusat telat membuka Peninjauan dan meng-ACC di hari berikutnya, nominal tetap otomatis tercatat ke <b>tanggal pengajuan &amp; shift hari ini</b>.
               </p>
+            </div>
+          )}
+
+          {/* Unpaid Open Bills Alert Banner (Pelanggan Belum/Lupa Bayar -> Potensi Kerugian) */}
+          {unpaidBills.length > 0 && (
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-950 text-xs space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center space-x-1.5 font-extrabold text-rose-950">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{unpaidBills.length} Tagihan Belum Dibayar (Bayar Nanti)</span>
+                </div>
+                <span className="font-mono font-black text-rose-950 bg-rose-200/80 px-2 py-0.5 rounded-md text-[11px] shrink-0">
+                  Potensi Rugi {formatRupiah(unpaidBills.reduce((s, b) => s + Number(b.total || 0), 0))}
+                </span>
+              </div>
+
+              <div className="bg-white/80 rounded-xl border border-rose-200 p-2 space-y-1 max-h-24 overflow-y-auto">
+                {unpaidBills.map((bill) => (
+                  <div key={bill.id} className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-slate-800 truncate pr-2">
+                      • {bill.penanda || bill.meja || bill.nama_pelanggan} ({bill.items.reduce((s, i) => s + i.qty, 0)} item)
+                    </span>
+                    <span className="font-mono font-bold text-rose-700 shrink-0">{formatRupiah(bill.total)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-[11px] leading-relaxed text-rose-900">
+                Tagihan ini belum dibayar sehingga <b>tidak masuk hitungan kas sistem</b>. Keterangan &amp; nominalnya otomatis dilampirkan ke rekap tutup shift sebagai audit kerugian / piutang.
+              </p>
+
+              <label className="flex items-start space-x-2 p-2 rounded-xl bg-white border border-rose-200 cursor-pointer hover:bg-rose-50/50 transition">
+                <input
+                  type="checkbox"
+                  checked={writeOffUnpaidBills}
+                  onChange={(e) => setWriteOffUnpaidBills(e.target.checked)}
+                  className="mt-0.5 rounded border-rose-400 text-rose-600 focus:ring-rose-500"
+                />
+                <span className="text-[11px] font-bold text-slate-800 leading-snug">
+                  Tandai sebagai Kerugian Tutup Buku (bersihkan daftar &quot;Bayar Nanti&quot; karena pelanggan lupa / tidak jadi bayar)
+                </span>
+              </label>
             </div>
           )}
 

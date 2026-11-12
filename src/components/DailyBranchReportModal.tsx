@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Cabang, Transaksi, PengeluaranKasbon, Shift, Karyawan } from '@/lib/types';
 import { isBranchMatch } from '@/lib/db';
-import { formatRupiah, formatWaktu, getTodayDateString } from '@/lib/utils';
+import { formatRupiah, formatWaktu, getTodayDateString, toWibDateString } from '@/lib/utils';
 
 interface DailyBranchReportModalProps {
   cabangList: Cabang[];
@@ -61,11 +61,11 @@ export default function DailyBranchReportModal({
     };
   }, []);
 
-  // Filtered Transactions for this branch & date
+  // Filtered Transactions for this branch & date (zona WIB)
   const dayTransactions = useMemo(() => {
     return transaksiList.filter(t => 
       isBranchMatch(t.cabang_id, selectedCabangId) && 
-      t.waktu.slice(0, 10) === selectedDate &&
+      toWibDateString(t.waktu) === selectedDate &&
       t.status === 'completed'
     );
   }, [transaksiList, selectedCabangId, selectedDate]);
@@ -97,14 +97,13 @@ export default function DailyBranchReportModal({
     .reduce((sum, t) => sum + t.total, 0);
 
   const totalOnlineMerchant = totalShopeeFood + totalGoFood + totalGrabFood;
-
   const totalOmzetKotor = totalTunai + totalQris + totalTransfer + totalOnlineMerchant;
 
-  // Filtered Expenses for this branch & date
+  // Filtered Expenses for this branch & date (berdasarkan tanggal pengajuan kasir WIB)
   const dayExpenses = useMemo(() => {
     return expenseList.filter(e => 
       isBranchMatch(e.cabang_id, selectedCabangId) && 
-      (e.tanggal || '').slice(0, 10) === selectedDate &&
+      toWibDateString(e.tanggal) === selectedDate &&
       e.status === 'approved'
     );
   }, [expenseList, selectedCabangId, selectedDate]);
@@ -130,8 +129,13 @@ export default function DailyBranchReportModal({
   const totalPengeluaranBank = belanjaTransfer + kasbonTransfer;
   const grandTotalPengeluaran = totalPengeluaranLaci + totalPengeluaranBank;
 
-  // Modal Awal Laci
-  const modalAwal = 200000;
+  // Modal Awal Laci aktual dari shift tanggal tersebut (fallback 200.000 jika belum tercatat)
+  const dayShifts = useMemo(() => {
+    return shifts.filter(s => isBranchMatch(s.cabang_id, selectedCabangId) && toWibDateString(s.waktu_buka) === selectedDate);
+  }, [shifts, selectedCabangId, selectedDate]);
+  const modalAwal = dayShifts.length > 0
+    ? dayShifts.reduce((sum, s) => sum + Number(s.modal_awal || 0), 0)
+    : 200000;
 
   // RECONCILIATION TOTALS (THE 3 GOLDEN PILLARS)
   // 1. Physical Cash in Drawer (Uang Tunai Kasir)
