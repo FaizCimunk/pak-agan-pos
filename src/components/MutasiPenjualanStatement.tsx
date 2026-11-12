@@ -19,6 +19,7 @@ import {
   RotateCcw, 
   TrendingUp,
   CheckCircle2,
+  XCircle,
   SlidersHorizontal,
   ChevronDown
 } from 'lucide-react';
@@ -54,6 +55,7 @@ export default function MutasiPenjualanStatement({
 
   // Sub-filters
   const [branchFilter, setBranchFilter] = useState<string>(propSelectedCabangId);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -82,7 +84,7 @@ export default function MutasiPenjualanStatement({
   // Reset page when any filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [periodMode, selectedDate, selectedYear, selectedMonth, branchFilter, paymentFilter, searchQuery, pageSize]);
+  }, [periodMode, selectedDate, selectedYear, selectedMonth, branchFilter, statusFilter, paymentFilter, searchQuery, pageSize]);
 
   // Format Helper for Transaction Operational Date (mengikuti tanggal BUKA shift kasir)
   const parseTrxDateParts = (trx: Transaksi) => {
@@ -109,8 +111,14 @@ export default function MutasiPenjualanStatement({
         return false;
       }
 
-      // 2. Payment Method Filter
+      // 2. Status Filter (Semua | Lunas | Kerugian)
+      if (statusFilter !== 'all') {
+        if (trx.status !== statusFilter) return false;
+      }
+
+      // 3. Payment Method Filter
       if (paymentFilter !== 'all') {
+        if (trx.status === 'cancelled') return false;
         const normPay = (trx.metode_bayar || '').toLowerCase();
         if (paymentFilter === 'ojol') {
           if (!normPay.includes('gofood') && !normPay.includes('grab') && !normPay.includes('shopee')) {
@@ -121,7 +129,7 @@ export default function MutasiPenjualanStatement({
         }
       }
 
-      // 3. Period Filter (Hari, Bulan, Tahun, Semua)
+      // 4. Period Filter (Hari, Bulan, Tahun, Semua)
       const parts = parseTrxDateParts(trx);
       if (periodMode === 'hari') {
         if (parts.dateStr !== selectedDate) return false;
@@ -131,7 +139,7 @@ export default function MutasiPenjualanStatement({
         if (parts.year !== selectedYear) return false;
       }
 
-      // 4. Search Filter (Invoice, Pelanggan, Kasir, Item Pesanan)
+      // 5. Search Filter (Invoice, Pelanggan, Kasir, Item Pesanan)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const invMatch = trx.invoice_no?.toLowerCase().includes(q);
@@ -146,12 +154,14 @@ export default function MutasiPenjualanStatement({
 
       return true;
     });
-  }, [transaksiList, branchFilter, paymentFilter, periodMode, selectedDate, selectedYear, selectedMonth, searchQuery, shifts]);
+  }, [transaksiList, branchFilter, statusFilter, paymentFilter, periodMode, selectedDate, selectedYear, selectedMonth, searchQuery, shifts]);
 
   // Aggregate Metrics for Current Filter
   const metrics = useMemo(() => {
     let totalOmzet = 0;
     let countSuccess = 0;
+    let lossCount = 0;
+    let totalKerugian = 0;
     let totalTunai = 0;
     let totalQris = 0;
     let totalTransfer = 0;
@@ -166,6 +176,9 @@ export default function MutasiPenjualanStatement({
         else if (pay === 'qris') totalQris += trx.total;
         else if (pay === 'transfer') totalTransfer += trx.total;
         else totalOjol += trx.total;
+      } else if (trx.status === 'cancelled') {
+        lossCount++;
+        totalKerugian += Number(trx.total || 0);
       }
     }
 
@@ -174,6 +187,8 @@ export default function MutasiPenjualanStatement({
     return {
       totalOmzet,
       countSuccess,
+      lossCount,
+      totalKerugian,
       aov,
       totalTunai,
       totalQris,
@@ -512,6 +527,20 @@ export default function MutasiPenjualanStatement({
               </select>
             </div>
 
+            {/* Filter Status: Semua | Lunas | Kerugian */}
+            <div className="flex items-center space-x-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+              <Filter className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'completed' | 'cancelled')}
+                className="text-xs font-bold text-slate-700 bg-transparent outline-none cursor-pointer"
+              >
+                <option value="all">Semua Status</option>
+                <option value="completed">✓ Lunas (Success)</option>
+                <option value="cancelled">✕ Kerugian Tutup Buku</option>
+              </select>
+            </div>
+
             {/* Realtime Search Input */}
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -534,12 +563,13 @@ export default function MutasiPenjualanStatement({
             </div>
 
             {/* Reset All Filters Button */}
-            {(branchFilter !== 'all' || paymentFilter !== 'all' || searchQuery || periodMode !== 'hari') && (
+            {(branchFilter !== 'all' || paymentFilter !== 'all' || statusFilter !== 'all' || searchQuery || periodMode !== 'hari') && (
               <button
                 type="button"
                 onClick={() => {
                   setBranchFilter('all');
                   setPaymentFilter('all');
+                  setStatusFilter('all');
                   setSearchQuery('');
                   setPeriodMode('hari');
                   setSelectedDate(getTodayDateString());
@@ -567,9 +597,18 @@ export default function MutasiPenjualanStatement({
           <div className="text-base sm:text-xl font-mono font-black text-emerald-800 tabular-nums mt-0.5">
             {formatRupiah(metrics.totalOmzet)}
           </div>
-          <span className="text-[10px] text-slate-400 font-medium">
+          <span className="text-[10px] text-slate-400 font-medium block">
             {metrics.countSuccess} Struk Berhasil
           </span>
+          {metrics.lossCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter('cancelled')}
+              className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 text-[9px] font-black cursor-pointer hover:bg-rose-100"
+            >
+              <span>✕ {metrics.lossCount} Kerugian (-{formatRupiah(metrics.totalKerugian)})</span>
+            </button>
+          )}
         </div>
 
         <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-sm">
@@ -756,95 +795,117 @@ export default function MutasiPenjualanStatement({
                 </td>
               </tr>
             ) : (
-              paginatedTransactions.map((trx) => (
-                <tr 
-                  key={trx.id} 
-                  onClick={() => setReceiptTrx(trx)}
-                  className="hover:bg-emerald-50/40 transition-colors cursor-pointer group"
-                >
-                  {/* Invoice & Waktu */}
-                  <td className="py-3 px-4">
-                    <span className="font-mono font-black text-slate-900 group-hover:text-emerald-800 transition-colors block">
-                      {trx.invoice_no}
-                    </span>
-                    <span className="text-[10px] text-slate-400 flex items-center space-x-1 mt-0.5">
-                      <Clock className="w-3 h-3 text-slate-300 inline" />
-                      <span>{formatWaktu(trx.waktu)}</span>
-                    </span>
-                  </td>
-
-                  {/* Cabang */}
-                  <td className="py-3 px-4">
-                    <span className="font-bold text-slate-800 block">
-                      {trx.cabang_nama?.split('-')[1]?.trim() || trx.cabang_nama || 'Cabang'}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {cabangList.find(c => isBranchMatch(c.id, trx.cabang_id))?.kode || 'CBG'}
-                    </span>
-                  </td>
-
-                  {/* Kasir & Pelanggan */}
-                  <td className="py-3 px-4">
-                    <span className="font-bold text-slate-900 block">
-                      {trx.nama_pelanggan || 'Pelanggan Umum'}
-                    </span>
-                    <span className="text-[10px] text-slate-500">
-                      Kasir: {trx.karyawan_nama || 'Staf Kasir'}
-                    </span>
-                  </td>
-
-                  {/* Items */}
-                  <td className="py-3 px-4 text-slate-600 max-w-[220px]">
-                    <div className="truncate font-medium text-[11px]" title={trx.items?.map(it => `${it.qty}x ${it.nama_menu}`).join(', ')}>
-                      {trx.items?.map(it => `${it.qty}x ${it.nama_menu}`).join(', ') || '-'}
-                    </div>
-                    <span className="text-[10px] text-slate-400 block">
-                      {trx.items?.reduce((s, it) => s + it.qty, 0) || 0} porsi
-                    </span>
-                  </td>
-
-                  {/* Metode Bayar */}
-                  <td className="py-3 px-4">
-                    <span className={`px-2.5 py-0.5 rounded-full font-black uppercase text-[10px] border shadow-xs inline-block ${
-                      trx.metode_bayar === 'tunai'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                        : trx.metode_bayar === 'qris'
-                        ? 'bg-amber-50 text-amber-700 border-amber-300'
-                        : trx.metode_bayar === 'transfer'
-                        ? 'bg-blue-50 text-blue-700 border-blue-300'
-                        : 'bg-orange-50 text-orange-700 border-orange-300'
-                    }`}>
-                      {trx.metode_bayar}
-                    </span>
-                  </td>
-
-                  {/* Nominal Tagihan */}
-                  <td className="py-3 px-4 text-right font-mono font-black text-slate-900 tabular-nums text-sm group-hover:text-emerald-700 transition-colors">
-                    {formatRupiah(trx.total)}
-                  </td>
-
-                  {/* Status & Action */}
-                  <td className="py-3 px-4 text-center">
-                    <div className="flex items-center justify-center space-x-1.5">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold flex items-center space-x-1">
-                        <CheckCircle2 className="w-2.5 h-2.5" />
-                        <span>SUCCESS</span>
+              paginatedTransactions.map((trx) => {
+                const isLoss = trx.status === 'cancelled';
+                return (
+                  <tr 
+                    key={trx.id} 
+                    onClick={() => setReceiptTrx(trx)}
+                    className={`transition-colors cursor-pointer group ${
+                      isLoss ? 'bg-rose-50/45 hover:bg-rose-50/85' : 'hover:bg-emerald-50/40'
+                    }`}
+                  >
+                    {/* Invoice & Waktu */}
+                    <td className="py-3 px-4">
+                      <span className={`font-mono font-black transition-colors block ${
+                        isLoss ? 'text-rose-800 group-hover:text-rose-950' : 'text-slate-900 group-hover:text-emerald-800'
+                      }`}>
+                        {trx.invoice_no}
                       </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setReceiptTrx(trx);
-                        }}
-                        title="Lihat / Cetak Struk"
-                        className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-all cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-slate-700" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                      <span className="text-[10px] text-slate-400 flex items-center space-x-1 mt-0.5">
+                        <Clock className="w-3 h-3 text-slate-300 inline" />
+                        <span>{formatWaktu(trx.waktu)}</span>
+                      </span>
+                    </td>
+
+                    {/* Cabang */}
+                    <td className="py-3 px-4">
+                      <span className="font-bold text-slate-800 block">
+                        {trx.cabang_nama?.split('-')[1]?.trim() || trx.cabang_nama || 'Cabang'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {cabangList.find(c => isBranchMatch(c.id, trx.cabang_id))?.kode || 'CBG'}
+                      </span>
+                    </td>
+
+                    {/* Kasir & Pelanggan */}
+                    <td className="py-3 px-4">
+                      <span className={`font-bold block ${isLoss ? 'text-rose-900' : 'text-slate-900'}`}>
+                        {trx.nama_pelanggan || 'Pelanggan Umum'}
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        Kasir: {trx.karyawan_nama || 'Staf Kasir'}
+                      </span>
+                    </td>
+
+                    {/* Items */}
+                    <td className="py-3 px-4 text-slate-600 max-w-[220px]">
+                      <div className="truncate font-medium text-[11px]" title={trx.items?.map(it => `${it.qty}x ${it.nama_menu}`).join(', ')}>
+                        {trx.items?.map(it => `${it.qty}x ${it.nama_menu}`).join(', ') || '-'}
+                      </div>
+                      <span className="text-[10px] text-slate-400 block">
+                        {trx.items?.reduce((s, it) => s + it.qty, 0) || 0} porsi
+                      </span>
+                    </td>
+
+                    {/* Metode Bayar */}
+                    <td className="py-3 px-4">
+                      {isLoss ? (
+                        <span className="px-2.5 py-0.5 rounded-full font-black uppercase text-[10px] border shadow-xs inline-block bg-rose-100 text-rose-800 border-rose-300">
+                          BAYAR NANTI • RUGI
+                        </span>
+                      ) : (
+                        <span className={`px-2.5 py-0.5 rounded-full font-black uppercase text-[10px] border shadow-xs inline-block ${
+                          trx.metode_bayar === 'tunai'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                            : trx.metode_bayar === 'qris'
+                            ? 'bg-amber-50 text-amber-700 border-amber-300'
+                            : trx.metode_bayar === 'transfer'
+                            ? 'bg-blue-50 text-blue-700 border-blue-300'
+                            : 'bg-orange-50 text-orange-700 border-orange-300'
+                        }`}>
+                          {trx.metode_bayar}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Nominal Tagihan */}
+                    <td className={`py-3 px-4 text-right font-mono font-black tabular-nums text-sm transition-colors ${
+                      isLoss ? 'text-rose-700' : 'text-slate-900 group-hover:text-emerald-700'
+                    }`}>
+                      {isLoss ? `-${formatRupiah(trx.total)}` : formatRupiah(trx.total)}
+                    </td>
+
+                    {/* Status & Action */}
+                    <td className="py-3 px-4 text-center">
+                      <div className="flex items-center justify-center space-x-1.5">
+                        {isLoss ? (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-extrabold flex items-center space-x-1">
+                            <XCircle className="w-2.5 h-2.5" />
+                            <span>KERUGIAN</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold flex items-center space-x-1">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            <span>SUCCESS</span>
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReceiptTrx(trx);
+                          }}
+                          title={isLoss ? 'Lihat Rincian Item Nota Kerugian' : 'Lihat / Cetak Struk'}
+                          className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-all cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-slate-700" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

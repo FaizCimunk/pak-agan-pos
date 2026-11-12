@@ -173,3 +173,15 @@ body {
   transform: scale(0.96);
   filter: brightness(0.95);
 }
+
+/* Penyesuaian otomatis layar kasir saat mode Miring (Landscape) dengan tinggi terbatas */
+@media (orientation: landscape) and (max-height: 560px) {
+  .pos-header-bar {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+  }
+  .pos-main-pane {
+    padding: 0.5rem !important;
+    gap: 0.5rem !important;
+  }
+}

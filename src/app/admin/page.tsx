@@ -689,8 +689,34 @@ export default function AdminDashboardPage() {
       );
       const totalBelanjaLaci = branchBelanja.reduce((sum, e) => sum + (e.nominal || 0), 0);
 
-      // Total Potongan Harian = Fixed Cost Efektif + Gaji Karyawan + HPP Bahan + Belanja Laci Toko
-      const totalPotongan = effectiveFixedCost + totalGajiKaryawan + totalHppBahan + totalBelanjaLaci;
+      // 5. Kerugian Tutup Buku (Tagihan Belum Bayar yang ditandai Kerugian saat Tutup Shift)
+      const branchLossTrx = transaksiList.filter(t =>
+        isBranchMatch(t.cabang_id, cabang.id) &&
+        t.status === 'cancelled' &&
+        getBusinessDateForRecord({
+          timestamp: t.waktu,
+          shiftId: t.shift_id,
+          cabangId: t.cabang_id,
+          shifts: shiftList,
+          isBranchEqual: isBranchMatch,
+        }) === targetDate
+      );
+      const lossFromCancelledTrx = branchLossTrx.reduce((sum, t) => sum + Number(t.total || 0), 0);
+      const lossFromShiftNotes = shiftList
+        .filter(s =>
+          isBranchMatch(s.cabang_id, cabang.id) &&
+          s.status === 'closed' &&
+          getShiftOperationalDate(s) === targetDate
+        )
+        .reduce((sum, s) => {
+          const match = (s.catatan || '').match(/\[KERUGIAN BELUM BAYAR:\s*\d+\s*pesanan\s*\(([^)]+)\)/i);
+          if (!match) return sum;
+          return sum + (parseInt(match[1].replace(/[^0-9]/g, ''), 10) || 0);
+        }, 0);
+      const totalKerugianTutupBuku = branchLossTrx.length > 0 ? lossFromCancelledTrx : lossFromShiftNotes;
+
+      // Total Potongan Harian = Fixed Cost Efektif + Gaji Karyawan + HPP Bahan + Belanja Laci Toko + Kerugian Tutup Buku
+      const totalPotongan = effectiveFixedCost + totalGajiKaryawan + totalHppBahan + totalBelanjaLaci + totalKerugianTutupBuku;
       const uangBersihBoss = omzetKotor - totalPotongan;
 
       return {
@@ -709,6 +735,7 @@ export default function AdminDashboardPage() {
         actualPresensiGaji,
         totalHppBahan,
         totalBelanjaLaci,
+        totalKerugianTutupBuku,
         totalPotongan,
         omzetKotor,
         uangBersihBoss,
@@ -727,7 +754,8 @@ export default function AdminDashboardPage() {
     const totalPresensiGaji10Toko = branchBreakdowns.reduce((sum, b) => sum + b.actualPresensiGaji, 0);
     const totalHpp10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalHppBahan, 0);
     const totalBelanja10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalBelanjaLaci, 0);
-    const totalPotongan10Toko = totalSewa10Toko + totalWifiListrik10Toko + totalIuran10Toko + totalBiayaLain10Toko + totalGaji10Toko + totalHpp10Toko + totalBelanja10Toko;
+    const totalKerugian10Toko = branchBreakdowns.reduce((sum, b) => sum + b.totalKerugianTutupBuku, 0);
+    const totalPotongan10Toko = totalSewa10Toko + totalWifiListrik10Toko + totalIuran10Toko + totalBiayaLain10Toko + totalGaji10Toko + totalHpp10Toko + totalBelanja10Toko + totalKerugian10Toko;
     const totalBersihBoss10Toko = totalOmzet10Toko - totalPotongan10Toko;
 
     return {
@@ -743,6 +771,7 @@ export default function AdminDashboardPage() {
       totalPresensiGaji10Toko,
       totalHpp10Toko,
       totalBelanja10Toko,
+      totalKerugian10Toko,
       totalPotongan10Toko,
       totalBersihBoss10Toko,
     };
@@ -810,7 +839,8 @@ export default function AdminDashboardPage() {
     const hpp = targetBreakdowns.reduce((sum, b) => sum + b.totalHppBahan, 0);
     const gaji = targetBreakdowns.reduce((sum, b) => sum + b.totalGajiKaryawan, 0);
     const belanja = targetBreakdowns.reduce((sum, b) => sum + (b.totalBelanjaLaci || 0), 0);
-    const totalPotongan = effectiveFixedCost + hpp + gaji + belanja;
+    const kerugian = targetBreakdowns.reduce((sum, b) => sum + (b.totalKerugianTutupBuku || 0), 0);
+    const totalPotongan = effectiveFixedCost + hpp + gaji + belanja + kerugian;
     const uangBersih = omzet - totalPotongan;
     const stafHadir = targetBreakdowns.reduce((sum, b) => sum + b.stafHadirCount, 0);
     const totalWorkersCount = targetBreakdowns.reduce((sum, b) => sum + b.branchWorkersCount, 0);
@@ -831,6 +861,7 @@ export default function AdminDashboardPage() {
       hpp,
       gaji,
       belanja,
+      kerugian,
       totalPotongan,
       uangBersih,
       stafHadir,
@@ -1386,9 +1417,16 @@ export default function AdminDashboardPage() {
                       {activeExecutiveSummary.uangBersih >= 0 ? '+' : ''}{formatRupiah(activeExecutiveSummary.uangBersih)}
                     </div>
                   </div>
-                  <span className="text-[10px] text-slate-900/80 font-bold block mt-2">
-                    Masuk Rekening Pak Agan
-                  </span>
+                  <div className="mt-2 space-y-0.5">
+                    <span className="text-[10px] text-slate-900/80 font-bold block">
+                      Masuk Rekening Pak Agan
+                    </span>
+                    {activeExecutiveSummary.kerugian > 0 && (
+                      <span className="text-[9.5px] text-rose-900 bg-rose-200/80 px-1.5 py-0.5 rounded font-black inline-block">
+                        Potong Rugi Tutup Buku: -{formatRupiah(activeExecutiveSummary.kerugian)}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
               </div>
@@ -1418,6 +1456,14 @@ export default function AdminDashboardPage() {
                   <span className="px-2 py-0.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 whitespace-nowrap">
                     Belanja Laci ({formatRupiah(activeExecutiveSummary.belanja)})
                   </span>
+                  {activeExecutiveSummary.kerugian > 0 && (
+                    <>
+                      <span className="text-white/60 font-black">−</span>
+                      <span className="px-2 py-0.5 rounded-lg bg-rose-600/30 text-rose-200 border border-rose-400/50 whitespace-nowrap">
+                        Kerugian Nota ({formatRupiah(activeExecutiveSummary.kerugian)})
+                      </span>
+                    </>
+                  )}
                   <span className="text-amber-300 font-black">=</span>
                   <span className="px-2.5 py-0.5 rounded-xl bg-amber-400 text-slate-950 font-black shadow-sm whitespace-nowrap">
                     Bersih: {formatRupiah(activeExecutiveSummary.uangBersih)}
@@ -1425,7 +1471,7 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <span className="text-[10px] text-emerald-300/80 font-medium">
-                  *Terhitung otomatis realtime saat transaksi kasir masuk, presensi di-ACC, atau belanja toko disetujui.
+                  *Terhitung otomatis realtime saat transaksi kasir masuk, presensi di-ACC, belanja disetujui, atau kerugian tutup buku dicatat.
                 </span>
               </div>
 

@@ -116,33 +116,65 @@ export default function ReceiptModal({
           {/* Content Body */}
           <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
             
-            {/* Animated Success Icon & Status */}
-            <div className="text-center space-y-1.5">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-3xl font-black mx-auto shadow-sm animate-scaleIn border-2 border-emerald-300">
-                ✓
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight">
-                  Transaksi Berhasil Diproses!
-                </h2>
-                <p className="text-[11px] sm:text-xs text-slate-500 font-mono mt-0.5">
-                  No. Struk: <strong className="text-emerald-800 font-bold">{transaksi.invoice_no}</strong>
-                </p>
-              </div>
-            </div>
+            {/* Animated Status Icon & Banner */}
+            {transaksi.status === 'cancelled' ? (
+              <>
+                <div className="text-center space-y-1.5">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-3xl font-black mx-auto shadow-sm border-2 border-rose-300">
+                    ✕
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-black text-rose-900 tracking-tight">
+                      Nota Kerugian / Belum Dibayar
+                    </h2>
+                    <p className="text-[11px] sm:text-xs text-slate-500 font-mono mt-0.5">
+                      No. Nota: <strong className="text-rose-700 font-bold">{transaksi.invoice_no}</strong>
+                    </p>
+                  </div>
+                </div>
 
-            {/* UANG KEMBALIAN PELANGGAN (Besar & Jelas Ala Kasgo) */}
-            <div className="p-4 rounded-2xl bg-emerald-700 text-white shadow-lg shadow-emerald-900/15 text-center space-y-1">
-              <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-200 block">
-                Uang Kembalian Pelanggan
-              </span>
-              <span className="text-3xl sm:text-4xl font-mono font-black text-white tabular-nums tracking-tight block">
-                {formatRupiah(transaksi.kembali)}
-              </span>
-              <span className="text-[10px] text-emerald-100 font-medium block">
-                {transaksi.kembali === 0 ? '✓ Pembayaran Uang Pas' : 'Serahkan uang kembalian ke pembeli'}
-              </span>
-            </div>
+                <div className="p-4 rounded-2xl bg-rose-700 text-white shadow-lg shadow-rose-900/15 text-center space-y-1">
+                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-rose-200 block">
+                    Total Kerugian Tutup Buku (Tidak Masuk Kas)
+                  </span>
+                  <span className="text-3xl sm:text-4xl font-mono font-black text-white tabular-nums tracking-tight block">
+                    -{formatRupiah(transaksi.total)}
+                  </span>
+                  <span className="text-[10px] text-rose-100 font-medium block">
+                    Ditandai tutup buku sebagai tagihan tidak dibayar / lupa bayar
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center space-y-1.5">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-3xl font-black mx-auto shadow-sm animate-scaleIn border-2 border-emerald-300">
+                    ✓
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight">
+                      Transaksi Berhasil Diproses!
+                    </h2>
+                    <p className="text-[11px] sm:text-xs text-slate-500 font-mono mt-0.5">
+                      No. Struk: <strong className="text-emerald-800 font-bold">{transaksi.invoice_no}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                {/* UANG KEMBALIAN PELANGGAN (Besar & Jelas Ala Kasgo) */}
+                <div className="p-4 rounded-2xl bg-emerald-700 text-white shadow-lg shadow-emerald-900/15 text-center space-y-1">
+                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-200 block">
+                    Uang Kembalian Pelanggan
+                  </span>
+                  <span className="text-3xl sm:text-4xl font-mono font-black text-white tabular-nums tracking-tight block">
+                    {formatRupiah(transaksi.kembali)}
+                  </span>
+                  <span className="text-[10px] text-emerald-100 font-medium block">
+                    {transaksi.kembali === 0 ? '✓ Pembayaran Uang Pas' : 'Serahkan uang kembalian ke pembeli'}
+                  </span>
+                </div>
+              </>
+            )}
 
             {/* Financial Summary Breakdown */}
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
@@ -151,9 +183,13 @@ export default function ReceiptModal({
                 <span className="font-mono font-bold text-slate-900">{formatRupiah(transaksi.total)}</span>
               </div>
               <div className="flex justify-between items-center text-slate-600 font-medium">
-                <span>Metode Pembayaran:</span>
-                <span className="font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-[10px]">
-                  {transaksi.metode_bayar}
+                <span>Metode / Status:</span>
+                <span className={`font-extrabold uppercase px-2 py-0.5 rounded-md text-[10px] ${
+                  transaksi.status === 'cancelled'
+                    ? 'bg-rose-100 text-rose-900'
+                    : 'bg-emerald-100 text-emerald-900'
+                }`}>
+                  {transaksi.status === 'cancelled' ? 'KERUGIAN / BATAL BAYAR' : transaksi.metode_bayar}
                 </span>
               </div>
               <div className="flex justify-between items-center text-slate-600 font-medium">

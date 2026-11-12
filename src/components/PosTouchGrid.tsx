@@ -90,7 +90,7 @@ export default function PosTouchGrid({
   };
 
   return (
-    <div className="flex flex-col h-full space-y-2.5">
+    <div className="flex flex-col h-full space-y-2">
       
       {/* 1. Baris Pencarian Menu Penuh & Jelas */}
       <div className="bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-soft-sm flex items-center gap-2">
@@ -228,7 +228,7 @@ export default function PosTouchGrid({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 pb-4">
             {filteredMenu.map(item => {
               const inCartQty = getItemQtyInCart(item.id);
               const isTapped = tappedItemId === item.id;

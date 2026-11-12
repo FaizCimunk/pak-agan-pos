@@ -1998,8 +1998,41 @@ export class PosDatabase {
       unpaid_bills_total: unpaidTotal,
     };
 
-    // Jika kasir menandai tagihan belum bayar sebagai kerugian shift ini, bersihkan dari antrean open bills
+    // Jika kasir menandai tagihan belum bayar sebagai kerugian shift ini:
+    // 1. Catat ke tabel transaksi (status: 'cancelled') agar muncul di Menu 2 Buku Mutasi & pengurang Laba Bersih Pusat
+    // 2. Bersihkan dari antrean open bills lokal kasir
     if (options?.writeOffOpenBills && unpaidBills.length > 0) {
+      for (const bill of unpaidBills) {
+        const cleanInvoice = bill.invoice_no
+          ? (bill.invoice_no.startsWith('RUGI-')
+            ? bill.invoice_no
+            : bill.invoice_no.replace(/^INV-/, 'RUGI-'))
+          : `RUGI-${Date.now().toString().slice(-6)}`;
+        const label = bill.penanda || bill.meja || bill.nama_pelanggan || 'Pelanggan Kabur/Batal';
+        const lossTrx: Transaksi = {
+          ...bill,
+          id: isValidUuid(bill.id) ? bill.id : generateUUID(),
+          invoice_no: cleanInvoice,
+          cabang_id: active.cabang_id,
+          cabang_nama: active.cabang_nama || bill.cabang_nama,
+          shift_id: active.id,
+          karyawan_id: bill.karyawan_id || active.karyawan_id,
+          karyawan_nama: bill.karyawan_nama || active.karyawan_nama,
+          nama_pelanggan: label.startsWith('[RUGI TUTUP BUKU]') ? label : `[RUGI TUTUP BUKU] ${label}`,
+          waktu: bill.waktu || closedShift.waktu_tutup || new Date().toISOString(),
+          metode_bayar: 'tunai',
+          bayar: 0,
+          kembali: 0,
+          status: 'cancelled',
+          is_offline_synced: !isNavigatorOffline(),
+        };
+        try {
+          await this.createTransaksi(lossTrx);
+        } catch (lossErr) {
+          console.warn('Gagal simpan transaksi kerugian tutup buku:', lossErr);
+        }
+      }
+
       const closedIds = new Set(unpaidBills.map(b => b.id));
       const existingBills = loadLocal<Transaksi[]>(STORAGE_KEYS.OPEN_BILLS, []);
       const remainingBills = existingBills.filter(b => !closedIds.has(b.id) && !isBranchMatch(b.cabang_id, cabangId));
@@ -2205,6 +2238,32 @@ export class PosDatabase {
         const branchObj = cabangs.find(c => isBranchMatch(c.id, s.cabang_id));
         const karObj = karyawans.find(k => k.id === s.karyawan_id);
 
+        const shiftLossTrx = transactions.filter(t => {
+          if (t.status !== 'cancelled') return false;
+          if (!isBranchMatch(t.cabang_id, s.cabang_id)) return false;
+          if (t.shift_id && isValidUuid(t.shift_id)) return t.shift_id === s.id;
+          if (t.shift_id && t.shift_id === s.id) return true;
+          const trxTime = new Date(t.waktu).getTime();
+          if (isNaN(trxTime) || isNaN(shiftOpenTime)) return false;
+          if (trxTime < shiftOpenTime - 5 * 60 * 1000) return false;
+          if (shiftCloseTime && trxTime > shiftCloseTime + 5 * 60 * 1000) return false;
+          return true;
+        });
+
+        let unpaidCount = Number(s.unpaid_bills_count || 0);
+        let unpaidTotal = Number(s.unpaid_bills_total || 0);
+        if (unpaidCount === 0 && s.catatan) {
+          const lossMatch = s.catatan.match(/\[(KERUGIAN|TAGIHAN)\s+BELUM BAYAR:\s*(\d+)\s*pesanan\s*\(([^)]+)\)/i);
+          if (lossMatch) {
+            unpaidCount = parseInt(lossMatch[2], 10) || 1;
+            unpaidTotal = parseInt(lossMatch[3].replace(/[^0-9]/g, ''), 10) || 0;
+          }
+        }
+        if (unpaidCount === 0 && shiftLossTrx.length > 0) {
+          unpaidCount = shiftLossTrx.length;
+          unpaidTotal = shiftLossTrx.reduce((sum, t) => sum + Number(t.total || 0), 0);
+        }
+
         return {
           ...s,
           cabang_nama: resolveLiveBranchName(s.cabang_id, branchObj?.nama || s.cabang_nama),
@@ -2220,6 +2279,8 @@ export class PosDatabase {
           total_kasbon_approved: kasbonApp,
           pending_expenses_count: shiftExpPending.length,
           pending_expenses_total: shiftExpPending.reduce((sum, e) => sum + Number(e.nominal || 0), 0),
+          unpaid_bills_count: unpaidCount,
+          unpaid_bills_total: unpaidTotal,
           saldo_akhir_sistem: saldoSistem,
           saldo_akhir_fisik: fisik,
           selisih: s.status === 'closed' ? fisik - saldoSistem : 0,

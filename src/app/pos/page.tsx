@@ -71,15 +71,104 @@ export default function PosPage() {
   const [expenseList, setExpenseList] = useState<PengeluaranKasbon[]>([]);
   const [lastTransaksi, setLastTransaksi] = useState<Transaksi | null>(null);
   const [kitchenTicketTrx, setKitchenTicketTrx] = useState<Transaksi | null>(null);
+  const [orientationMode, setOrientationMode] = useState<'portrait' | 'landscape'>('portrait');
+  const [orientationFeedback, setOrientationFeedback] = useState<string | null>(null);
 
   const router = useRouter();
   const currentCabangRef = useRef<Cabang | null>(null);
   currentCabangRef.current = currentCabang;
   const hasPromptedInitialShiftRef = useRef<boolean>(false);
+  const orientationModeRef = useRef<'portrait' | 'landscape'>('portrait');
+  orientationModeRef.current = orientationMode;
+  const orientationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isSyncingPosRef = useRef<boolean>(false);
   const queuedPosSyncRef = useRef<boolean>(false);
   const posSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showOrientationNotice = useCallback((msg: string) => {
+    setOrientationFeedback(msg);
+    if (orientationTimerRef.current) {
+      clearTimeout(orientationTimerRef.current);
+    }
+    orientationTimerRef.current = setTimeout(() => {
+      setOrientationFeedback(null);
+    }, 3200);
+  }, []);
+
+  const applyOrientationLock = useCallback(async (target: 'portrait' | 'landscape', fromUserAction = false) => {
+    if (typeof window === 'undefined') return;
+
+    // Kirim perintah orientasi jika berjalan di dalam APK WebView wrapper
+    try {
+      const rnWebView = (window as unknown as { ReactNativeWebView?: { postMessage?: (msg: string) => void } }).ReactNativeWebView;
+      rnWebView?.postMessage?.(JSON.stringify({ type: 'SET_ORIENTATION', orientation: target }));
+    } catch {
+      // Abaikan jika bukan ReactNativeWebView
+    }
+
+    // Best-effort fullscreen saat user menekan Putar ke Miring di browser Android agar Screen Orientation API diizinkan
+    if (fromUserAction && target === 'landscape' && !document.fullscreenElement) {
+      try {
+        await document.documentElement.requestFullscreen?.();
+      } catch {
+        // Browser biasa kadang menolak fullscreen; tetap lanjutkan attempt lock()
+      }
+    }
+
+    try {
+      const orient = window.screen?.orientation as (ScreenOrientation & { lock?: (orientation: string) => Promise<void> }) | undefined;
+      if (orient && typeof orient.lock === 'function') {
+        await orient.lock(target === 'landscape' ? 'landscape-primary' : 'portrait-primary');
+        if (fromUserAction) {
+          showOrientationNotice(
+            target === 'landscape'
+              ? 'Layar dikunci ke mode Miring (Landscape).'
+              : 'Layar dikunci ke mode Tegak (Potret).'
+          );
+        }
+        return;
+      }
+    } catch {
+      if (fromUserAction) {
+        showOrientationNotice(
+          target === 'landscape'
+            ? 'Mode tampilan diatur ke Miring (Jika browser menahan rotasi, miringkan tablet / aktifkan layar penuh).'
+            : 'Mode tampilan diatur ke Potret (Jika browser menahan rotasi, tegakkan tablet / nonaktifkan rotasi otomatis OS).'
+        );
+      }
+      return;
+    }
+
+    if (fromUserAction) {
+      showOrientationNotice(
+        target === 'landscape'
+          ? 'Tampilan disesuaikan ke mode Miring (Landscape).'
+          : 'Tampilan disesuaikan ke mode Tegak (Potret).'
+      );
+    }
+  }, [showOrientationNotice]);
+
+  useEffect(() => {
+    // Kunci awal ke Potret saat kasir dibuka; retry saat interaksi pertama jika browser butuh gesture
+    void applyOrientationLock('portrait', false);
+    const retryInitialPortrait = () => {
+      if (orientationModeRef.current === 'portrait') {
+        void applyOrientationLock('portrait', false);
+      }
+    };
+    window.addEventListener('pointerdown', retryInitialPortrait, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', retryInitialPortrait);
+      if (orientationTimerRef.current) clearTimeout(orientationTimerRef.current);
+    };
+  }, [applyOrientationLock]);
+
+  const handleToggleOrientation = useCallback(() => {
+    const nextMode: 'portrait' | 'landscape' = orientationModeRef.current === 'portrait' ? 'landscape' : 'portrait';
+    setOrientationMode(nextMode);
+    void applyOrientationLock(nextMode, true);
+  }, [applyOrientationLock]);
 
   const syncPosState = useCallback(async (promptShiftIfMissing = false) => {
     if (isSyncingPosRef.current) {
@@ -623,7 +712,7 @@ export default function PosPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-fintech-bg select-none">
+    <div className="flex flex-col h-[100dvh] overflow-hidden bg-fintech-bg select-none">
       {/* Dedicated Tablet POS Header (Clean, No Admin links) */}
       <PosHeader
         currentCabang={currentCabang}
@@ -644,10 +733,13 @@ export default function PosPage() {
         onDeviceSettingsClick={() => setIsDeviceSetupOpen(true)}
         onOpenBillsClick={() => setIsOpenBillsModalOpen(true)}
         openBillsCount={openBills.length}
+        orientationMode={orientationMode}
+        onToggleOrientation={handleToggleOrientation}
+        orientationFeedback={orientationFeedback}
       />
 
       {/* Main Dual-Pane POS Interface */}
-      <main className="flex-1 flex overflow-hidden p-3 sm:p-4 gap-3 sm:gap-4 max-w-7xl mx-auto w-full">
+      <main className="pos-main-pane flex-1 flex overflow-hidden p-2.5 sm:p-3.5 md:p-4 gap-2.5 sm:gap-3.5 md:gap-4 max-w-[1440px] mx-auto w-full">
         
         {/* Left Side: POS Touch Grid */}
         <section className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -666,7 +758,7 @@ export default function PosPage() {
                 <button
                   type="button"
                   onClick={() => setIsMobileCartOpen(true)}
-                  className="lg:hidden px-2.5 py-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-[11px] shadow-xs"
+                  className="md:hidden px-2.5 py-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-[11px] shadow-xs"
                 >
                   Lihat ({cart.reduce((sum, it) => sum + it.qty, 0)})
                 </button>
@@ -692,8 +784,8 @@ export default function PosPage() {
           />
         </section>
 
-        {/* Right Side: Order Cart Drawer (Desktop / Tablet Screen) */}
-        <aside className="hidden lg:flex w-80 lg:w-96 flex-col shrink-0 h-full">
+        {/* Right Side: Order Cart Drawer (Landscape / Tablet / Desktop Screen) */}
+        <aside className="hidden md:flex w-72 md:w-80 lg:w-96 flex-col shrink-0 h-full">
           <PosCartDrawer
             items={cart}
             customerName={customerName}
@@ -719,9 +811,9 @@ export default function PosPage() {
 
       </main>
 
-      {/* Floating Checkout Bar for Mobile / Smartphone (< lg screens) */}
+      {/* Floating Checkout Bar for Portrait Smartphone (< md screens) */}
       {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-3 left-3 right-3 z-30 animate-fadeIn">
+        <div className="md:hidden fixed bottom-3 left-3 right-3 z-30 animate-fadeIn">
           <button
             onClick={() => setIsMobileCartOpen(true)}
             className="w-full p-3 bg-gradient-to-r from-brand-dark via-emerald-800 to-emerald-950 text-white rounded-2xl shadow-2xl border border-emerald-500/40 flex items-center justify-between btn-tactile"
@@ -750,7 +842,7 @@ export default function PosPage() {
 
       {/* Mobile Cart Bottom Sheet Modal */}
       {isMobileCartOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fadeIn p-0 sm:p-3">
+        <div className="md:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fadeIn p-0 sm:p-3">
           <div className="w-full max-w-md h-[95vh] sm:h-[92vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col p-1 sm:p-2">
             <PosCartDrawer
               items={cart}

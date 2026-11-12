@@ -19,6 +19,7 @@ import ReceiptModal from './ReceiptModal';
 
 export interface ShiftAuditSummary {
   shiftTrx: Transaksi[];
+  lossTrx: Transaksi[];
   shiftExpenses: PengeluaranKasbon[];
   pendingExpenses: PengeluaranKasbon[];
   approvedLaciExpenses: PengeluaranKasbon[];
@@ -131,6 +132,14 @@ export function getShiftAuditSummary(
   const saldoFisik = Number(shift.saldo_akhir_fisik || 0);
   const selisih = shift.status === 'closed' ? saldoFisik - saldoSistem : 0;
 
+  const lossTrx = transaksiList
+    .filter(
+      (t) =>
+        t.status === 'cancelled' &&
+        belongsToShift(t.shift_id, t.waktu, t.cabang_id, shift, isBranchEqual)
+    )
+    .sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime());
+
   const catatanText = shift.catatan || '';
   const unpaidNoteMatches = catatanText
     .split('\n')
@@ -140,13 +149,17 @@ export function getShiftAuditSummary(
   let unpaidCount = Number(shift.unpaid_bills_count || 0);
   let unpaidTotal = Number(shift.unpaid_bills_total || 0);
   if (unpaidCount === 0 && unpaidNoteMatches.length > 0) {
-    const m = unpaidNoteMatches[0].match(/:\s*(\d+)\s*pesanan\s*\(([^)]+)\)/i);
+    const m = unpaidNoteMatches[0].match(/\[(KERUGIAN|TAGIHAN)\s+BELUM BAYAR:\s*(\d+)\s*pesanan\s*\(([^)]+)\)/i);
     if (m) {
-      unpaidCount = parseInt(m[1], 10) || unpaidNoteMatches.length;
-      unpaidTotal = parseInt(m[2].replace(/[^0-9]/g, ''), 10) || 0;
+      unpaidCount = parseInt(m[2], 10) || unpaidNoteMatches.length;
+      unpaidTotal = parseInt(m[3].replace(/[^0-9]/g, ''), 10) || 0;
     } else {
       unpaidCount = unpaidNoteMatches.length;
     }
+  }
+  if (unpaidCount === 0 && lossTrx.length > 0) {
+    unpaidCount = lossTrx.length;
+    unpaidTotal = lossTrx.reduce((sum, t) => sum + Number(t.total || 0), 0);
   }
 
   const nonTunaiTotal = qris + transfer;
@@ -155,6 +168,7 @@ export function getShiftAuditSummary(
 
   return {
     shiftTrx,
+    lossTrx,
     shiftExpenses,
     pendingExpenses,
     approvedLaciExpenses,
@@ -428,7 +442,7 @@ export default function ShiftMutasiModal({
                 </div>
               )}
 
-              {(audit.unpaidNoteMatches.length > 0 || audit.unpaidCount > 0 || liveOpenBills.length > 0) && (
+              {(audit.unpaidNoteMatches.length > 0 || audit.unpaidCount > 0 || audit.lossTrx.length > 0 || liveOpenBills.length > 0) && (
                 <div className="p-3 rounded-xl bg-white border border-rose-200 space-y-1.5">
                   <div className="font-extrabold text-rose-900 flex items-center justify-between">
                     <span>Tagihan Belum Bayar / Kerugian Tutup Buku</span>
@@ -446,6 +460,29 @@ export default function ShiftMutasiModal({
                     <p key={i} className="text-[11px] text-slate-700 leading-relaxed">
                       {line}
                     </p>
+                  ))}
+                  {audit.lossTrx.map((loss) => (
+                    <div key={loss.id} className="flex items-center justify-between gap-2 text-[11px] text-rose-900 bg-rose-50/60 px-2.5 py-1.5 rounded-lg border border-rose-200">
+                      <div className="min-w-0">
+                        <span className="font-bold block truncate">
+                          • {loss.invoice_no} — {loss.nama_pelanggan}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block truncate">
+                          {loss.items?.map((it) => `${it.qty}x ${it.nama_menu}`).join(', ') || 'Detail pesanan'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="font-mono font-black text-rose-700">-{formatRupiah(loss.total)}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTrx(loss)}
+                          title="Lihat Rincian Item Nota Kerugian"
+                          className="w-6 h-6 rounded-full bg-white hover:bg-rose-100 border border-rose-200 flex items-center justify-center cursor-pointer"
+                        >
+                          <Eye className="w-3 h-3 text-rose-700" />
+                        </button>
+                      </div>
+                    </div>
                   ))}
                   {liveOpenBills.map((bill) => (
                     <div key={bill.id} className="flex items-center justify-between text-[11px] text-slate-700 border-t border-slate-100 pt-1">

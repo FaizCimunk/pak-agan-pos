@@ -4,7 +4,7 @@
   "description": "Sistem Kasir POS Multi-Cabang & Manajemen Keuangan Serabi Bawel & Wedang Geprek",
   "start_url": "/pos",
   "display": "standalone",
-  "orientation": "any",
+  "orientation": "portrait",
   "background_color": "#F8FAFC",
   "theme_color": "#064E3B",
   "icons": [
