@@ -20,6 +20,7 @@ import ProfilTokoManager from '@/components/ProfilTokoManager';
 import MutasiPenjualanStatement from '@/components/MutasiPenjualanStatement';
 import FixedCostPaymentManager from '@/components/FixedCostPaymentManager';
 import BukuTabunganModal from '@/components/BukuTabunganModal';
+import ShiftMutasiModal, { getShiftAuditSummary } from '@/components/ShiftMutasiModal';
 
 import { 
   Cabang, 
@@ -76,7 +77,8 @@ import {
   CreditCard,
   ChevronDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Eye
 } from 'lucide-react';
 
 const OWNER_AUTH_KEY = 'pakagan_owner_authenticated';
@@ -128,6 +130,7 @@ export default function AdminDashboardPage() {
   const [selectedPayrollForPayout, setSelectedPayrollForPayout] = useState<Payroll | null>(null);
   const [showPayrollReportModal, setShowPayrollReportModal] = useState<boolean>(false);
   const [showDailyReportModal, setShowDailyReportModal] = useState<boolean>(false);
+  const [selectedShiftForMutasi, setSelectedShiftForMutasi] = useState<Shift | null>(null);
   const [selectedMenuForEdit, setSelectedMenuForEdit] = useState<MenuItem | null>(null);
   const [isAddingNewMenu, setIsAddingNewMenu] = useState<boolean>(false);
   const [selectedMenuCabangFilter, setSelectedMenuCabangFilter] = useState<string>('all');
@@ -339,9 +342,6 @@ export default function AdminDashboardPage() {
   const navigateToApproval = (sub: 'presensi' | 'belanja' = 'belanja') => {
     setActiveTab('approval');
     setApprovalSubTab(sub);
-  };
-  const navigateToFixedCost = () => {
-    setActiveTab('fixedcost');
   };
 
   const totalUnsettledKasbon = useMemo(() => {
@@ -1431,168 +1431,11 @@ export default function AdminDashboardPage() {
 
             </div>
 
-            {/* BAGIAN 4: TABEL LAPORAN OMZET & LABA BERSIH PER OUTLET */}
-            {(() => {
-              const displayedBreakdowns = selectedCabangId === 'all'
-                ? bossDailyProfits.branchBreakdowns
-                : bossDailyProfits.branchBreakdowns.filter(b => b.cabang.id === selectedCabangId);
-              const footOmzet = displayedBreakdowns.reduce((sum, b) => sum + b.omzetKotor, 0);
-              const footFixedCost = displayedBreakdowns.reduce((sum, b) => sum + b.effectiveFixedCost, 0);
-              const footHpp = displayedBreakdowns.reduce((sum, b) => sum + b.totalHppBahan, 0);
-              const footGaji = displayedBreakdowns.reduce((sum, b) => sum + b.totalGajiKaryawan, 0);
-              const footBelanja = displayedBreakdowns.reduce((sum, b) => sum + b.totalBelanjaLaci, 0);
-              const footBersih = displayedBreakdowns.reduce((sum, b) => sum + b.uangBersihBoss, 0);
-
-              return (
-                <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden space-y-4 p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                    <div className="flex items-center space-x-2">
-                      <Store className="w-5 h-5 text-emerald-700" />
-                      <div>
-                        <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
-                          Laporan Kinerja &amp; Uang Bersih per Outlet ({selectedCabangId === 'all' ? `${cabangList.length || 10} Cabang Resmi` : displayedBreakdowns[0]?.cabang.kode || 'Cabang Terpilih'})
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          Laporan otomatis tanggal <strong>{formatTanggalId(selectedBossSummaryDate)}</strong> • Mode Fixed Cost:{' '}
-                          <strong>{fixedCostDeductionMode === 'kas_riil' ? 'Kas Riil (Lunas Bulanan Rp 0/hr)' : 'Cadangan Amortisasi (/30 Hari)'}</strong>.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                      {selectedCabangId !== 'all' && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCabangId('all')}
-                          className="text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl border border-slate-300 transition cursor-pointer"
-                        >
-                          Tampilkan Semua ({bossDailyProfits.branchBreakdowns.length})
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={navigateToFixedCost}
-                        className="text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center space-x-1.5 transition cursor-pointer"
-                      >
-                        <Building2 className="w-3.5 h-3.5 text-emerald-700" />
-                        <span>Ubah Settingan Biaya Tetap Toko →</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-900 text-white uppercase text-[10px] font-black tracking-wider">
-                        <tr>
-                          <th className="py-3 px-3.5">Outlet Cabang</th>
-                          <th className="py-3 px-3.5 text-right">Omzet Kotor</th>
-                          <th className="py-3 px-3.5 text-right text-rose-300">Potongan Fixed Cost</th>
-                          <th className="py-3 px-3.5 text-right text-amber-300">HPP Bahan Baku</th>
-                          <th className="py-3 px-3.5 text-right text-blue-300">
-                            Upah Staf {upahDeductionMode === 'standar_harian' ? '(/Hari)' : 'ACC'}
-                          </th>
-                          <th className="py-3 px-3.5 text-right text-purple-300">Belanja Toko Laci</th>
-                          <th className="py-3 px-3.5 text-right bg-slate-950 text-amber-300">Uang Bersih Toko</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
-                        {displayedBreakdowns.map(b => {
-                          const isSelected = selectedCabangId !== 'all' && b.cabang.id === selectedCabangId;
-                          const fixedCostToko = b.effectiveFixedCost;
-
-                          return (
-                            <tr 
-                              key={b.cabang.id} 
-                              className={`transition-colors cursor-pointer ${
-                                isSelected 
-                                  ? 'bg-emerald-50/90 ring-2 ring-emerald-500 font-medium' 
-                                  : 'hover:bg-slate-50'
-                              }`}
-                              onClick={() => setSelectedCabangId(selectedCabangId === b.cabang.id ? 'all' : b.cabang.id)}
-                              title="Klik untuk filter ringkasan toko ini"
-                            >
-                              <td className="py-3 px-3.5">
-                                <div className="flex items-center space-x-1.5">
-                                  <span className="font-mono text-[10px] font-bold text-slate-400 block">#{b.cabang.nomor} • {b.cabang.kode}</span>
-                                  {isSelected && (
-                                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[9px] font-bold">
-                                      Terpilih
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="font-extrabold text-slate-900 text-xs block">{b.cabang.nama}</span>
-                                <span className="text-[10px] text-slate-500 block">{b.cabang.kota} • PJ: {b.cabang.pj_nama || '-'}</span>
-                              </td>
-                              <td className="py-3 px-3.5 text-right font-mono font-extrabold text-slate-900 text-xs">
-                                {formatRupiah(b.omzetKotor)}
-                              </td>
-                              <td className="py-3 px-3.5 text-right font-mono font-bold text-rose-600 text-xs whitespace-nowrap">
-                                {fixedCostToko > 0 ? `-${formatRupiah(fixedCostToko)}` : 'Rp 0'}
-                                <span className="text-[9px] text-slate-400 block font-normal">
-                                  {fixedCostToko === 0 && fixedCostDeductionMode === 'kas_riil'
-                                    ? 'Lunas Kas Riil'
-                                    : 'Sewa+Wifi+Iuran+Lain'}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3.5 text-right font-mono font-bold text-amber-700 text-xs whitespace-nowrap">
-                                -{formatRupiah(b.totalHppBahan)}
-                                <span className="text-[9px] text-slate-400 block font-normal">Porsi Terjual</span>
-                              </td>
-                              <td className="py-3 px-3.5 text-right font-mono font-bold text-blue-700 text-xs whitespace-nowrap">
-                                -{formatRupiah(b.totalGajiKaryawan)}
-                                <span className="text-[9px] text-slate-400 block font-normal">
-                                  {upahDeductionMode === 'standar_harian' 
-                                    ? `${b.branchWorkersCount} Staf Terplot (/6 Hari)` 
-                                    : `${b.stafHadirCount} Staf Di-ACC`}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3.5 text-right font-mono font-bold text-purple-700 text-xs whitespace-nowrap">
-                                {b.totalBelanjaLaci > 0 ? `-${formatRupiah(b.totalBelanjaLaci)}` : 'Rp 0'}
-                                <span className="text-[9px] text-slate-400 block font-normal">Gas/Es/Operasional</span>
-                              </td>
-                              <td className={`py-3 px-3.5 text-right font-mono font-black text-sm bg-slate-50 whitespace-nowrap ${b.uangBersihBoss < 0 ? 'text-rose-700' : 'text-emerald-800'}`}>
-                                {formatRupiah(b.uangBersihBoss)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot className="bg-slate-100 font-extrabold border-t-2 border-slate-300 text-xs">
-                        <tr>
-                          <td className="py-3 px-3.5 uppercase text-slate-700">
-                            {selectedCabangId === 'all' ? `Total ${displayedBreakdowns.length} Outlet` : 'Total Cabang Terpilih'}
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono text-slate-900">
-                            {formatRupiah(footOmzet)}
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono text-rose-600 whitespace-nowrap">
-                            {footFixedCost > 0 ? `-${formatRupiah(footFixedCost)}` : 'Rp 0'}
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono text-amber-700 whitespace-nowrap">
-                            -{formatRupiah(footHpp)}
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono text-blue-700 whitespace-nowrap">
-                            -{formatRupiah(footGaji)}
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono text-purple-700 whitespace-nowrap">
-                            -{formatRupiah(footBelanja)}
-                          </td>
-                          <td className="py-3 px-3.5 text-right font-mono font-black text-sm bg-slate-200 text-slate-950 whitespace-nowrap">
-                            {formatRupiah(footBersih)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* BAGIAN 5: RIWAYAT HARIAN TUTUP BUKU KASIR SETIAP CABANG */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden p-5 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
-                <div className="flex items-start space-x-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+            {/* BAGIAN 4: RIWAYAT HARIAN TUTUP BUKU & LACI KASIR (REAL-TIME + EYE MUTASI) */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-soft-sm overflow-hidden p-5 sm:p-6 space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div className="flex items-start space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
                     <Clock className="w-5 h-5" />
                   </div>
                   <div>
@@ -1600,7 +1443,7 @@ export default function AdminDashboardPage() {
                       Riwayat Harian Tutup Buku &amp; Laci Kasir
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Audit serah terima laci kasir per tanggal &amp; cabang, lengkap dengan catatan pending ACC &amp; tagihan belum terbayar / kerugian.
+                      Audit serah terima laci kasir real-time per tanggal &amp; cabang — klik ikon mata (Mutasi) untuk rincian tunai, non-tunai, pending ACC, kerugian &amp; tagihan belum bayar.
                     </p>
                   </div>
                 </div>
@@ -1632,13 +1475,31 @@ export default function AdminDashboardPage() {
                   </div>
 
                   {(() => {
-                    const shortShifts = filteredShiftHistory.filter(s => s.status === 'closed' && (s.selisih || 0) < 0);
-                    if (shortShifts.length === 0) return null;
-                    const totalShort = shortShifts.reduce((sum, s) => sum + Math.abs(s.selisih || 0), 0);
+                    const rowAudits = filteredShiftHistory.map((s) => ({
+                      shift: s,
+                      audit: getShiftAuditSummary(s, transaksiList, expenseList, isBranchMatch),
+                    }));
+                    const shortShifts = rowAudits.filter(
+                      (r) => r.shift.status === 'closed' && r.audit.selisih < 0
+                    );
+                    const totalShort = shortShifts.reduce(
+                      (sum, r) => sum + Math.abs(r.audit.selisih),
+                      0
+                    );
+                    const unpaidShifts = rowAudits.filter((r) => r.audit.unpaidCount > 0);
                     return (
-                      <span className="px-3 py-1.5 rounded-xl bg-rose-100 text-rose-900 border border-rose-300 text-[11px] font-black">
-                        {shortShifts.length} Shift Tekor (-{formatRupiah(totalShort)})
-                      </span>
+                      <>
+                        {shortShifts.length > 0 && (
+                          <span className="px-3 py-1.5 rounded-xl bg-rose-100 text-rose-900 border border-rose-300 text-[11px] font-black">
+                            {shortShifts.length} Shift Tekor (-{formatRupiah(totalShort)})
+                          </span>
+                        )}
+                        {unpaidShifts.length > 0 && (
+                          <span className="px-3 py-1.5 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-black">
+                            {unpaidShifts.length} Shift Ada Nota Belum Bayar
+                          </span>
+                        )}
+                      </>
                     );
                   })()}
 
@@ -1666,17 +1527,16 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-900 text-white uppercase text-[10px] font-black tracking-wider">
                       <tr>
-                        <th className="py-3 px-3.5">Tanggal &amp; Jam</th>
-                        <th className="py-3 px-3.5">Cabang &amp; Kasir</th>
-                        <th className="py-3 px-3.5 text-right">Omzet Shift</th>
-                        <th className="py-3 px-3.5 text-right">Modal &amp; Laci Keluar</th>
-                        <th className="py-3 px-3.5 text-right">Sistem vs Fisik</th>
-                        <th className="py-3 px-3.5 text-right">Selisih</th>
-                        <th className="py-3 px-3.5 min-w-[230px]">Keterangan &amp; Alert Risiko</th>
+                        <th className="py-3.5 px-4 whitespace-nowrap">Tanggal &amp; Jam</th>
+                        <th className="py-3.5 px-4 whitespace-nowrap">Cabang &amp; Kasir</th>
+                        <th className="py-3.5 px-4 text-right whitespace-nowrap">Omzet Real-Time</th>
+                        <th className="py-3.5 px-4 text-right whitespace-nowrap">Laci &amp; Selisih</th>
+                        <th className="py-3.5 px-4 min-w-[260px]">Keterangan &amp; Alert Risiko</th>
+                        <th className="py-3.5 px-4 text-center whitespace-nowrap">Mutasi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
@@ -1686,101 +1546,113 @@ export default function AdminDashboardPage() {
                         const shiftDate = getShiftOperationalDate(shift);
                         const closeDate = shift.waktu_tutup ? toWibDateString(shift.waktu_tutup) : '';
                         const closedPastMidnight = Boolean(closeDate && shiftDate && closeDate !== shiftDate);
-                        const nonTunaiTotal = (shift.total_qris_masuk || 0) + (shift.total_transfer_masuk || 0);
-                        const ojolTotal = (shift.total_shopeefood_masuk || 0) + (shift.total_gofood_masuk || 0) + (shift.total_grabfood_masuk || 0);
-                        const hasPending = (shift.pending_expenses_count || 0) > 0;
-                        const hasUnpaidLoss = (shift.unpaid_bills_count || 0) > 0 || (shift.catatan || '').toLowerCase().includes('kerugian');
-                        const selisihVal = shift.selisih || 0;
+                        const audit = getShiftAuditSummary(shift, transaksiList, expenseList, isBranchMatch);
+                        const hasPending = audit.pendingExpenses.length > 0;
+                        const pendingTotal = audit.pendingExpenses.reduce((sum, e) => sum + Number(e.nominal || 0), 0);
+                        const hasUnpaidLoss =
+                          audit.unpaidCount > 0 ||
+                          audit.unpaidNoteMatches.length > 0 ||
+                          (shift.catatan || '').toLowerCase().includes('kerugian');
+                        const selisihVal = audit.selisih;
                         const isShortCash = shift.status === 'closed' && selisihVal < 0;
+                        const trxCount = audit.shiftTrx.length || shift.total_transaksi_shift || 0;
 
                         return (
                           <tr key={shift.id} className="hover:bg-slate-50/90 align-top">
-                            <td className="py-3 px-3.5 whitespace-nowrap">
+                            <td className="py-3.5 px-4 whitespace-nowrap">
                               <div className="font-mono font-extrabold text-slate-900">{formatTanggalId(shiftDate)}</div>
-                              <div className="text-[10px] text-slate-500 mt-0.5">
-                                Buka: {formatWaktu(shift.waktu_buka)}
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                Buka: <span className="font-semibold text-slate-700">{formatWaktu(shift.waktu_buka)}</span>
                               </div>
-                              <div className="text-[10px] text-slate-500">
-                                Tutup: {shift.waktu_tutup ? formatWaktu(shift.waktu_tutup) : '-'}
+                              <div className="text-[11px] text-slate-500">
+                                Tutup: <span className="font-semibold text-slate-700">{shift.waktu_tutup ? formatWaktu(shift.waktu_tutup) : '—'}</span>
                               </div>
                               {closedPastMidnight && (
                                 <span className="mt-1 inline-block px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200 text-[9px] font-bold">
                                   Tutup dinihari {formatTanggalId(closeDate)}
                                 </span>
                               )}
-                              <span className={`mt-1 block w-fit px-2 py-0.5 rounded-full text-[9px] font-black ${
+                              <span className={`mt-1.5 block w-fit px-2 py-0.5 rounded-full text-[9px] font-black ${
                                 shift.status === 'closed'
                                   ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                                   : 'bg-amber-100 text-amber-800 border border-amber-200 animate-pulse'
                               }`}>
-                                {shift.status === 'closed' ? '✓ TUTUP BUKU' : '● MASIH BUKA'}
+                                {shift.status === 'closed' ? '✓ TUTUP BUKU' : '● LIVE / BUKA'}
                               </span>
                             </td>
 
-                            <td className="py-3 px-3.5">
-                              <div className="font-extrabold text-slate-900">
+                            <td className="py-3.5 px-4">
+                              <div className="font-extrabold text-slate-900 text-xs whitespace-nowrap">
                                 {branchObj?.kode || shift.cabang_nama || shift.cabang_id}
                               </div>
-                              <div className="text-[10px] text-slate-500 max-w-[160px] truncate">
+                              <div className="text-[11px] text-slate-500 whitespace-nowrap">
                                 {branchObj?.nama || shift.cabang_nama}
                               </div>
-                              <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 text-[10px] font-bold">
+                              <div className="mt-1.5 inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 text-[11px] font-bold whitespace-nowrap">
                                 Kasir: {workerObj?.nama || shift.karyawan_nama || shift.karyawan_id}
                               </div>
                             </td>
 
-                            <td className="py-3 px-3.5 text-right font-mono whitespace-nowrap">
-                              <div className="font-extrabold text-emerald-800">
-                                Tunai: {formatRupiah(shift.total_tunai_masuk || 0)}
+                            <td className="py-3.5 px-4 text-right font-mono whitespace-nowrap">
+                              <div className="font-black text-slate-900 text-xs">
+                                {formatRupiah(audit.omzetTotal)}
                               </div>
-                              <div className="text-[10px] text-blue-700 font-semibold">
-                                Non-Tunai: {formatRupiah(nonTunaiTotal)}
+                              <div className="text-[11px] font-bold text-emerald-700 mt-0.5">
+                                Tunai: {formatRupiah(audit.tunai)}
                               </div>
-                              {ojolTotal > 0 && (
-                                <div className="text-[10px] text-amber-700 font-semibold">
-                                  Ojol: {formatRupiah(ojolTotal)}
+                              <div className="text-[11px] text-blue-700 font-semibold">
+                                Non-Tunai: {formatRupiah(audit.nonTunaiTotal)}
+                              </div>
+                              {audit.ojolTotal > 0 && (
+                                <div className="text-[11px] text-amber-700 font-semibold">
+                                  Ojol: {formatRupiah(audit.ojolTotal)}
                                 </div>
                               )}
-                            </td>
-
-                            <td className="py-3 px-3.5 text-right font-mono whitespace-nowrap">
-                              <div className="font-bold text-slate-700">
-                                Modal: {formatRupiah(shift.modal_awal || 0)}
-                              </div>
-                              <div className="text-[10px] text-rose-700">
-                                Belanja ACC: -{formatRupiah(shift.total_belanja_approved || 0)}
-                              </div>
-                              <div className="text-[10px] text-purple-700">
-                                Kasbon ACC: -{formatRupiah(shift.total_kasbon_approved || 0)}
+                              <div className="text-[10px] text-slate-400 font-sans mt-0.5">
+                                {trxCount} Nota
                               </div>
                             </td>
 
-                            <td className="py-3 px-3.5 text-right font-mono whitespace-nowrap">
-                              <div className="text-[10px] text-slate-500">
-                                Sistem: <strong className="text-slate-900">{formatRupiah(shift.saldo_akhir_sistem || 0)}</strong>
+                            <td className="py-3.5 px-4 text-right font-mono whitespace-nowrap">
+                              <div className="text-[11px] text-slate-600">
+                                Modal: <strong className="text-slate-900">{formatRupiah(shift.modal_awal || 0)}</strong>
                               </div>
-                              <div className="text-xs font-extrabold text-slate-950 mt-0.5">
-                                Fisik: {shift.status === 'closed' ? formatRupiah(shift.saldo_akhir_fisik || 0) : 'Belum hitung'}
-                              </div>
-                            </td>
-
-                            <td className="py-3 px-3.5 text-right font-mono whitespace-nowrap">
-                              {shift.status === 'closed' ? (
-                                <span className={`inline-block px-2 py-1 rounded-lg text-[11px] font-black border ${
-                                  selisihVal === 0
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                    : selisihVal > 0
-                                    ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                    : 'bg-rose-50 text-rose-800 border-rose-200'
-                                }`}>
-                                  {selisihVal === 0 ? 'PAS Rp 0' : `${selisihVal > 0 ? '+' : ''}${formatRupiah(selisihVal)}`}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-slate-400">Aktif</span>
+                              {audit.belanjaLaciApproved > 0 && (
+                                <div className="text-[10px] text-rose-700">
+                                  Belanja ACC: -{formatRupiah(audit.belanjaLaciApproved)}
+                                </div>
                               )}
+                              {audit.kasbonLaciApproved > 0 && (
+                                <div className="text-[10px] text-purple-700">
+                                  Kasbon ACC: -{formatRupiah(audit.kasbonLaciApproved)}
+                                </div>
+                              )}
+                              <div className="mt-1 pt-1 border-t border-slate-100 text-[11px] text-slate-600">
+                                Sistem: <strong className="text-slate-900">{formatRupiah(audit.saldoSistem)}</strong>
+                              </div>
+                              <div className="text-[11px] font-extrabold text-slate-950">
+                                Fisik: {shift.status === 'closed' ? formatRupiah(audit.saldoFisik) : 'Belum hitung'}
+                              </div>
+                              <div className="mt-1.5">
+                                {shift.status === 'closed' ? (
+                                  <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-black border ${
+                                    selisihVal === 0
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      : selisihVal > 0
+                                      ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                      : 'bg-rose-50 text-rose-800 border-rose-200'
+                                  }`}>
+                                    {selisihVal === 0 ? 'PAS Rp 0' : `${selisihVal > 0 ? '+' : ''}${formatRupiah(selisihVal)}`}
+                                  </span>
+                                ) : (
+                                  <span className="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                    Laci Live
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
-                            <td className="py-3 px-3.5 space-y-1.5">
+                            <td className="py-3.5 px-4 space-y-1.5">
                               {isShortCash && (
                                 <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-rose-100 border border-rose-300 text-rose-900 text-[10px] font-black mr-1">
                                   <ShieldAlert className="w-3 h-3 shrink-0" />
@@ -1791,7 +1663,7 @@ export default function AdminDashboardPage() {
                                 <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold mr-1">
                                   <AlertTriangle className="w-3 h-3 shrink-0" />
                                   <span>
-                                    {shift.pending_expenses_count} Pending ACC ({formatRupiah(shift.pending_expenses_total || 0)})
+                                    {audit.pendingExpenses.length} Pending ACC ({formatRupiah(pendingTotal)})
                                   </span>
                                 </div>
                               )}
@@ -1799,15 +1671,15 @@ export default function AdminDashboardPage() {
                                 <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[10px] font-bold">
                                   <ShieldAlert className="w-3 h-3 shrink-0" />
                                   <span>
-                                    {(shift.unpaid_bills_count || 0) > 0
-                                      ? `${shift.unpaid_bills_count} Nota Blm Bayar (${formatRupiah(shift.unpaid_bills_total || 0)})`
+                                    {audit.unpaidCount > 0
+                                      ? `${audit.unpaidCount} Nota Blm Bayar (${formatRupiah(audit.unpaidTotal)})`
                                       : 'Catatan Kerugian / Nota'}
                                   </span>
                                 </div>
                               )}
                               {shift.catatan ? (
                                 <p className={`text-[11px] leading-relaxed whitespace-pre-line p-2 rounded-xl border ${
-                                  isShortCash
+                                  isShortCash || hasUnpaidLoss
                                     ? 'bg-rose-50/70 text-rose-950 border-rose-200'
                                     : 'bg-slate-50 text-slate-700 border-slate-200/80'
                                 }`}>
@@ -1821,8 +1693,20 @@ export default function AdminDashboardPage() {
                                   Belum ada keterangan / alasan dari kasir — perlu dicek ke PJ shift
                                 </span>
                               ) : (
-                                <span className="text-[10px] text-slate-400 italic">Tidak ada catatan tambahan</span>
+                                <span className="text-[11px] text-slate-400 italic">Tidak ada catatan tambahan</span>
                               )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedShiftForMutasi(shift)}
+                                title="Lihat Mutasi Real-Time, Kerugian & Rincian Nota"
+                                className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 text-[11px] font-bold transition cursor-pointer shadow-xs"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Mutasi</span>
+                              </button>
                             </td>
                           </tr>
                         );
@@ -4164,6 +4048,16 @@ export default function AdminDashboardPage() {
           defaultCabangId={selectedCabangId !== 'all' ? selectedCabangId : undefined}
           defaultDate={selectedBossSummaryDate}
           onClose={() => setShowDailyReportModal(false)}
+        />
+      )}
+
+      {selectedShiftForMutasi && (
+        <ShiftMutasiModal
+          shift={selectedShiftForMutasi}
+          cabang={cabangList.find(c => isBranchMatch(c.id, selectedShiftForMutasi.cabang_id))}
+          transaksiList={transaksiList}
+          expenseList={expenseList}
+          onClose={() => setSelectedShiftForMutasi(null)}
         />
       )}
 
