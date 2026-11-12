@@ -31,7 +31,7 @@ import {
 import { db, generateUUID, isBranchMatch } from '@/lib/db';
 import { printerService, getItemKitchenStation } from '@/lib/printer';
 import { queueOfflineTransaction } from '@/lib/offline-sync';
-import { generateInvoiceNumber, formatRupiah, getTodayDateString } from '@/lib/utils';
+import { generateInvoiceNumber, formatRupiah, getTodayDateString, toWibDateString, toWibBusinessDateString } from '@/lib/utils';
 import { Lock, ShoppingBag, ArrowRight, X } from 'lucide-react';
 
 const DEVICE_LOCK_KEY = 'pakagan_device_cabang_id';
@@ -908,8 +908,9 @@ export default function PosPage() {
           karyawanList={karyawanList}
           transaksiList={transaksiList}
           expenseList={expenseList}
+          shifts={activeShift ? [activeShift] : []}
           defaultCabangId={currentCabang.id}
-          defaultDate={getTodayDateString()}
+          defaultDate={activeShift?.waktu_buka ? toWibDateString(activeShift.waktu_buka) : (toWibBusinessDateString(new Date()) || getTodayDateString())}
           onClose={() => setIsDailyReportOpen(false)}
         />
       )}

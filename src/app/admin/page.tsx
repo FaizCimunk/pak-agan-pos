@@ -35,7 +35,7 @@ import {
 } from '@/lib/types';
 import { db, isBranchMatch, isAbsensiApproved } from '@/lib/db';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole, getTodayDateString, toWibDateString } from '@/lib/utils';
+import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole, getTodayDateString, toWibDateString, getShiftOperationalDate, getBusinessDateForRecord } from '@/lib/utils';
 
 import { 
   TrendingUp, 
@@ -344,7 +344,7 @@ export default function AdminDashboardPage() {
         const matchBranch = selectedCabangId === 'all' || isBranchMatch(s.cabang_id, selectedCabangId);
         if (!matchBranch) return false;
         if (shiftHistoryDateMode === 'selected') {
-          const shiftDate = toWibDateString(s.waktu_tutup || s.waktu_buka);
+          const shiftDate = getShiftOperationalDate(s);
           return shiftDate === selectedBossSummaryDate;
         }
         return true;
@@ -372,7 +372,13 @@ export default function AdminDashboardPage() {
       if (approvalJenisFilter !== 'all' && exp.jenis !== approvalJenisFilter) return false;
       if (approvalStatusFilter !== 'all' && exp.status !== approvalStatusFilter) return false;
       if (approvalDateMode === 'selected') {
-        const itemDate = toWibDateString(exp.tanggal);
+        const itemDate = getBusinessDateForRecord({
+          timestamp: exp.tanggal,
+          shiftId: exp.shift_id,
+          cabangId: exp.cabang_id,
+          shifts: shiftList,
+          isBranchEqual: isBranchMatch,
+        });
         if (itemDate !== approvalDateFilter) return false;
       }
       if (approvalSearch.trim()) {
@@ -387,7 +393,7 @@ export default function AdminDashboardPage() {
       }
       return true;
     }).sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
-  }, [expenseList, approvalCabangFilter, approvalJenisFilter, approvalStatusFilter, approvalDateMode, approvalDateFilter, approvalSearch, cabangList]);
+  }, [expenseList, approvalCabangFilter, approvalJenisFilter, approvalStatusFilter, approvalDateMode, approvalDateFilter, approvalSearch, cabangList, shiftList]);
 
   // Handle Delete Menu Item (Khusus Admin Pusat)
   const handleDeleteMenu = async (item: MenuItem) => {
@@ -613,8 +619,18 @@ export default function AdminDashboardPage() {
 
       const totalGajiKaryawan = upahDeductionMode === 'standar_harian' ? standardDailyWage : actualPresensiGaji;
 
-      // 3. Omzet & Total HPP Bahan Baku Terpakai (pakai tanggal WIB transaksi)
-      const branchTrx = transaksiList.filter(t => isBranchMatch(t.cabang_id, cabang.id) && t.status === 'completed' && toWibDateString(t.waktu) === targetDate);
+      // 3. Omzet & Total HPP Bahan Baku Terpakai (mengikuti tanggal BUKA kasir shift)
+      const branchTrx = transaksiList.filter(t => 
+        isBranchMatch(t.cabang_id, cabang.id) && 
+        t.status === 'completed' && 
+        getBusinessDateForRecord({
+          timestamp: t.waktu,
+          shiftId: t.shift_id,
+          cabangId: t.cabang_id,
+          shifts: shiftList,
+          isBranchEqual: isBranchMatch,
+        }) === targetDate
+      );
       let omzetKotor = 0;
       let totalHppBahan = 0;
 
@@ -640,13 +656,19 @@ export default function AdminDashboardPage() {
         });
       });
 
-      // 4. Belanja Operasional Toko Laci Approved (tetap diatribusikan ke tanggal pengajuan e.tanggal WIB walau di-ACC keesokan harinya)
+      // 4. Belanja Operasional Toko Laci Approved (mengikuti tanggal BUKA kasir shift, walau tutup jam 1-2 malam atau telat di-ACC)
       const branchBelanja = expenseList.filter(e => 
         isBranchMatch(e.cabang_id, cabang.id) && 
         e.jenis === 'belanja' && 
         e.status === 'approved' &&
         (e.metode_pencairan === 'laci' || !e.metode_pencairan) &&
-        toWibDateString(e.tanggal) === targetDate
+        getBusinessDateForRecord({
+          timestamp: e.tanggal,
+          shiftId: e.shift_id,
+          cabangId: e.cabang_id,
+          shifts: shiftList,
+          isBranchEqual: isBranchMatch,
+        }) === targetDate
       );
       const totalBelanjaLaci = branchBelanja.reduce((sum, e) => sum + (e.nominal || 0), 0);
 
@@ -707,7 +729,7 @@ export default function AdminDashboardPage() {
       totalPotongan10Toko,
       totalBersihBoss10Toko,
     };
-  }, [cabangList, menuList, absensiList, transaksiList, expenseList, selectedBossSummaryDate, karyawanList, upahDeductionMode, fixedCostPayments, fixedCostDeductionMode]);
+  }, [cabangList, menuList, absensiList, transaksiList, expenseList, selectedBossSummaryDate, karyawanList, upahDeductionMode, fixedCostPayments, fixedCostDeductionMode, shiftList]);
 
   // --------------------------------------------------------------------------
   // EXECUTIVE SUMMARY HARIAN (KONSOLIDASI 10 CABANG ATAU PER CABANG PILIHAN)
@@ -806,7 +828,13 @@ export default function AdminDashboardPage() {
     const targetDate = selectedBossSummaryDate;
     const dayTrx = transaksiList.filter(t => 
       t.status === 'completed' && 
-      toWibDateString(t.waktu) === targetDate &&
+      getBusinessDateForRecord({
+        timestamp: t.waktu,
+        shiftId: t.shift_id,
+        cabangId: t.cabang_id,
+        shifts: shiftList,
+        isBranchEqual: isBranchMatch,
+      }) === targetDate &&
       (selectedCabangId === 'all' || isBranchMatch(t.cabang_id, selectedCabangId))
     );
 
@@ -849,7 +877,7 @@ export default function AdminDashboardPage() {
       grabfoodTotal,
       totalChannel,
     };
-  }, [transaksiList, selectedBossSummaryDate, selectedCabangId]);
+  }, [transaksiList, selectedBossSummaryDate, selectedCabangId, shiftList]);
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
@@ -1702,7 +1730,9 @@ export default function AdminDashboardPage() {
                       {filteredShiftHistory.map(shift => {
                         const branchObj = cabangList.find(c => isBranchMatch(c.id, shift.cabang_id));
                         const workerObj = karyawanList.find(k => k.id === shift.karyawan_id);
-                        const shiftDate = toWibDateString(shift.waktu_tutup || shift.waktu_buka);
+                        const shiftDate = getShiftOperationalDate(shift);
+                        const closeDate = shift.waktu_tutup ? toWibDateString(shift.waktu_tutup) : '';
+                        const closedPastMidnight = Boolean(closeDate && shiftDate && closeDate !== shiftDate);
                         const nonTunaiTotal = (shift.total_qris_masuk || 0) + (shift.total_transfer_masuk || 0);
                         const ojolTotal = (shift.total_shopeefood_masuk || 0) + (shift.total_gofood_masuk || 0) + (shift.total_grabfood_masuk || 0);
                         const hasPending = (shift.pending_expenses_count || 0) > 0;
@@ -1719,7 +1749,12 @@ export default function AdminDashboardPage() {
                               <div className="text-[10px] text-slate-500">
                                 Tutup: {shift.waktu_tutup ? formatWaktu(shift.waktu_tutup) : '-'}
                               </div>
-                              <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-[9px] font-black ${
+                              {closedPastMidnight && (
+                                <span className="mt-1 inline-block px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200 text-[9px] font-bold">
+                                  Tutup dinihari {closeDate}
+                                </span>
+                              )}
+                              <span className={`mt-1 block w-fit px-2 py-0.5 rounded-full text-[9px] font-black ${
                                 shift.status === 'closed'
                                   ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                                   : 'bg-amber-100 text-amber-800 border border-amber-200 animate-pulse'
@@ -1944,6 +1979,7 @@ export default function AdminDashboardPage() {
             <MutasiPenjualanStatement
               transaksiList={transaksiList}
               cabangList={cabangList}
+              shifts={shiftList}
               selectedCabangId={selectedCabangId}
               selectedDate={selectedBossSummaryDate}
             />
@@ -2368,39 +2404,54 @@ export default function AdminDashboardPage() {
                             </div>
                           </td>
                           <td className="py-3 px-4 text-[11px]">
-                            {exp.status === 'approved' ? (
-                              <div className="space-y-0.5">
-                                <span className="font-bold text-emerald-800 block">
-                                  {exp.approved_by || 'Pak Agan (Owner)'}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-mono block">
-                                  ACC: {exp.approved_at ? formatWaktu(exp.approved_at) : formatWaktu(exp.tanggal)}
-                                </span>
-                                {exp.approved_at && toWibDateString(exp.approved_at) !== toWibDateString(exp.tanggal) && (
-                                  <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block">
-                                    Masuk lap. tgl pengajuan: {toWibDateString(exp.tanggal)}
+                            {(() => {
+                              const expBizDate = getBusinessDateForRecord({
+                                timestamp: exp.tanggal,
+                                shiftId: exp.shift_id,
+                                cabangId: exp.cabang_id,
+                                shifts: shiftList,
+                                isBranchEqual: isBranchMatch,
+                              });
+                              if (exp.status === 'approved') {
+                                return (
+                                  <div className="space-y-0.5">
+                                    <span className="font-bold text-emerald-800 block">
+                                      {exp.approved_by || 'Pak Agan (Owner)'}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-mono block">
+                                      ACC: {exp.approved_at ? formatWaktu(exp.approved_at) : formatWaktu(exp.tanggal)}
+                                    </span>
+                                    {expBizDate && toWibDateString(exp.approved_at || exp.tanggal) !== expBizDate && (
+                                      <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block">
+                                        Masuk lap. buka kasir: {expBizDate}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              if (exp.status === 'rejected') {
+                                return (
+                                  <div className="space-y-0.5">
+                                    <span className="font-bold text-rose-700 block">
+                                      {exp.approved_by || 'Pak Agan (Owner)'}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-mono block">
+                                      Ditolak: {exp.approved_at ? formatWaktu(exp.approved_at) : formatWaktu(exp.tanggal)}
+                                    </span>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div className="space-y-0.5">
+                                  <span className="text-amber-700 font-bold text-[10px] bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-block">
+                                    Menunggu Validasi
                                   </span>
-                                )}
-                              </div>
-                            ) : exp.status === 'rejected' ? (
-                              <div className="space-y-0.5">
-                                <span className="font-bold text-rose-700 block">
-                                  {exp.approved_by || 'Pak Agan (Owner)'}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-mono block">
-                                  Ditolak: {exp.approved_at ? formatWaktu(exp.approved_at) : formatWaktu(exp.tanggal)}
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="space-y-0.5">
-                                <span className="text-amber-700 font-bold text-[10px] bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-block">
-                                  Menunggu Validasi
-                                </span>
-                                <span className="text-[9px] text-slate-400 block font-mono">
-                                  Diajukan: {toWibDateString(exp.tanggal)}
-                                </span>
-                              </div>
-                            )}
+                                  <span className="text-[9px] text-slate-400 block font-mono">
+                                    Shift buka: {expBizDate || toWibDateString(exp.tanggal)}
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="py-3 px-4 text-center whitespace-nowrap">
                             {exp.status === 'pending' ? (

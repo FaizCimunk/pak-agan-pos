@@ -23,7 +23,9 @@ import {
   formatNominal, 
   parseNominal, 
   formatWaktu, 
-  generateWhatsAppApprovalLink 
+  generateWhatsAppApprovalLink,
+  toWibBusinessDateString,
+  getShiftOperationalDate
 } from '@/lib/utils';
 
 interface ExpenseRequestModalProps {
@@ -61,11 +63,11 @@ export default function ExpenseRequestModal({
     setLoadingHistory(true);
     try {
       const list = await db.getPengeluaranList(cabang.id);
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const shiftOpenDate = getShiftOperationalDate(shift) || toWibBusinessDateString(new Date());
       const filtered = list.filter(e => {
         if (e.jenis !== 'belanja') return false;
-        const expDate = (e.tanggal || '').slice(0, 10);
-        return expDate === todayStr || e.shift_id === shift.id;
+        const expDate = toWibBusinessDateString(e.tanggal);
+        return expDate === shiftOpenDate || e.shift_id === shift.id;
       });
       setExpensesList(filtered);
     } catch (err) {

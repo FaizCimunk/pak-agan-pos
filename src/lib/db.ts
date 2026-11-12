@@ -43,7 +43,7 @@ import {
   INITIAL_TABUNGAN_KARYAWAN,
   DEFAULT_PIN_HASH 
 } from './mock-data';
-import { hashPin, parseCustomFixedCosts, serializeCustomFixedCosts, toWibDateString } from './utils';
+import { hashPin, parseCustomFixedCosts, serializeCustomFixedCosts, toWibDateString, getBusinessDateForRecord } from './utils';
 
 // Local storage keys for hybrid offline/standalone simulation
 const STORAGE_KEYS = {
@@ -3378,10 +3378,18 @@ export class PosDatabase {
     const absensiHariIni = await this.getAbsensiList(undefined, cabangId, tanggal);
     const totalGajiKaryawan = absensiHariIni.reduce((sum, a) => sum + (a.upah_harian_terhitung || 0), 0);
 
-    // 3. Omzet Kotor Kasir & Total HPP Bahan Baku Terpakai Hari Ini
+    // 3. Omzet Kotor Kasir & Total HPP Bahan Baku Terpakai Hari Ini (ikut tanggal buka kasir shift)
+    const shifts = await this.getShiftList(cabangId);
     const transactions = await this.getTransaksiList(cabangId);
     const dayTransactions = transactions.filter(t => 
-      t.status === 'completed' && toWibDateString(t.waktu) === tanggal
+      t.status === 'completed' &&
+      getBusinessDateForRecord({
+        timestamp: t.waktu,
+        shiftId: t.shift_id,
+        cabangId: t.cabang_id,
+        shifts,
+        isBranchEqual: isBranchMatch,
+      }) === tanggal
     );
 
     let omzetKotor = 0;
@@ -3416,13 +3424,19 @@ export class PosDatabase {
       }
     }
 
-    // 4. Belanja Laci Darurat Approved Hari Ini
+    // 4. Belanja Laci Darurat Approved Hari Ini (ikut tanggal buka kasir shift)
     const expenses = await this.getPengeluaranList(cabangId);
     const dayExpenses = expenses.filter(e => 
       e.status === 'approved' && 
       e.jenis === 'belanja' && 
       e.metode_pencairan === 'laci' && 
-      toWibDateString(e.tanggal) === tanggal
+      getBusinessDateForRecord({
+        timestamp: e.tanggal,
+        shiftId: e.shift_id,
+        cabangId: e.cabang_id,
+        shifts,
+        isBranchEqual: isBranchMatch,
+      }) === tanggal
     );
     const totalBelanjaLaci = dayExpenses.reduce((sum, e) => sum + e.nominal, 0);
 

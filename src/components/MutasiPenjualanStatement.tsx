@@ -22,14 +22,15 @@ import {
   SlidersHorizontal,
   ChevronDown
 } from 'lucide-react';
-import { Transaksi, Cabang } from '@/lib/types';
+import { Transaksi, Cabang, Shift } from '@/lib/types';
 import { isBranchMatch } from '@/lib/db';
-import { formatRupiah, formatWaktu, getTodayDateString } from '@/lib/utils';
+import { formatRupiah, formatWaktu, getTodayDateString, getBusinessDateForRecord } from '@/lib/utils';
 import ReceiptModal from './ReceiptModal';
 
 interface MutasiPenjualanStatementProps {
   transaksiList: Transaksi[];
   cabangList: Cabang[];
+  shifts?: Shift[];
   selectedCabangId?: string;
   selectedDate?: string;
 }
@@ -39,6 +40,7 @@ type PeriodMode = 'hari' | 'bulan' | 'tahun' | 'semua';
 export default function MutasiPenjualanStatement({
   transaksiList,
   cabangList,
+  shifts = [],
   selectedCabangId: propSelectedCabangId = 'all',
   selectedDate: propSelectedDate,
 }: MutasiPenjualanStatementProps) {
@@ -82,33 +84,21 @@ export default function MutasiPenjualanStatement({
     setCurrentPage(1);
   }, [periodMode, selectedDate, selectedYear, selectedMonth, branchFilter, paymentFilter, searchQuery, pageSize]);
 
-  // Format Helper for Transaction Date
-  const parseTrxDateParts = (waktuStr: string) => {
-    try {
-      const d = new Date(waktuStr);
-      if (isNaN(d.getTime())) {
-        const clean = waktuStr ? waktuStr.slice(0, 10) : getTodayDateString();
-        return {
-          dateStr: clean,
-          year: parseInt(clean.slice(0, 4)) || new Date().getFullYear(),
-          month: parseInt(clean.slice(5, 7)) || (new Date().getMonth() + 1),
-          day: parseInt(clean.slice(8, 10)) || new Date().getDate(),
-        };
-      }
-      return {
-        dateStr: getTodayDateString(d),
-        year: d.getFullYear(),
-        month: d.getMonth() + 1,
-        day: d.getDate(),
-      };
-    } catch {
-      return {
-        dateStr: waktuStr ? waktuStr.slice(0, 10) : getTodayDateString(),
-        year: new Date().getFullYear(),
-        month: new Date().getMonth() + 1,
-        day: new Date().getDate(),
-      };
-    }
+  // Format Helper for Transaction Operational Date (mengikuti tanggal BUKA shift kasir)
+  const parseTrxDateParts = (trx: Transaksi) => {
+    const bizDate = getBusinessDateForRecord({
+      timestamp: trx.waktu,
+      shiftId: trx.shift_id,
+      cabangId: trx.cabang_id,
+      shifts,
+      isBranchEqual: isBranchMatch,
+    }) || getTodayDateString();
+    return {
+      dateStr: bizDate,
+      year: parseInt(bizDate.slice(0, 4)) || new Date().getFullYear(),
+      month: parseInt(bizDate.slice(5, 7)) || (new Date().getMonth() + 1),
+      day: parseInt(bizDate.slice(8, 10)) || new Date().getDate(),
+    };
   };
 
   // Filtered Transactions
@@ -132,7 +122,7 @@ export default function MutasiPenjualanStatement({
       }
 
       // 3. Period Filter (Hari, Bulan, Tahun, Semua)
-      const parts = parseTrxDateParts(trx.waktu);
+      const parts = parseTrxDateParts(trx);
       if (periodMode === 'hari') {
         if (parts.dateStr !== selectedDate) return false;
       } else if (periodMode === 'bulan') {
@@ -156,7 +146,7 @@ export default function MutasiPenjualanStatement({
 
       return true;
     });
-  }, [transaksiList, branchFilter, paymentFilter, periodMode, selectedDate, selectedYear, selectedMonth, searchQuery]);
+  }, [transaksiList, branchFilter, paymentFilter, periodMode, selectedDate, selectedYear, selectedMonth, searchQuery, shifts]);
 
   // Aggregate Metrics for Current Filter
   const metrics = useMemo(() => {

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Cabang, Transaksi, PengeluaranKasbon, Shift, Karyawan } from '@/lib/types';
 import { isBranchMatch } from '@/lib/db';
-import { formatRupiah, formatWaktu, getTodayDateString, toWibDateString } from '@/lib/utils';
+import { formatRupiah, formatWaktu, getTodayDateString, toWibDateString, getBusinessDateForRecord } from '@/lib/utils';
 
 interface DailyBranchReportModalProps {
   cabangList: Cabang[];
@@ -61,14 +61,20 @@ export default function DailyBranchReportModal({
     };
   }, []);
 
-  // Filtered Transactions for this branch & date (zona WIB)
+  // Filtered Transactions for this branch & operational day (berpatokan pada tanggal buka shift kasir)
   const dayTransactions = useMemo(() => {
     return transaksiList.filter(t => 
       isBranchMatch(t.cabang_id, selectedCabangId) && 
-      toWibDateString(t.waktu) === selectedDate &&
-      t.status === 'completed'
+      t.status === 'completed' &&
+      getBusinessDateForRecord({
+        timestamp: t.waktu,
+        shiftId: t.shift_id,
+        cabangId: t.cabang_id,
+        shifts,
+        isBranchEqual: isBranchMatch,
+      }) === selectedDate
     );
-  }, [transaksiList, selectedCabangId, selectedDate]);
+  }, [transaksiList, selectedCabangId, selectedDate, shifts]);
 
   // Income Breakdown by Payment Method
   const totalTunai = dayTransactions
@@ -99,14 +105,20 @@ export default function DailyBranchReportModal({
   const totalOnlineMerchant = totalShopeeFood + totalGoFood + totalGrabFood;
   const totalOmzetKotor = totalTunai + totalQris + totalTransfer + totalOnlineMerchant;
 
-  // Filtered Expenses for this branch & date (berdasarkan tanggal pengajuan kasir WIB)
+  // Filtered Expenses for this branch & operational day (berdasarkan tanggal buka shift / pengajuan kasir)
   const dayExpenses = useMemo(() => {
     return expenseList.filter(e => 
       isBranchMatch(e.cabang_id, selectedCabangId) && 
-      toWibDateString(e.tanggal) === selectedDate &&
-      e.status === 'approved'
+      e.status === 'approved' &&
+      getBusinessDateForRecord({
+        timestamp: e.tanggal,
+        shiftId: e.shift_id,
+        cabangId: e.cabang_id,
+        shifts,
+        isBranchEqual: isBranchMatch,
+      }) === selectedDate
     );
-  }, [expenseList, selectedCabangId, selectedDate]);
+  }, [expenseList, selectedCabangId, selectedDate, shifts]);
 
   // Expense Breakdown
   const belanjaLaci = dayExpenses

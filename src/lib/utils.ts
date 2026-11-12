@@ -70,6 +70,105 @@ export function toWibDateString(dateInput?: string | Date | null): string {
   }).format(dateInput);
 }
 
+// Jam lokal WIB (0-23) untuk menentukan batas pergantian hari operasional (05:00 WIB)
+export function getWibHour(dateInput: Date | string = new Date()): number {
+  const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  if (isNaN(d.getTime())) return 12;
+  const h = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jakarta',
+    hour: '2-digit',
+    hour12: false,
+  }).format(d);
+  const parsed = Number(h);
+  if (isNaN(parsed)) return 12;
+  return parsed === 24 ? 0 : parsed;
+}
+
+// Konversi timestamp ISO ke tanggal operasional WIB: transaksi jam 00:00-04:59 dinihari (sebelum batas jam 05:00) masuk ke hari operasional sebelumnya
+export function toWibBusinessDateString(dateInput?: string | Date | null, cutoffHour = 5): string {
+  if (!dateInput) return '';
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  }
+  const wibDate = toWibDateString(dateInput);
+  if (!wibDate) return '';
+  const hour = getWibHour(dateInput);
+  if (hour < cutoffHour) {
+    const prevMidday = new Date(`${wibDate}T12:00:00+07:00`).getTime() - 24 * 60 * 60 * 1000;
+    return toWibDateString(new Date(prevMidday));
+  }
+  return wibDate;
+}
+
+export interface ShiftDateRef {
+  id: string;
+  cabang_id: string;
+  waktu_buka?: string | null;
+  waktu_tutup?: string | null;
+  karyawan_id?: string | null;
+  created_at?: string;
+}
+
+function isSyntheticShiftRef(shift?: ShiftDateRef | null): boolean {
+  if (!shift) return true;
+  const wb = shift.waktu_buka || '';
+  return (
+    wb.endsWith('T16:00:00.000Z') ||
+    wb.includes('T16:00:00+00:00') ||
+    (shift.karyawan_id || '').startsWith('kar-cbg-')
+  );
+}
+
+// Tanggal operasional resmi satu shift kasir: selalu berpatokan pada tanggal saat kasir BUKA shift (bukan jam tutup dinihari 01:00-02:00)
+export function getShiftOperationalDate(
+  shift?: Pick<ShiftDateRef, 'waktu_buka' | 'waktu_tutup' | 'created_at'> | null
+): string {
+  if (!shift) return '';
+  const openRef = shift.waktu_buka || shift.created_at || shift.waktu_tutup;
+  return toWibDateString(openRef);
+}
+
+// Atribusi tanggal operasional untuk transaksi/belanja/kasbon: ikat ke tanggal BUKA shift-nya dulu, lalu rentang shift cabang, terakhir cutoff 05:00 WIB
+export function getBusinessDateForRecord(params: {
+  timestamp?: string | null;
+  shiftId?: string | null;
+  cabangId?: string | null;
+  shifts?: ShiftDateRef[];
+  isBranchEqual?: (a: string, b: string) => boolean;
+}): string {
+  const { timestamp, shiftId, cabangId, shifts = [], isBranchEqual } = params;
+
+  if (shiftId && shifts.length > 0) {
+    const matched = shifts.find(s => s.id === shiftId && !isSyntheticShiftRef(s));
+    if (matched) {
+      const shiftDate = getShiftOperationalDate(matched);
+      if (shiftDate) return shiftDate;
+    }
+  }
+
+  if (timestamp && cabangId && shifts.length > 0) {
+    const recMs = new Date(timestamp).getTime();
+    if (!isNaN(recMs)) {
+      const windowMatched = shifts.find(s => {
+        if (isSyntheticShiftRef(s) || !s.waktu_buka) return false;
+        const branchMatches = isBranchEqual ? isBranchEqual(s.cabang_id, cabangId) : s.cabang_id === cabangId;
+        if (!branchMatches) return false;
+        const openMs = new Date(s.waktu_buka).getTime();
+        if (isNaN(openMs)) return false;
+        const closeMs = s.waktu_tutup ? new Date(s.waktu_tutup).getTime() : openMs + 20 * 60 * 60 * 1000;
+        return recMs >= openMs - 5 * 60 * 1000 && recMs <= closeMs + 5 * 60 * 1000;
+      });
+      if (windowMatched) {
+        const shiftDate = getShiftOperationalDate(windowMatched);
+        if (shiftDate) return shiftDate;
+      }
+    }
+  }
+
+  return toWibBusinessDateString(timestamp, 5);
+}
+
 export interface CustomFixedCostEntry {
   id: string;
   nama: string;
