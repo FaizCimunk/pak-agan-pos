@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import "./globals.css";
 
 const inter = Inter({
@@ -37,6 +38,7 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased min-h-screen bg-[#F8FAFC] text-slate-800`}>
+        <ServiceWorkerRegistrar />
         {children}
       </body>
     </html>

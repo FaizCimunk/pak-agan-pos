@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { Cabang, Shift } from '@/lib/types';
 import { printerService } from '@/lib/printer';
-import { getPendingTransactions, executeAutoSync } from '@/lib/offline-sync';
+import { countAllPendingSync } from '@/lib/offline-sync';
 import { db } from '@/lib/db';
 import { formatRupiah } from '@/lib/utils';
 
@@ -77,6 +77,7 @@ export default function PosHeader({
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('pak_agan_offline_queue_updated', checkPending);
 
     checkPending();
     const interval = setInterval(checkPending, 5000);
@@ -84,24 +85,20 @@ export default function PosHeader({
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('pak_agan_offline_queue_updated', checkPending);
       clearInterval(interval);
     };
   }, []);
 
   const checkPending = async () => {
-    const list = await getPendingTransactions();
-    setPendingSyncCount(list.length);
+    const total = await countAllPendingSync();
+    setPendingSyncCount(total);
   };
 
   const checkAndSync = async () => {
     setIsSyncing(true);
     try {
-      await executeAutoSync(async (transactions) => {
-        for (const trx of transactions) {
-          await db.createTransaksi({ ...trx, is_offline_synced: true });
-        }
-        return true;
-      });
+      await db.syncAllOfflineQueues();
       await checkPending();
     } finally {
       setIsSyncing(false);
@@ -218,17 +215,23 @@ export default function PosHeader({
             )}
 
             <div 
-              className={`p-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1 shrink-0 ${
+              className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-extrabold flex items-center gap-1.5 shrink-0 ${
                 isOnline 
-                  ? 'bg-slate-50 text-slate-600 border-slate-200' 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                   : 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
               }`}
-              title={isOnline ? 'Koneksi Online' : 'Koneksi Terputus (Mode Offline)'}
+              title={isOnline ? 'Koneksi Online (Sinkronisasi Cloud Aktif)' : 'Koneksi Terputus (Mode Offline — Data Disimpan Lokal)'}
             >
               {isOnline ? (
-                <Wifi className="w-3.5 h-3.5 text-emerald-600" />
+                <>
+                  <Wifi className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Mode Online</span>
+                </>
               ) : (
-                <WifiOff className="w-3.5 h-3.5 text-rose-600" />
+                <>
+                  <WifiOff className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>Mode Offline</span>
+                </>
               )}
             </div>
 
@@ -282,14 +285,38 @@ export default function PosHeader({
                 <span className="font-extrabold text-slate-900 text-xs block leading-tight truncate">
                   SERABI BAWEL
                 </span>
-                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md inline-block max-w-[175px] truncate">
-                  {currentCabang?.kode || 'CBG'} • {currentCabang?.nama?.split('-')[1]?.trim() || currentCabang?.nama || 'Cabang'}
-                </span>
+                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md inline-block max-w-[130px] truncate">
+                    {currentCabang?.kode || 'CBG'} • {currentCabang?.nama?.split('-')[1]?.trim() || currentCabang?.nama || 'Cabang'}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.2 rounded-md border ${
+                      isOnline
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+                    }`}
+                  >
+                    {isOnline ? <Wifi className="w-2.5 h-2.5" /> : <WifiOff className="w-2.5 h-2.5" />}
+                    <span>{isOnline ? 'Mode Online' : 'Mode Offline'}</span>
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Right: Tactile Menu Toko + Quick Logout */}
+            {/* Right: Sync Badge (if queued) + Tactile Menu Toko + Quick Logout */}
             <div className="flex items-center space-x-1.5 shrink-0">
+              {pendingSyncCount > 0 && (
+                <button
+                  type="button"
+                  onClick={checkAndSync}
+                  disabled={isSyncing || !isOnline}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-black"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{pendingSyncCount}</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setIsMenuOpen(true)}
@@ -339,6 +366,33 @@ export default function PosHeader({
           )}
 
         </div>
+
+        {/* Slim Offline / Pending Sync Notice Banner */}
+        {(!isOnline || pendingSyncCount > 0) && (
+          <div
+            className={`px-4 py-1 text-[11px] font-bold flex items-center justify-center gap-2 border-t ${
+              !isOnline
+                ? 'bg-rose-50 text-rose-800 border-rose-200'
+                : 'bg-amber-50 text-amber-800 border-amber-200'
+            }`}
+          >
+            {!isOnline ? (
+              <>
+                <WifiOff className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  Mode Offline Aktif — Data tetap aman tersimpan lokal{pendingSyncCount > 0 ? ` (${pendingSyncCount} menunggu sinkronisasi)` : ''} &amp; otomatis terkirim saat internet nyala.
+                </span>
+              </>
+            ) : (
+              <>
+                <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>
+                  Mode Online — {pendingSyncCount} data offline menunggu sinkronisasi ke Cloud...
+                </span>
+              </>
+            )}
+          </div>
+        )}
 
       </header>
 

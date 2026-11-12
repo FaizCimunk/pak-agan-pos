@@ -2,6 +2,14 @@
 // Connects to Supabase PostgreSQL when available, and smoothly provides local reactive persistence for demo/offline.
 
 import { supabase, isSupabaseConfigured } from './supabase';
+import {
+  queueOfflineTransaction,
+  getPendingTransactions,
+  removePendingTransaction,
+  queueOfflineOp,
+  getPendingOps,
+  removePendingOp,
+} from './offline-sync';
 import { 
   Cabang, 
   MenuItem, 
@@ -108,6 +116,14 @@ async function withQueryTimeout<T>(promise: PromiseLike<T>, ms = 10000): Promise
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+
+function isNavigatorOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+function isDuplicatePgError(err: unknown): boolean {
+  return Boolean(err && typeof err === 'object' && (err as { code?: string }).code === '23505');
 }
 
 // ----------------------------------------------------------------------------
@@ -1387,49 +1403,16 @@ export class PosDatabase {
     saveLocal(STORAGE_KEYS.ABSENSI, all);
 
     if (isSupabaseConfigured && supabase) {
-      try {
-        for (const item of entries) {
-          const branchUuid = getBranchUuid(item.cabang_id) || CABANG_MAP_INFO[0].uuid;
-          const karUuid = getKaryawanUuid(item.karyawan_id) || (isValidUuid(item.karyawan_id) ? item.karyawan_id : null);
-          const upahMultiplier = item.status === 'hadir' ? 1 : item.status === 'setengah_hari' ? 0.5 : 0;
-          const appStatus = item.approval_status || 'pending';
-          if (!karUuid) continue;
-
-          // Bersihkan baris lama untuk (karyawan_id, tanggal) agar tidak duplikat di Supabase
-          await supabase.from('absensi').delete().eq('karyawan_id', karUuid).eq('tanggal', item.tanggal);
-
-          const baseRow = {
-            id: generateUUID(),
-            karyawan_id: karUuid,
-            karyawan_nama: item.karyawan_nama,
-            cabang_id: branchUuid,
-            cabang_nama: item.cabang_nama,
-            tanggal: item.tanggal,
-            jam_masuk: item.jam_masuk || '16:00',
-            jam_pulang: item.jam_pulang || null,
-            status: item.status,
-            upah_harian_terhitung: item.upah_harian * upahMultiplier,
-            catatan: (item.catatan || '').replace(/\s*\[\[ACC:[^\]]*\]\]\s*/g, '').trim(),
-            recorded_by: item.recorded_by,
-          };
-
-          const { error: richErr } = await supabase.from('absensi').insert({
-            ...baseRow,
-            approval_status: appStatus,
-            approved_by: appStatus === 'approved' ? (item.approved_by || 'Pak Agan (Owner)') : null,
-            approved_at: appStatus === 'approved' ? (item.approved_at || new Date().toISOString()) : null,
-          });
-
-          if (richErr) {
-            // Fallback bila kolom approval_status belum dijalankan di Supabase live
-            await supabase.from('absensi').insert({
-              ...baseRow,
-              catatan: this.encodeAbsensiNote(baseRow.catatan, appStatus, item.approved_by),
-            });
-          }
-        }
-      } catch (e) {
-        console.warn('Failed syncing absensi to supabase:', e);
+      const syncedOk = await this.syncAbsensiEntriesToCloud(entries);
+      if (!syncedOk && entries.length > 0) {
+        const first = entries[0];
+        await queueOfflineOp({
+          id: `abs-${first.cabang_id}-${entries.length === 1 ? first.karyawan_id : 'batch'}-${first.tanggal}`,
+          type: 'save_absensi',
+          cabang_id: first.cabang_id,
+          created_at: new Date().toISOString(),
+          payload: entries,
+        });
       }
     }
 
@@ -1786,37 +1769,15 @@ export class PosDatabase {
     saveLocalCache(STORAGE_KEYS.SHIFTS, shifts);
 
     if (isSupabaseConfigured && supabase) {
-      try {
-        const { error: insertErr } = await withQueryTimeout(
-          supabase.from('shift').insert([{
-            id: shiftUuid,
-            cabang_id: branchUuid,
-            karyawan_id: karUuid,
-            waktu_buka: newShift.waktu_buka,
-            modal_awal: modal_awal,
-            status: 'open'
-          }])
-        );
-        if (insertErr) {
-          console.warn('Supabase openShift insert error, retrying fallback karyawan_id:', insertErr);
-          const { data: fallbackKar } = await withQueryTimeout(
-            supabase.from('karyawan').select('id').limit(1).maybeSingle()
-          );
-          if (fallbackKar?.id) {
-            await withQueryTimeout(
-              supabase.from('shift').insert([{
-                id: shiftUuid,
-                cabang_id: branchUuid,
-                karyawan_id: fallbackKar.id,
-                waktu_buka: newShift.waktu_buka,
-                modal_awal: modal_awal,
-                status: 'open'
-              }])
-            );
-          }
-        }
-      } catch (e) {
-        console.warn('Supabase openShift insert error:', e);
+      const syncedOk = await this.syncOpenShiftToCloud(newShift, karUuid);
+      if (!syncedOk) {
+        await queueOfflineOp({
+          id: `open-shift-${newShift.id}`,
+          type: 'open_shift',
+          cabang_id: newShift.cabang_id,
+          created_at: newShift.waktu_buka,
+          payload: { shift: newShift, karUuid },
+        });
       }
     }
 
@@ -2065,24 +2026,17 @@ export class PosDatabase {
     }
     saveLocal(STORAGE_KEYS.SHIFTS, shifts);
 
-    // Sync to Supabase
+    // Sync to Supabase (queue offline failover if offline/error)
     if (isSupabaseConfigured && supabase && isValidUuid(closedShift.id)) {
-      try {
-        await supabase.from('shift').update({
-          waktu_tutup: closedShift.waktu_tutup,
-          total_tunai_masuk: closedShift.total_tunai_masuk,
-          total_qris_masuk: closedShift.total_qris_masuk,
-          total_transfer_masuk: closedShift.total_transfer_masuk,
-          total_belanja_approved: closedShift.total_belanja_approved,
-          total_kasbon_approved: closedShift.total_kasbon_approved,
-          saldo_akhir_sistem: closedShift.saldo_akhir_sistem,
-          saldo_akhir_fisik: closedShift.saldo_akhir_fisik,
-          selisih: closedShift.selisih,
-          status: 'closed',
-          catatan: closedShift.catatan
-        }).eq('id', closedShift.id);
-      } catch (e) {
-        console.warn('Supabase closeShift update error:', e);
+      const syncedOk = await this.syncCloseShiftToCloud(closedShift);
+      if (!syncedOk) {
+        await queueOfflineOp({
+          id: `close-shift-${closedShift.id}`,
+          type: 'close_shift',
+          cabang_id: closedShift.cabang_id,
+          created_at: closedShift.waktu_tutup || new Date().toISOString(),
+          payload: closedShift,
+        });
       }
     }
 
@@ -2368,110 +2322,30 @@ export class PosDatabase {
       trx.cabang_nama = getBranchName(trx.cabang_id);
     }
 
-    // Simpan ke storage lokal perangkat untuk offline-first resilience
+    // Simpan ke storage lokal perangkat untuk offline-first resilience (anti-duplikat UUID)
     const all = loadLocal<Transaksi[]>(STORAGE_KEYS.TRANSAKSI, INITIAL_TRANSAKSI);
-    all.unshift(trx);
+    const existingIdx = all.findIndex(t => t.id === trx.id);
+    if (existingIdx >= 0) {
+      all[existingIdx] = trx;
+    } else {
+      all.unshift(trx);
+    }
     saveLocal(STORAGE_KEYS.TRANSAKSI, all);
 
-    // 2. Unggah langsung ke cloud Supabase (Real-Time Live POS)
+    // 2. Unggah langsung ke cloud Supabase (failover otomatis ke antrean offline jika gagal/offline)
     if (isSupabaseConfigured && supabase) {
-      try {
-        const branchUuid = getBranchUuid(trx.cabang_id) || CABANG_MAP_INFO[0].uuid;
-        let shiftUuid = isValidUuid(trx.shift_id) ? trx.shift_id : null;
-        const karyawanUuid = isValidUuid(trx.karyawan_id) 
-          ? trx.karyawan_id 
-          : (trx.karyawan_id && KARYAWAN_UUID_MAP[trx.karyawan_id]) || null;
-
-        // Pastikan shift_id valid di Supabase atau buat shift jika belum ada
-        if (shiftUuid) {
-          try {
-            const { data: shiftCheck } = await supabase.from('shift').select('id').eq('id', shiftUuid).limit(1);
-            if (!shiftCheck || shiftCheck.length === 0) {
-              const defaultKarUuid = karyawanUuid || KARYAWAN_UUID_MAP['kar-1'];
-              const { error: sErr } = await supabase.from('shift').insert([{
-                id: shiftUuid,
-                cabang_id: branchUuid,
-                karyawan_id: defaultKarUuid,
-                waktu_buka: trx.waktu || new Date().toISOString(),
-                modal_awal: 0,
-                status: 'open'
-              }]);
-              if (sErr) {
-                shiftUuid = null; // fallback jika gagal insert shift
-              }
-            }
-          } catch {
-            shiftUuid = null;
-          }
-        }
-
-        let { error } = await supabase.from('transaksi').insert([{
-          id: trx.id,
-          invoice_no: trx.invoice_no,
-          cabang_id: branchUuid,
-          shift_id: shiftUuid,
-          karyawan_id: karyawanUuid,
-          nama_pelanggan: trx.nama_pelanggan || 'Pelanggan Walk-in',
-          waktu: trx.waktu || new Date().toISOString(),
-          subtotal: trx.subtotal,
-          diskon: trx.diskon || 0,
-          total: trx.total,
-          metode_bayar: trx.metode_bayar,
-          bayar: trx.bayar,
-          kembali: trx.kembali,
-          status: trx.status || 'completed',
-          is_offline_synced: true,
-        }]);
-
-        // Retry fallback jika ada kendala foreign key constraint
-        if (error) {
-          console.warn('Retry inserting transaksi without FK constraints:', error);
-          const retryRes = await supabase.from('transaksi').insert([{
-            id: trx.id,
-            invoice_no: trx.invoice_no,
-            cabang_id: branchUuid,
-            shift_id: null,
-            karyawan_id: null,
-            nama_pelanggan: trx.nama_pelanggan || 'Pelanggan Walk-in',
-            waktu: trx.waktu || new Date().toISOString(),
-            subtotal: trx.subtotal,
-            diskon: trx.diskon || 0,
-            total: trx.total,
-            metode_bayar: trx.metode_bayar,
-            bayar: trx.bayar,
-            kembali: trx.kembali,
-            status: trx.status || 'completed',
-            is_offline_synced: true,
-          }]);
-          error = retryRes.error;
-        }
-
-        if (error) {
-          console.error('Supabase transaksi insert final error:', error);
-        } else {
-          trx.is_offline_synced = true;
-          if (trx.items && trx.items.length > 0) {
-            const itemsPayload = trx.items.map(it => {
-              const menuUuid = getMenuUuid(it.menu_id);
-              return {
-                id: generateUUID(),
-                transaksi_id: trx.id,
-                menu_id: menuUuid,
-                nama_menu: it.nama_menu,
-                harga: it.harga,
-                qty: it.qty,
-                subtotal: it.subtotal,
-                catatan: it.catatan || null,
-              };
-            });
-            const { error: itemsErr } = await supabase.from('transaksi_item').insert(itemsPayload);
-            if (itemsErr) {
-              console.error('Supabase transaksi_item insert error:', itemsErr);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Error inserting into Supabase:', e);
+      const syncedOk = await this.syncTransaksiToCloud(trx);
+      trx.is_offline_synced = syncedOk;
+      const updatedAll = loadLocal<Transaksi[]>(STORAGE_KEYS.TRANSAKSI, INITIAL_TRANSAKSI);
+      const uIdx = updatedAll.findIndex(t => t.id === trx.id);
+      if (uIdx >= 0) {
+        updatedAll[uIdx] = { ...updatedAll[uIdx], is_offline_synced: syncedOk };
+        saveLocalCache(STORAGE_KEYS.TRANSAKSI, updatedAll);
+      }
+      if (syncedOk) {
+        await removePendingTransaction(trx.id);
+      } else {
+        await queueOfflineTransaction(trx);
       }
     }
 
@@ -2723,28 +2597,15 @@ export class PosDatabase {
         is_settled: false,
         tanggal: newItem.tanggal,
       };
-      try {
-        const { error: insertErr } = await withQueryTimeout(
-          supabase.from('pengeluaran_kasbon').insert([insertPayload])
-        );
-        if (insertErr) {
-          console.warn('Supabase createPengeluaran insert error, retrying without nullable FKs:', insertErr);
-          const { error: retryErr } = await withQueryTimeout(
-            supabase.from('pengeluaran_kasbon').insert([
-              {
-                ...insertPayload,
-                shift_id: null,
-                karyawan_id: null,
-                menu_id: null,
-              },
-            ])
-          );
-          if (retryErr) {
-            console.warn('Supabase createPengeluaran retry error:', retryErr);
-          }
-        }
-      } catch (e) {
-        console.warn('Failed insert to supabase pengeluaran:', e);
+      const syncedOk = await this.syncPengeluaranToCloud(insertPayload);
+      if (!syncedOk) {
+        await queueOfflineOp({
+          id: `exp-${newId}`,
+          type: 'create_pengeluaran',
+          cabang_id: newItem.cabang_id,
+          created_at: newItem.tanggal,
+          payload: insertPayload,
+        });
       }
     }
 
@@ -4001,6 +3862,402 @@ export class PosDatabase {
       saveLocal(STORAGE_KEYS.SHIFTS, []);
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
+  }
+
+  private offlineSyncInFlight: Promise<{ syncedCount: number; remainingCount: number }> | null = null;
+
+  private async syncAbsensiEntriesToCloud(
+    entries: {
+      karyawan_id: string;
+      karyawan_nama: string;
+      cabang_id: string;
+      cabang_nama: string;
+      tanggal: string;
+      jam_masuk: string;
+      jam_pulang?: string | null;
+      status: 'hadir' | 'setengah_hari' | 'izin' | 'sakit' | 'alpa';
+      upah_harian: number;
+      catatan?: string;
+      recorded_by: string;
+      approval_status?: 'pending' | 'approved' | 'rejected';
+      approved_by?: string;
+      approved_at?: string;
+    }[]
+  ): Promise<boolean> {
+    if (!isSupabaseConfigured || !supabase) return true;
+    if (isNavigatorOffline()) return false;
+
+    try {
+      for (const item of entries) {
+        const branchUuid = getBranchUuid(item.cabang_id) || CABANG_MAP_INFO[0].uuid;
+        const karUuid = getKaryawanUuid(item.karyawan_id) || (isValidUuid(item.karyawan_id) ? item.karyawan_id : null);
+        const upahMultiplier = item.status === 'hadir' ? 1 : item.status === 'setengah_hari' ? 0.5 : 0;
+        const appStatus = item.approval_status || 'pending';
+        if (!karUuid) continue;
+
+        const { error: delErr } = await withQueryTimeout(
+          supabase.from('absensi').delete().eq('karyawan_id', karUuid).eq('tanggal', item.tanggal)
+        );
+        if (delErr) {
+          console.warn('Supabase absensi pre-delete error:', delErr);
+          return false;
+        }
+
+        const baseRow = {
+          id: generateUUID(),
+          karyawan_id: karUuid,
+          karyawan_nama: item.karyawan_nama,
+          cabang_id: branchUuid,
+          cabang_nama: item.cabang_nama,
+          tanggal: item.tanggal,
+          jam_masuk: item.jam_masuk || '16:00',
+          jam_pulang: item.jam_pulang || null,
+          status: item.status,
+          upah_harian_terhitung: item.upah_harian * upahMultiplier,
+          catatan: (item.catatan || '').replace(/\s*\[\[ACC:[^\]]*\]\]\s*/g, '').trim(),
+          recorded_by: item.recorded_by,
+        };
+
+        const { error: richErr } = await withQueryTimeout(
+          supabase.from('absensi').insert({
+            ...baseRow,
+            approval_status: appStatus,
+            approved_by: appStatus === 'approved' ? (item.approved_by || 'Pak Agan (Owner)') : null,
+            approved_at: appStatus === 'approved' ? (item.approved_at || new Date().toISOString()) : null,
+          })
+        );
+
+        if (richErr && !isDuplicatePgError(richErr)) {
+          const { error: fallbackErr } = await withQueryTimeout(
+            supabase.from('absensi').insert({
+              ...baseRow,
+              catatan: this.encodeAbsensiNote(baseRow.catatan, appStatus, item.approved_by),
+            })
+          );
+          if (fallbackErr && !isDuplicatePgError(fallbackErr)) {
+            console.warn('Supabase absensi fallback insert error:', fallbackErr);
+            return false;
+          }
+        }
+      }
+      return true;
+    } catch (e) {
+      console.warn('Failed syncing absensi to supabase:', e);
+      return false;
+    }
+  }
+
+  private async syncOpenShiftToCloud(shift: Shift, karUuid: string): Promise<boolean> {
+    if (!isSupabaseConfigured || !supabase) return true;
+    if (isNavigatorOffline()) return false;
+
+    const branchUuid = getBranchUuid(shift.cabang_id) || CABANG_MAP_INFO[0].uuid;
+    try {
+      const { error: insertErr } = await withQueryTimeout(
+        supabase.from('shift').insert([{
+          id: shift.id,
+          cabang_id: branchUuid,
+          karyawan_id: karUuid,
+          waktu_buka: shift.waktu_buka,
+          modal_awal: shift.modal_awal,
+          status: 'open',
+        }])
+      );
+      if (!insertErr || isDuplicatePgError(insertErr)) return true;
+
+      console.warn('Supabase openShift insert error, retrying fallback karyawan_id:', insertErr);
+      const { data: fallbackKar } = await withQueryTimeout(
+        supabase.from('karyawan').select('id').limit(1).maybeSingle()
+      );
+      if (fallbackKar?.id) {
+        const { error: fbErr } = await withQueryTimeout(
+          supabase.from('shift').insert([{
+            id: shift.id,
+            cabang_id: branchUuid,
+            karyawan_id: fallbackKar.id,
+            waktu_buka: shift.waktu_buka,
+            modal_awal: shift.modal_awal,
+            status: 'open',
+          }])
+        );
+        if (!fbErr || isDuplicatePgError(fbErr)) return true;
+      }
+      return false;
+    } catch (e) {
+      console.warn('Supabase openShift insert error:', e);
+      return false;
+    }
+  }
+
+  private async syncCloseShiftToCloud(closedShift: Shift): Promise<boolean> {
+    if (!isSupabaseConfigured || !supabase || !isValidUuid(closedShift.id)) return true;
+    if (isNavigatorOffline()) return false;
+
+    const closePatch = {
+      waktu_tutup: closedShift.waktu_tutup,
+      total_tunai_masuk: closedShift.total_tunai_masuk,
+      total_qris_masuk: closedShift.total_qris_masuk,
+      total_transfer_masuk: closedShift.total_transfer_masuk,
+      total_belanja_approved: closedShift.total_belanja_approved,
+      total_kasbon_approved: closedShift.total_kasbon_approved,
+      saldo_akhir_sistem: closedShift.saldo_akhir_sistem,
+      saldo_akhir_fisik: closedShift.saldo_akhir_fisik,
+      selisih: closedShift.selisih,
+      status: 'closed' as const,
+      catatan: closedShift.catatan,
+    };
+
+    try {
+      const { data: updatedRows, error: updateErr } = await withQueryTimeout(
+        supabase.from('shift').update(closePatch).eq('id', closedShift.id).select('id')
+      );
+      if (updateErr) {
+        console.warn('Supabase closeShift update error:', updateErr);
+        return false;
+      }
+      if (updatedRows && updatedRows.length > 0) return true;
+
+      // Baris shift belum ada di cloud (mis. dibuka saat offline): lakukan upsert lengkap
+      const branchUuid = getBranchUuid(closedShift.cabang_id) || CABANG_MAP_INFO[0].uuid;
+      const karUuid = getKaryawanUuid(closedShift.karyawan_id) || KARYAWAN_UUID_MAP['kar-1'];
+      const { error: upsertErr } = await withQueryTimeout(
+        supabase.from('shift').upsert([{
+          id: closedShift.id,
+          cabang_id: branchUuid,
+          karyawan_id: karUuid,
+          waktu_buka: closedShift.waktu_buka,
+          modal_awal: closedShift.modal_awal,
+          ...closePatch,
+        }], { onConflict: 'id' })
+      );
+      if (upsertErr) {
+        console.warn('Supabase closeShift upsert error:', upsertErr);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('Supabase closeShift update error:', e);
+      return false;
+    }
+  }
+
+  private async syncTransaksiToCloud(trx: Transaksi): Promise<boolean> {
+    if (!isSupabaseConfigured || !supabase) return true;
+    if (isNavigatorOffline()) return false;
+
+    try {
+      const branchUuid = getBranchUuid(trx.cabang_id) || CABANG_MAP_INFO[0].uuid;
+      let shiftUuid = isValidUuid(trx.shift_id) ? trx.shift_id : null;
+      const karyawanUuid = isValidUuid(trx.karyawan_id)
+        ? trx.karyawan_id
+        : (trx.karyawan_id && KARYAWAN_UUID_MAP[trx.karyawan_id]) || null;
+
+      if (shiftUuid) {
+        try {
+          const { data: shiftCheck } = await withQueryTimeout(
+            supabase.from('shift').select('id').eq('id', shiftUuid).limit(1)
+          );
+          if (!shiftCheck || shiftCheck.length === 0) {
+            const defaultKarUuid = karyawanUuid || KARYAWAN_UUID_MAP['kar-1'];
+            const { error: sErr } = await withQueryTimeout(
+              supabase.from('shift').insert([{
+                id: shiftUuid,
+                cabang_id: branchUuid,
+                karyawan_id: defaultKarUuid,
+                waktu_buka: trx.waktu || new Date().toISOString(),
+                modal_awal: 0,
+                status: 'open',
+              }])
+            );
+            if (sErr && !isDuplicatePgError(sErr)) {
+              shiftUuid = null;
+            }
+          }
+        } catch {
+          shiftUuid = null;
+        }
+      }
+
+      const baseHeader = {
+        id: trx.id,
+        invoice_no: trx.invoice_no,
+        cabang_id: branchUuid,
+        nama_pelanggan: trx.nama_pelanggan || 'Pelanggan Walk-in',
+        waktu: trx.waktu || new Date().toISOString(),
+        subtotal: trx.subtotal,
+        diskon: trx.diskon || 0,
+        total: trx.total,
+        metode_bayar: trx.metode_bayar,
+        bayar: trx.bayar,
+        kembali: trx.kembali,
+        status: trx.status || 'completed',
+        is_offline_synced: true,
+      };
+
+      let { error } = await withQueryTimeout(
+        supabase.from('transaksi').insert([{
+          ...baseHeader,
+          shift_id: shiftUuid,
+          karyawan_id: karyawanUuid,
+        }])
+      );
+
+      if (error && !isDuplicatePgError(error)) {
+        console.warn('Retry inserting transaksi without FK constraints:', error);
+        const retryRes = await withQueryTimeout(
+          supabase.from('transaksi').insert([{
+            ...baseHeader,
+            shift_id: null,
+            karyawan_id: null,
+          }])
+        );
+        error = retryRes.error;
+      }
+
+      const alreadyExists = isDuplicatePgError(error);
+      if (error && !alreadyExists) {
+        console.error('Supabase transaksi insert final error:', error);
+        return false;
+      }
+
+      if (!alreadyExists && trx.items && trx.items.length > 0) {
+        const itemsPayload = trx.items.map(it => {
+          const menuUuid = getMenuUuid(it.menu_id);
+          return {
+            id: generateUUID(),
+            transaksi_id: trx.id,
+            menu_id: menuUuid,
+            nama_menu: it.nama_menu,
+            harga: it.harga,
+            qty: it.qty,
+            subtotal: it.subtotal,
+            catatan: it.catatan || null,
+          };
+        });
+        const { error: itemsErr } = await withQueryTimeout(
+          supabase.from('transaksi_item').insert(itemsPayload)
+        );
+        if (itemsErr && !isDuplicatePgError(itemsErr)) {
+          console.error('Supabase transaksi_item insert error:', itemsErr);
+        }
+      }
+
+      return true;
+    } catch (e) {
+      console.warn('Error inserting into Supabase:', e);
+      return false;
+    }
+  }
+
+  private async syncPengeluaranToCloud(insertPayload: Record<string, unknown>): Promise<boolean> {
+    if (!isSupabaseConfigured || !supabase) return true;
+    if (isNavigatorOffline()) return false;
+
+    try {
+      const { error: insertErr } = await withQueryTimeout(
+        supabase.from('pengeluaran_kasbon').insert([insertPayload])
+      );
+      if (!insertErr || isDuplicatePgError(insertErr)) return true;
+
+      console.warn('Supabase createPengeluaran insert error, retrying without nullable FKs:', insertErr);
+      const { error: retryErr } = await withQueryTimeout(
+        supabase.from('pengeluaran_kasbon').insert([{
+          ...insertPayload,
+          shift_id: null,
+          karyawan_id: null,
+          menu_id: null,
+        }])
+      );
+      if (!retryErr || isDuplicatePgError(retryErr)) return true;
+
+      console.warn('Supabase createPengeluaran retry error:', retryErr);
+      return false;
+    } catch (e) {
+      console.warn('Failed insert to supabase pengeluaran:', e);
+      return false;
+    }
+  }
+
+  async syncAllOfflineQueues(): Promise<{ syncedCount: number; remainingCount: number }> {
+    if (this.offlineSyncInFlight) {
+      return this.offlineSyncInFlight;
+    }
+
+    const runner = async (): Promise<{ syncedCount: number; remainingCount: number }> => {
+      if (isNavigatorOffline() || !isSupabaseConfigured || !supabase) {
+        const [ops, trxs] = await Promise.all([getPendingOps(), getPendingTransactions()]);
+        return { syncedCount: 0, remainingCount: ops.length + trxs.length };
+      }
+
+      const [ops, trxs] = await Promise.all([getPendingOps(), getPendingTransactions()]);
+      if (ops.length === 0 && trxs.length === 0) {
+        return { syncedCount: 0, remainingCount: 0 };
+      }
+
+      let syncedCount = 0;
+
+      // 1. Pastikan open_shift tersinkron dahulu agar FK shift_id tersedia bagi transaksi & close_shift
+      for (const op of ops.filter(o => o.type === 'open_shift')) {
+        const data = op.payload as { shift: Shift; karUuid: string };
+        const ok = await this.syncOpenShiftToCloud(data.shift, data.karUuid);
+        if (ok) {
+          await removePendingOp(op.id);
+          syncedCount++;
+        }
+      }
+
+      // 2. Sinkronisasi seluruh antrean transaksi (cart + bayar open bill)
+      if (trxs.length > 0) {
+        const localAll = loadLocal<Transaksi[]>(STORAGE_KEYS.TRANSAKSI, INITIAL_TRANSAKSI);
+        let localChanged = false;
+        for (const trx of trxs) {
+          const ok = await this.syncTransaksiToCloud(trx);
+          if (ok) {
+            const idx = localAll.findIndex(t => t.id === trx.id);
+            if (idx >= 0) {
+              localAll[idx] = { ...localAll[idx], is_offline_synced: true };
+              localChanged = true;
+            }
+            await removePendingTransaction(trx.id);
+            syncedCount++;
+          }
+        }
+        if (localChanged) {
+          saveLocalCache(STORAGE_KEYS.TRANSAKSI, localAll);
+        }
+      }
+
+      // 3. Sinkronisasi pengeluaran/kasbon & absensi sebelum close_shift
+      const postOpsOrder = ['create_pengeluaran', 'save_absensi', 'close_shift'] as const;
+      for (const opType of postOpsOrder) {
+        for (const op of ops.filter(o => o.type === opType)) {
+          let ok = false;
+          if (op.type === 'create_pengeluaran') {
+            ok = await this.syncPengeluaranToCloud(op.payload as Record<string, unknown>);
+          } else if (op.type === 'save_absensi') {
+            ok = await this.syncAbsensiEntriesToCloud(op.payload as Parameters<PosDatabase['saveBranchAttendance']>[0]);
+          } else if (op.type === 'close_shift') {
+            ok = await this.syncCloseShiftToCloud(op.payload as Shift);
+          }
+          if (ok) {
+            await removePendingOp(op.id);
+            syncedCount++;
+          }
+        }
+      }
+
+      if (syncedCount > 0 && typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('pak_agan_db_updated'));
+      }
+
+      const [remOps, remTrxs] = await Promise.all([getPendingOps(), getPendingTransactions()]);
+      return { syncedCount, remainingCount: remOps.length + remTrxs.length };
+    };
+
+    this.offlineSyncInFlight = runner().finally(() => {
+      this.offlineSyncInFlight = null;
+    });
+    return this.offlineSyncInFlight;
   }
 }
 

@@ -31,7 +31,6 @@ import {
 import { db, generateUUID, isBranchMatch } from '@/lib/db';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { printerService, getItemKitchenStation } from '@/lib/printer';
-import { queueOfflineTransaction } from '@/lib/offline-sync';
 import { generateInvoiceNumber, formatRupiah, getTodayDateString, toWibDateString, toWibBusinessDateString } from '@/lib/utils';
 import { Lock, ShoppingBag, ArrowRight, X } from 'lucide-react';
 
@@ -205,20 +204,15 @@ export default function PosPage() {
         .subscribe();
     }
 
-    // Auto-flush antrean offline saat tablet terhubung kembali ke internet
+    // Auto-flush seluruh antrean offline (buka/tutup shift, transaksi, belanja/kasbon, absensi) saat online
     const handleOnline = async () => {
       try {
-        const { getPendingTransactions, removePendingTransaction } = await import('@/lib/offline-sync');
-        const pending = await getPendingTransactions();
-        if (pending && pending.length > 0) {
-          console.log(`[POS] Tablet kembali online! Sinkronisasi ${pending.length} transaksi offline ke Cloud Supabase...`);
-          for (const trx of pending) {
-            await db.createTransaksi(trx);
-            await removePendingTransaction(trx.id);
-          }
+        const res = await db.syncAllOfflineQueues();
+        if (res.syncedCount > 0) {
+          console.log(`[POS] Tablet kembali online! Tersinkronisasi ${res.syncedCount} antrean offline ke Cloud Supabase.`);
         }
       } catch (err) {
-        console.warn('Gagal sinkronisasi transaksi offline:', err);
+        console.warn('Gagal sinkronisasi antrean offline:', err);
       }
     };
 
@@ -582,12 +576,7 @@ export default function PosPage() {
         }),
       };
 
-      if (!navigator.onLine) {
-        await queueOfflineTransaction(newTrx);
-      } else {
-        await db.createTransaksi(newTrx);
-      }
-      savedTrx = newTrx;
+      savedTrx = await db.createTransaksi(newTrx);
       setCart([]);
       setCustomerName('Pelanggan Walk-in');
       setPenanda('No. 01');
