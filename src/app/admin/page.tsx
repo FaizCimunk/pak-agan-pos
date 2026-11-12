@@ -188,9 +188,9 @@ export default function AdminDashboardPage() {
 
   // Fixed Cost Monthly Payments & Deduction Mode (Kas Riil vs Cadangan Amortisasi /30 Hr)
   const [fixedCostPayments, setFixedCostPayments] = useState<PembayaranFixedCostBulanan[]>([]);
-  const [fixedCostDeductionMode, setFixedCostDeductionMode] = useState<'kas_riil' | 'cadangan_amortisasi'>('kas_riil');
+  const [fixedCostDeductionMode] = useState<'kas_riil' | 'cadangan_amortisasi'>('kas_riil');
   // Upah Staf Deduction Mode (Beban Standar Toko /Hari vs Presensi Riil Hadir)
-  const [upahDeductionMode, setUpahDeductionMode] = useState<'standar_harian' | 'presensi_riil'>('standar_harian');
+  const [upahDeductionMode] = useState<'standar_harian' | 'presensi_riil'>('standar_harian');
 
   // Check auth session (auto-authenticate for direct seamless access)
   useEffect(() => {
@@ -342,9 +342,6 @@ export default function AdminDashboardPage() {
   };
   const navigateToFixedCost = () => {
     setActiveTab('fixedcost');
-  };
-  const navigateToPayroll = () => {
-    setActiveTab('payroll');
   };
 
   const totalUnsettledKasbon = useMemo(() => {
@@ -1281,102 +1278,16 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
 
-              {/* SAKELAR MODE POTONGAN FIXED COST */}
-              <div className="mt-4 pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-emerald-200">
-                    Sistem Biaya Sewa Toko:
-                  </span>
-                  <div className="inline-flex bg-black/40 p-1 rounded-xl border border-white/15 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setFixedCostDeductionMode('kas_riil')}
-                      className={`px-3 py-1 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer ${
-                        fixedCostDeductionMode === 'kas_riil'
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'text-white/60 hover:text-white'
-                      }`}
-                    >
-                      ✓ Kas Riil (Beban Lunas = Rp 0)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFixedCostDeductionMode('cadangan_amortisasi')}
-                      className={`px-3 py-1 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer ${
-                        fixedCostDeductionMode === 'cadangan_amortisasi'
-                          ? 'bg-amber-500 text-slate-950 shadow-xs'
-                          : 'text-white/60 hover:text-white'
-                      }`}
-                    >
-                      Cadangan Tabungan (/30 Hari)
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={navigateToFixedCost}
-                  className="flex items-center space-x-1.5 text-xs text-amber-300 hover:text-amber-200 font-bold self-start sm:self-auto cursor-pointer underline decoration-dotted"
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span>Kelola Biaya Tetap (Fixed Cost) →</span>
-                </button>
-              </div>
-
-              {/* SAKELAR SISTEM UPAH STAF */}
-              <div className="mt-2 pt-2 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-blue-200">
-                    Sistem Upah Staf Toko:
-                  </span>
-                  <div className="inline-flex bg-black/40 p-1 rounded-xl border border-white/15 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setUpahDeductionMode('standar_harian')}
-                      className={`px-3 py-1 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer ${
-                        upahDeductionMode === 'standar_harian'
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'text-white/60 hover:text-white'
-                      }`}
-                      title="Hitung otomatis dari total gaji mingguan staf dibagi 6 hari kerja operasional"
-                    >
-                      ✓ Beban Standar Toko (/Hari)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUpahDeductionMode('presensi_riil')}
-                      className={`px-3 py-1 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer ${
-                        upahDeductionMode === 'presensi_riil'
-                          ? 'bg-cyan-500 text-slate-950 shadow-xs'
-                          : 'text-white/60 hover:text-white'
-                      }`}
-                      title="Hanya hitung presensi hadir yang sudah di-ACC Owner"
-                    >
-                      Presensi Riil Di-ACC
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={navigateToPayroll}
-                  className="flex items-center space-x-1.5 text-xs text-blue-300 hover:text-blue-200 font-bold self-start sm:self-auto cursor-pointer underline decoration-dotted"
-                >
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span>Atur Gaji Mingguan Staf →</span>
-                </button>
-              </div>
-
-              {/* Rincian 6 Kartu Pipeline Alur Keuangan Realtime (Font Responsif Agar Tidak Meluber) */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 mt-4">
+              {/* Rincian 6 Kartu Pipeline Alur Keuangan Realtime (Spacious 2x3 Grid - Nominal Penuh Tanpa Terpotong) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-5">
                 
                 {/* 1. Omzet Kotor */}
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-emerald-500/40 transition min-w-0">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-emerald-500/40 transition min-w-0">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-300 block">
                       1. Total Omzet Kotor
                     </span>
-                    <div className="text-sm sm:text-base xl:text-lg font-mono font-extrabold text-emerald-300 mt-1 tabular-nums tracking-tight truncate">
+                    <div className="text-base sm:text-lg xl:text-xl font-mono font-extrabold text-emerald-300 mt-1.5 tabular-nums tracking-tight break-words">
                       +{formatRupiah(activeExecutiveSummary.omzet)}
                     </div>
                   </div>
@@ -1386,7 +1297,7 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* 2. Fixed Cost */}
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-rose-500/40 transition min-w-0">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-rose-500/40 transition min-w-0">
                   <div>
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] uppercase font-bold tracking-wider text-rose-300 block">
@@ -1398,7 +1309,7 @@ export default function AdminDashboardPage() {
                         </span>
                       )}
                     </div>
-                    <div className={`text-sm sm:text-base xl:text-lg font-mono font-extrabold mt-1 tabular-nums tracking-tight truncate ${
+                    <div className={`text-base sm:text-lg xl:text-xl font-mono font-extrabold mt-1.5 tabular-nums tracking-tight break-words ${
                       activeExecutiveSummary.fixedCost === 0 ? 'text-emerald-300' : 'text-rose-300'
                     }`}>
                       {activeExecutiveSummary.fixedCost === 0 ? 'Rp 0' : `-${formatRupiah(activeExecutiveSummary.fixedCost)}`}
@@ -1414,12 +1325,12 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* 3. HPP Bahan */}
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-amber-500/40 transition min-w-0">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-amber-500/40 transition min-w-0">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-amber-300 block">
                       3. HPP Modal Porsi
                     </span>
-                    <div className="text-sm sm:text-base xl:text-lg font-mono font-extrabold text-amber-300 mt-1 tabular-nums tracking-tight truncate">
+                    <div className="text-base sm:text-lg xl:text-xl font-mono font-extrabold text-amber-300 mt-1.5 tabular-nums tracking-tight break-words">
                       -{formatRupiah(activeExecutiveSummary.hpp)}
                     </div>
                   </div>
@@ -1429,7 +1340,7 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* 4. Upah Hadir / Standar Toko */}
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-blue-500/40 transition min-w-0">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-blue-500/40 transition min-w-0">
                   <div>
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">
@@ -1439,7 +1350,7 @@ export default function AdminDashboardPage() {
                         {upahDeductionMode === 'standar_harian' ? 'Standar' : 'ACC Riil'}
                       </span>
                     </div>
-                    <div className="text-sm sm:text-base xl:text-lg font-mono font-extrabold text-blue-300 mt-1 tabular-nums tracking-tight truncate">
+                    <div className="text-base sm:text-lg xl:text-xl font-mono font-extrabold text-blue-300 mt-1.5 tabular-nums tracking-tight break-words">
                       -{formatRupiah(activeExecutiveSummary.gaji)}
                     </div>
                   </div>
@@ -1451,12 +1362,12 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* 5. Belanja Toko Laci (Kas Kecil Approved) */}
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-purple-500/40 transition min-w-0">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-purple-500/40 transition min-w-0">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-purple-300 block">
                       5. Belanja Toko Laci
                     </span>
-                    <div className="text-sm sm:text-base xl:text-lg font-mono font-extrabold text-purple-300 mt-1 tabular-nums tracking-tight truncate">
+                    <div className="text-base sm:text-lg xl:text-xl font-mono font-extrabold text-purple-300 mt-1.5 tabular-nums tracking-tight break-words">
                       {activeExecutiveSummary.belanja === 0 ? 'Rp 0' : `-${formatRupiah(activeExecutiveSummary.belanja)}`}
                     </div>
                   </div>
@@ -1466,12 +1377,12 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* 6. Uang Bersih Boss */}
-                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black col-span-2 sm:col-span-1 lg:col-span-1 shadow-lg border border-amber-300 flex flex-col justify-between min-w-0">
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black shadow-lg border border-amber-300 flex flex-col justify-between min-w-0">
                   <div>
                     <span className="text-[10px] uppercase font-black tracking-wider text-slate-900 block">
                       💰 Uang Bersih Boss
                     </span>
-                    <div className="text-sm sm:text-base xl:text-lg font-mono font-black text-slate-950 mt-1 tabular-nums tracking-tight truncate">
+                    <div className="text-base sm:text-lg xl:text-xl font-mono font-black text-slate-950 mt-1.5 tabular-nums tracking-tight break-words">
                       {activeExecutiveSummary.uangBersih >= 0 ? '+' : ''}{formatRupiah(activeExecutiveSummary.uangBersih)}
                     </div>
                   </div>
