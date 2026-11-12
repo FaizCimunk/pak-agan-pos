@@ -459,3 +459,16 @@ export function generateStrongPassword(): string {
   const shuffled = pass.split('').sort(() => 0.5 - Math.random()).join('');
   return `Serabi#${shuffled}!`;
 }
+
+// Format tanggal YYYY-MM-DD / ISO timestamp menjadi DD-MM-YYYY (urutan tanggal Indonesia)
+export function formatTanggalId(dateInput?: string | Date | null): string {
+  if (!dateInput) return '-';
+  const normalized = typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())
+    ? dateInput.trim()
+    : toWibDateString(dateInput);
+  if (!normalized || !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return typeof dateInput === 'string' ? dateInput : '-';
+  }
+  const [yyyy, mm, dd] = normalized.split('-');
+  return `${dd}-${mm}-${yyyy}`;
+}

@@ -35,7 +35,7 @@ import {
 } from '@/lib/types';
 import { db, isBranchMatch, isAbsensiApproved } from '@/lib/db';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { formatRupiah, formatNominal, parseNominal, formatWaktu, generateWhatsAppPayrollSlipLink, formatKaryawanRole, getTodayDateString, toWibDateString, getShiftOperationalDate, getBusinessDateForRecord } from '@/lib/utils';
+import { formatRupiah, formatNominal, parseNominal, formatWaktu, formatTanggalId, generateWhatsAppPayrollSlipLink, formatKaryawanRole, getTodayDateString, toWibDateString, getShiftOperationalDate, getBusinessDateForRecord } from '@/lib/utils';
 
 import { 
   TrendingUp, 
@@ -1076,7 +1076,7 @@ export default function AdminDashboardPage() {
                     {selectedBossSummaryDate === getTodayDateString() ? 'Omzet Hari Ini' : 'Omzet Tanggal Dipilih'}
                   </span>
                   <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                    {selectedBossSummaryDate}
+                    {formatTanggalId(selectedBossSummaryDate)}
                   </span>
                 </div>
                 <div className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-800 tabular-nums tracking-tight mt-1.5">
@@ -1093,7 +1093,7 @@ export default function AdminDashboardPage() {
                   {channelBreakdown.count} Pesanan
                 </div>
                 <span className="text-[10px] text-slate-400 font-medium mt-0.5 block">
-                  Tanggal {selectedBossSummaryDate} (Total semua: {totalTransaksiCount})
+                  Tanggal {formatTanggalId(selectedBossSummaryDate)} (Total semua: {totalTransaksiCount})
                 </span>
               </div>
 
@@ -1131,10 +1131,10 @@ export default function AdminDashboardPage() {
                     <h3 className="text-base font-extrabold text-slate-900">
                       {selectedBossSummaryDate === getTodayDateString()
                         ? 'Posisi Saldo Realtime: Uang Hari Ini Ada di Mana Saja?'
-                        : `Posisi Saldo Tanggal ${selectedBossSummaryDate}: Arus Uang per Channel`}
+                        : `Posisi Saldo Tanggal ${formatTanggalId(selectedBossSummaryDate)}: Arus Uang per Channel`}
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Laporan uang masuk kasir tanggal <strong>{selectedBossSummaryDate}</strong>: uang fisik di laci vs QRIS/transfer pusat vs dompet ShopeeFood, GoFood &amp; GrabFood.
+                      Laporan uang masuk kasir tanggal <strong>{formatTanggalId(selectedBossSummaryDate)}</strong>: uang fisik di laci vs QRIS/transfer pusat vs dompet ShopeeFood, GoFood &amp; GrabFood.
                     </p>
                   </div>
                 </div>
@@ -1259,7 +1259,7 @@ export default function AdminDashboardPage() {
                       {activeExecutiveSummary.branchLabel}
                     </span>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-[10px] font-mono font-bold text-emerald-200 border border-emerald-400/20">
-                      Tgl: {selectedBossSummaryDate}
+                      Tgl: {formatTanggalId(selectedBossSummaryDate)}
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
@@ -1542,7 +1542,7 @@ export default function AdminDashboardPage() {
                           Laporan Kinerja &amp; Uang Bersih per Outlet ({selectedCabangId === 'all' ? `${cabangList.length || 10} Cabang Resmi` : displayedBreakdowns[0]?.cabang.kode || 'Cabang Terpilih'})
                         </h3>
                         <p className="text-xs text-slate-500">
-                          Laporan otomatis tanggal <strong>{selectedBossSummaryDate}</strong> • Mode Fixed Cost:{' '}
+                          Laporan otomatis tanggal <strong>{formatTanggalId(selectedBossSummaryDate)}</strong> • Mode Fixed Cost:{' '}
                           <strong>{fixedCostDeductionMode === 'kas_riil' ? 'Kas Riil (Lunas Bulanan Rp 0/hr)' : 'Cadangan Amortisasi (/30 Hari)'}</strong>.
                         </p>
                       </div>
@@ -1705,7 +1705,7 @@ export default function AdminDashboardPage() {
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      Tanggal {selectedBossSummaryDate}
+                      Tanggal {formatTanggalId(selectedBossSummaryDate)}
                     </button>
                     <button
                       type="button"
@@ -1720,6 +1720,17 @@ export default function AdminDashboardPage() {
                     </button>
                   </div>
 
+                  {(() => {
+                    const shortShifts = filteredShiftHistory.filter(s => s.status === 'closed' && (s.selisih || 0) < 0);
+                    if (shortShifts.length === 0) return null;
+                    const totalShort = shortShifts.reduce((sum, s) => sum + Math.abs(s.selisih || 0), 0);
+                    return (
+                      <span className="px-3 py-1.5 rounded-xl bg-rose-100 text-rose-900 border border-rose-300 text-[11px] font-black">
+                        {shortShifts.length} Shift Tekor (-{formatRupiah(totalShort)})
+                      </span>
+                    );
+                  })()}
+
                   <span className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-[11px] font-mono font-bold">
                     {filteredShiftHistory.length} Shift
                   </span>
@@ -1730,7 +1741,7 @@ export default function AdminDashboardPage() {
                 <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
                   <p className="text-xs font-bold text-slate-500">
                     Belum ada catatan buka/tutup shift kasir pada{' '}
-                    <strong>{shiftHistoryDateMode === 'selected' ? `tanggal ${selectedBossSummaryDate}` : 'periode ini'}</strong>
+                    <strong>{shiftHistoryDateMode === 'selected' ? `tanggal ${formatTanggalId(selectedBossSummaryDate)}` : 'periode ini'}</strong>
                     {selectedCabangId !== 'all' ? ' untuk cabang terpilih' : ''}.
                   </p>
                   {shiftHistoryDateMode === 'selected' && shiftList.length > 0 && (
@@ -1769,11 +1780,12 @@ export default function AdminDashboardPage() {
                         const hasPending = (shift.pending_expenses_count || 0) > 0;
                         const hasUnpaidLoss = (shift.unpaid_bills_count || 0) > 0 || (shift.catatan || '').toLowerCase().includes('kerugian');
                         const selisihVal = shift.selisih || 0;
+                        const isShortCash = shift.status === 'closed' && selisihVal < 0;
 
                         return (
                           <tr key={shift.id} className="hover:bg-slate-50/90 align-top">
                             <td className="py-3 px-3.5 whitespace-nowrap">
-                              <div className="font-mono font-extrabold text-slate-900">{shiftDate}</div>
+                              <div className="font-mono font-extrabold text-slate-900">{formatTanggalId(shiftDate)}</div>
                               <div className="text-[10px] text-slate-500 mt-0.5">
                                 Buka: {formatWaktu(shift.waktu_buka)}
                               </div>
@@ -1782,7 +1794,7 @@ export default function AdminDashboardPage() {
                               </div>
                               {closedPastMidnight && (
                                 <span className="mt-1 inline-block px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200 text-[9px] font-bold">
-                                  Tutup dinihari {closeDate}
+                                  Tutup dinihari {formatTanggalId(closeDate)}
                                 </span>
                               )}
                               <span className={`mt-1 block w-fit px-2 py-0.5 rounded-full text-[9px] font-black ${
@@ -1858,6 +1870,12 @@ export default function AdminDashboardPage() {
                             </td>
 
                             <td className="py-3 px-3.5 space-y-1.5">
+                              {isShortCash && (
+                                <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-rose-100 border border-rose-300 text-rose-900 text-[10px] font-black mr-1">
+                                  <ShieldAlert className="w-3 h-3 shrink-0" />
+                                  <span>KAS TEKOR / MINUS (-{formatRupiah(Math.abs(selisihVal))})</span>
+                                </div>
+                              )}
                               {hasPending && (
                                 <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold mr-1">
                                   <AlertTriangle className="w-3 h-3 shrink-0" />
@@ -1877,9 +1895,20 @@ export default function AdminDashboardPage() {
                                 </div>
                               )}
                               {shift.catatan ? (
-                                <p className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-2 rounded-xl border border-slate-200/80">
+                                <p className={`text-[11px] leading-relaxed whitespace-pre-line p-2 rounded-xl border ${
+                                  isShortCash
+                                    ? 'bg-rose-50/70 text-rose-950 border-rose-200'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200/80'
+                                }`}>
+                                  <span className="font-bold block text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">
+                                    Alasan / Catatan Kasir:
+                                  </span>
                                   {shift.catatan}
                                 </p>
+                              ) : isShortCash ? (
+                                <span className="block text-[10px] text-rose-700 font-semibold italic">
+                                  Belum ada keterangan / alasan dari kasir — perlu dicek ke PJ shift
+                                </span>
                               ) : (
                                 <span className="text-[10px] text-slate-400 italic">Tidak ada catatan tambahan</span>
                               )}
