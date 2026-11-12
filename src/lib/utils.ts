@@ -406,8 +406,8 @@ export function generateWhatsAppPayrollSlipLink({
       ? cleanPhone
       : '6281234567890';
 
-  const tabunganSection = (potonganTabungan && potonganTabungan > 0)
-    ? `\n*TABUNGAN RUTIN KARYAWAN:*\n• Disisihkan ke Celengan : -${formatRupiah(potonganTabungan)}\n• Total Saldo Tabungan Anda Saat Ini : *${formatRupiah(totalTabungan || potonganTabungan)}*\n`
+  const tabunganSection = (totalTabungan && totalTabungan > 0)
+    ? `\n*INFO SALDO SIMPANAN STAF:*\n• Saldo Simpanan Tersimpan : *${formatRupiah(totalTabungan)}*\n`
     : '';
 
   const text = `🥞 *SLIP GAJI DIGITAL & BUKTI TRANSFER* 🥞\n` +

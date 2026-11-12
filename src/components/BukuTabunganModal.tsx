@@ -92,16 +92,15 @@ export default function BukuTabunganModal({
 
   const handleShareWa = () => {
     const msg = [
-      `*BUKU TABUNGAN KARYAWAN - SERABI BAWEL & WEDANG GEPREK*`,
+      `*BUKU SALDO SIMPANAN KARYAWAN - SERABI BAWEL & WEDANG GEPREK*`,
       `-----------------------------------------`,
       `Halo Kak *${karyawan.nama}*,`,
-      `Berikut adalah update saldo celengan tabungan rutin mingguan Anda di Pak Agan POS:`,
+      `Berikut adalah update saldo simpanan gaji Anda (rekening simpanan di Boss):`,
       ``,
-      `💰 *Total Saldo Tabungan Anda Saat Ini:* *${formatRupiah(saldo)}*`,
-      `📅 *Tabungan Rutin Tiap Minggu:* ${formatRupiah(karyawan.tabungan_rutin_mingguan || 0)} /minggu`,
+      `💰 *Total Saldo Simpanan Saat Ini:* *${formatRupiah(saldo)}*`,
       `🏪 *Penempatan Outlet:* ${cabangNama || 'Outlet Resmi'}`,
       ``,
-      `Tabungan Anda disimpan aman dan transparan oleh Boss (Pak Agan). Dapat dicairkan kapan saja untuk kebutuhan keluarga, mendesak, atau hari raya.`,
+      `Saldo ini otomatis bertambah bila saat transfer gaji masih ada sisa, dan dapat dicairkan kapan saja untuk kebutuhan Anda.`,
       `-----------------------------------------`,
       `_Sistem Keuangan Karyawan POS • Powered by ivokgrup_`
     ].join('\n');
@@ -122,7 +121,7 @@ export default function BukuTabunganModal({
               <PiggyBank className="w-5 h-5 text-amber-950" />
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-900">Buku Tabungan Karyawan</h3>
+              <h3 className="text-base font-black text-slate-900">Buku Saldo Simpanan Staf</h3>
               <p className="text-[11px] text-slate-600 font-medium">
                 {karyawan.nama} • {cabangNama || 'Outlet Cabang'}
               </p>
@@ -153,13 +152,13 @@ export default function BukuTabunganModal({
             </div>
           )}
 
-          {/* Saldo Tabungan Card */}
+          {/* Saldo Simpanan Card */}
           <div className="bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 text-slate-950 p-5 rounded-2xl shadow-lg shadow-amber-500/20 border border-amber-300 relative overflow-hidden">
             <div className="relative z-10 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-black uppercase tracking-wider text-amber-950/80 flex items-center space-x-1">
                   <Wallet className="w-3.5 h-3.5 text-amber-950" />
-                  <span>Total Tabungan Staf Terkumpul</span>
+                  <span>Saldo Simpanan Staf (Ala Bank)</span>
                 </span>
                 <span className="text-[10px] font-extrabold bg-amber-200/80 text-amber-950 px-2 py-0.5 rounded-full">
                   Aman Disimpan Boss
@@ -168,9 +167,8 @@ export default function BukuTabunganModal({
               <div className="text-3xl font-black font-mono tracking-tight text-slate-950">
                 {formatRupiah(saldo)}
               </div>
-              <div className="pt-1 flex items-center justify-between text-xs text-amber-950/90 font-bold border-t border-amber-400/50">
-                <span>Setoran Rutin Mingguan:</span>
-                <span className="font-mono font-extrabold">{formatRupiah(karyawan.tabungan_rutin_mingguan || 0)} /minggu</span>
+              <div className="pt-1 text-[10.5px] text-amber-950/90 font-semibold border-t border-amber-400/50">
+                Otomatis bertambah bila ada sisa gaji yang tidak ditransfer penuh, dan bisa dicairkan kapan saja.
               </div>
             </div>
           </div>
@@ -183,7 +181,7 @@ export default function BukuTabunganModal({
               className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs transition cursor-pointer flex items-center justify-center space-x-1.5 shadow-sm"
             >
               <ArrowDownLeft className="w-4 h-4 text-amber-400" />
-              <span>Cairkan / Tarik Tabungan</span>
+              <span>Cairkan / Tarik Saldo</span>
             </button>
             <button
               type="button"
@@ -195,11 +193,11 @@ export default function BukuTabunganModal({
             </button>
           </div>
 
-          {/* Form Tarik Tabungan (Dropdown Collapse) */}
+          {/* Form Tarik Simpanan (Dropdown Collapse) */}
           {isTarikOpen && (
             <form onSubmit={handleTarikTabungan} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 animate-fadeIn">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <span className="font-black text-slate-900 text-xs">Pencairan Dana Tabungan ke Staf:</span>
+                <span className="font-black text-slate-900 text-xs">Pencairan Saldo Simpanan ke Staf:</span>
                 <span className="text-[10px] text-slate-500">Maksimal: {formatRupiah(saldo)}</span>
               </div>
               <div className="space-y-1">
@@ -243,16 +241,16 @@ export default function BukuTabunganModal({
             </form>
           )}
 
-          {/* Riwayat Mutasi Tabungan */}
+          {/* Riwayat Mutasi Simpanan */}
           <div className="space-y-2 pt-2">
             <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center justify-between">
-              <span>Riwayat Celengan Masuk &amp; Penarikan:</span>
+              <span>Mutasi Simpanan Masuk &amp; Penarikan:</span>
               <span className="text-[10px] text-slate-400 font-bold">{logs.length} Mutasi Tercatat</span>
             </span>
 
             {logs.length === 0 ? (
               <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                Belum ada riwayat tabungan untuk karyawan ini.
+                Belum ada riwayat simpanan untuk karyawan ini.
               </div>
             ) : (
               <div className="divide-y divide-slate-100 bg-slate-50 rounded-2xl border border-slate-200/90 overflow-hidden">
@@ -284,7 +282,7 @@ export default function BukuTabunganModal({
                           {isSetor ? '+' : '-'}{formatRupiah(item.nominal)}
                         </span>
                         <span className="text-[9.5px] font-bold text-slate-400 uppercase">
-                          {isSetor ? 'Auto Simpan' : 'Pencairan'}
+                          {isSetor ? 'Masuk Saldo' : 'Pencairan'}
                         </span>
                       </div>
                     </div>
@@ -302,7 +300,7 @@ export default function BukuTabunganModal({
             onClick={onClose}
             className="px-5 py-2 text-xs font-extrabold bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl transition-colors cursor-pointer"
           >
-            Tutup Buku Tabungan
+            Tutup Buku Simpanan
           </button>
         </div>
 

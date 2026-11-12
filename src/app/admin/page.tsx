@@ -159,35 +159,16 @@ export default function AdminDashboardPage() {
     alert(`Karyawan "${nama}" berhasil dihapus.`);
   };
 
-  // Payroll Period & Branch Filters (Penggajian Murni Mingguan)
-  const [payrollMode, setPayrollMode] = useState<'mingguan' | 'rentang' | 'harian'>('mingguan');
+  // Payroll Period (Rentang Tanggal Langsung: Dari -> Sampai) & Branch Filters
   const [payrollBranchFilter, setPayrollBranchFilter] = useState<string>('all');
-  const [payrollSingleDate, setPayrollSingleDate] = useState<string>(getTodayDateString());
   const [payrollStartDate, setPayrollStartDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() - 6);
     return getTodayDateString(d);
   });
   const [payrollEndDate, setPayrollEndDate] = useState<string>(getTodayDateString());
-  const [payrollMonth, setPayrollMonth] = useState<number>(new Date().getMonth() + 1);
-  const [payrollYear, setPayrollYear] = useState<number>(new Date().getFullYear());
-
-  const shiftPayrollWeek = (direction: 'prev' | 'next' | 'current') => {
-    if (direction === 'current') {
-      const d = new Date();
-      d.setDate(d.getDate() - 6);
-      setPayrollStartDate(getTodayDateString(d));
-      setPayrollEndDate(getTodayDateString());
-      return;
-    }
-    const currentStart = new Date(payrollStartDate);
-    const offset = direction === 'prev' ? -7 : 7;
-    currentStart.setDate(currentStart.getDate() + offset);
-    const newEnd = new Date(currentStart);
-    newEnd.setDate(newEnd.getDate() + 6);
-    setPayrollStartDate(getTodayDateString(currentStart));
-    setPayrollEndDate(getTodayDateString(newEnd));
-  };
+  const [payrollMonth] = useState<number>(new Date().getMonth() + 1);
+  const [payrollYear] = useState<number>(new Date().getFullYear());
 
   // Fixed Cost Monthly Payments & Deduction Mode (Kas Riil vs Cadangan Amortisasi /30 Hr)
   const [fixedCostPayments, setFixedCostPayments] = useState<PembayaranFixedCostBulanan[]>([]);
@@ -455,30 +436,20 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Label Periode Tanggal untuk PDF & Header
+  // Label Periode Tanggal untuk PDF & Header (Rentang Dari -> Sampai)
   const payrollDateLabel = useMemo(() => {
-    if (payrollMode === 'harian') {
-      const d = new Date(payrollSingleDate);
-      return isNaN(d.getTime()) 
-        ? payrollSingleDate 
-        : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    } else if (payrollMode === 'mingguan') {
-      const d1 = new Date(payrollStartDate);
-      const d2 = new Date(payrollEndDate);
-      const s1 = isNaN(d1.getTime()) ? payrollStartDate : d1.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-      const s2 = isNaN(d2.getTime()) ? payrollEndDate : d2.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-      return `Periode Mingguan: ${s1} s.d. ${s2} (1 Minggu)`;
-    } else {
-      const d1 = new Date(payrollStartDate);
-      const d2 = new Date(payrollEndDate);
-      const s1 = isNaN(d1.getTime()) ? payrollStartDate : d1.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-      const s2 = isNaN(d2.getTime()) ? payrollEndDate : d2.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-      return `${s1} s.d. ${s2}`;
-    }
-  }, [payrollMode, payrollSingleDate, payrollStartDate, payrollEndDate]);
+    const d1 = new Date(payrollStartDate);
+    const d2 = new Date(payrollEndDate);
+    const s1 = isNaN(d1.getTime()) ? payrollStartDate : d1.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    const s2 = isNaN(d2.getTime()) ? payrollEndDate : d2.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    return s1 === s2 ? s1 : `${s1} s.d. ${s2}`;
+  }, [payrollStartDate, payrollEndDate]);
 
-  // Handle Payroll Calculation & Locking (Murni Siklus Mingguan)
+  // Handle Payroll Calculation & Locking (Sesuai Rentang Tanggal Terpilih, Tanpa Potongan Tabungan di Muka)
   const calculatedPayrollDrafts = useMemo(() => {
+    const startBound = payrollStartDate && payrollEndDate && payrollStartDate > payrollEndDate ? payrollEndDate : payrollStartDate;
+    const endBound = payrollStartDate && payrollEndDate && payrollStartDate > payrollEndDate ? payrollStartDate : payrollEndDate;
+
     return karyawanList
       .filter(k => k.role !== 'owner')
       .filter(k => payrollBranchFilter === 'all' || isBranchMatch(k.cabang_id, payrollBranchFilter))
@@ -487,27 +458,17 @@ export default function AdminDashboardPage() {
         const unsettled = expenseList.filter(e => {
           if (e.karyawan_id !== kar.id || e.jenis !== 'kasbon' || e.status !== 'approved' || e.is_settled) return false;
           const eDate = (e.tanggal || '').slice(0, 10);
-          if (payrollMode === 'harian') {
-            return !payrollSingleDate || eDate <= payrollSingleDate;
-          } else {
-            // mingguan atau rentang
-            return !payrollEndDate || eDate <= payrollEndDate;
-          }
+          return !endBound || eDate <= endBound;
         });
         const totalKasbon = unsettled.reduce((sum, e) => sum + e.nominal, 0);
 
-        // Kehadiran Staf per Tanggal Terpilih (Hanya Yang Sudah Di-ACC Owner)
+        // Kehadiran Staf pada Rentang Tanggal Terpilih (Hanya Yang Sudah Di-ACC Owner)
         const match = absensiList.filter(a => {
           const isMatchId = a.karyawan_id === kar.id || 
                             (a.karyawan_nama && a.karyawan_nama.toLowerCase() === kar.nama.toLowerCase());
           if (!isMatchId) return false;
           if (!isAbsensiApproved(a)) return false;
-          if (payrollMode === 'harian') {
-            return !payrollSingleDate || a.tanggal === payrollSingleDate;
-          } else {
-            // mingguan atau rentang
-            return (!payrollStartDate || a.tanggal >= payrollStartDate) && (!payrollEndDate || a.tanggal <= payrollEndDate);
-          }
+          return (!startBound || a.tanggal >= startBound) && (!endBound || a.tanggal <= endBound);
         });
 
         let totalDays = 0;
@@ -518,19 +479,16 @@ export default function AdminDashboardPage() {
         const staffPresence = totalDays;
 
         const upahRate = kar.gaji_harian || 100000;
-        // Total Gaji Kotor = Kehadiran Hari * Upah Harian (Standar 6 Hari Kerja)
         const gajiPokok = staffPresence * upahRate;
-        const tunjangan = 0; // Langsung upah harian bersih tanpa potongan uang makan
-        
-        // Tabungan Rutin Mingguan: disisihkan otomatis jika ada sisa upah setelah kasbon
-        const tabunganRutin = kar.tabungan_rutin_mingguan || 0;
-        const sisaSetelahKasbon = Math.max(0, gajiPokok - totalKasbon);
-        const potonganTabungan = Math.min(tabunganRutin, sisaSetelahKasbon);
-        const gajiBersih = Math.max(0, sisaSetelahKasbon - potonganTabungan);
-        const snapshotTotalTabungan = (kar.total_tabungan || 0) + potonganTabungan;
+        // Tidak ada pemotongan menabung di muka; sisa gaji yg belum ditransfer otomatis masuk Saldo Simpanan
+        const gajiBersih = Math.max(0, gajiPokok - totalKasbon);
+        const saldoSimpananBank = kar.total_tabungan || 0;
+        const paidInRange = payrollList.find(
+          p => p.karyawan_id === kar.id && p.status === 'paid' && p.periode_tanggal === payrollDateLabel
+        );
 
         const draft: Payroll = {
-          id: `pay-${kar.id}-${payrollMode}-${payrollStartDate || payrollSingleDate}`,
+          id: paidInRange?.id || `pay-${kar.id}-${startBound || 'all'}-${endBound || 'all'}`,
           karyawan_id: kar.id,
           karyawan_nama: kar.nama,
           karyawan_role: kar.role,
@@ -540,7 +498,7 @@ export default function AdminDashboardPage() {
           karyawan_atas_nama_rekening: kar.atas_nama_rekening,
           cabang_id: kar.cabang_id,
           cabang_nama: branch?.nama || 'Cabang',
-          slip_no: `SLIP/MGG-${(payrollStartDate || '').replace(/-/g, '')}/${kar.nama.split(' ')[0]?.toUpperCase() || 'STF'}`,
+          slip_no: `SLIP/PAY-${(startBound || '').replace(/-/g, '')}/${kar.nama.split(' ')[0]?.toUpperCase() || 'STF'}`,
           periode_tanggal: payrollDateLabel,
           periode_bulan: payrollMonth,
           periode_tahun: payrollYear,
@@ -550,28 +508,28 @@ export default function AdminDashboardPage() {
           gaji_pokok: gajiPokok,
           tunjangan: 0,
           potongan_kasbon: totalKasbon,
-          potongan_tabungan: potonganTabungan,
-          total_tabungan_snapshot: snapshotTotalTabungan,
+          potongan_tabungan: 0,
+          total_tabungan_snapshot: saldoSimpananBank,
           gaji_bersih: gajiBersih,
-          status: 'draft',
-          tanggal_kunci: new Date().toISOString(),
+          status: paidInRange ? 'paid' : 'draft',
+          tanggal_kunci: paidInRange?.tanggal_kunci || new Date().toISOString(),
           kasbon_details: unsettled,
         };
 
         return draft;
       });
-  }, [karyawanList, cabangList, expenseList, absensiList, payrollMode, payrollSingleDate, payrollStartDate, payrollEndDate, payrollMonth, payrollYear, payrollBranchFilter, payrollDateLabel]);
+  }, [karyawanList, cabangList, expenseList, absensiList, payrollList, payrollStartDate, payrollEndDate, payrollMonth, payrollYear, payrollBranchFilter, payrollDateLabel]);
 
   const handleLockPayroll = async () => {
     const confirmLock = confirm(
-      `Apakah Anda yakin ingin MENGUNCI GAJI MINGGUAN (${payrollDateLabel})?\n\n` +
-      `Seluruh kasbon yang disetujui periode mingguan ini akan otomatis ditandai LUNAS (is_settled: true), ` +
-      `dan saldo kasbon karyawan untuk minggu berikutnya kembali Rp 0.`
+      `Apakah Anda yakin ingin MENGUNCI GAJI periode (${payrollDateLabel})?\n\n` +
+      `Seluruh kasbon yang disetujui hingga akhir periode ini akan otomatis ditandai LUNAS (is_settled: true), ` +
+      `dan slip gaji resmi akan diterbitkan.`
     );
     if (!confirmLock) return;
 
     await db.lockPayroll(calculatedPayrollDrafts);
-    alert(`Gaji mingguan (${payrollDateLabel}) berhasil dikunci dan slip mutasi digital resmi diterbitkan!`);
+    alert(`Gaji periode (${payrollDateLabel}) berhasil dikunci dan slip resmi diterbitkan!`);
     await refreshAllData();
   };
 
@@ -3350,10 +3308,10 @@ export default function AdminDashboardPage() {
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <div>
                   <h3 className="text-base font-extrabold text-slate-900">
-                    Rekap Gaji Mingguan, Kasbon &amp; Data Pekerja
+                    Data Karyawan, Gaji &amp; Simpanan Staf
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Tambah pekerja &amp; nomor DANA/rekening, ploting cabang, isi kasbon langsung dari pusat (otomatis potong gaji mingguan), dan cairkan gaji.
+                    Pilih rentang tanggal sesuka hati. Bila saat transfer masih ada sisa gaji, otomatis masuk ke Saldo Simpanan staf (ala bank).
                   </p>
                 </div>
 
@@ -3392,23 +3350,23 @@ export default function AdminDashboardPage() {
                     className="px-4 py-2 rounded-xl bg-accent-gold hover:bg-amber-600 text-white font-extrabold text-xs shadow-md shadow-accent-gold/25 btn-tactile flex items-center space-x-1.5 transition-all cursor-pointer"
                   >
                     <Lock className="w-3.5 h-3.5" />
-                    <span>Kunci Gaji Mingguan</span>
+                    <span>Kunci Gaji Periode</span>
                   </button>
                 </div>
               </div>
 
-              {/* Filter Cabang & Tanggal */}
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Filter Cabang & Rentang Tanggal Langsung (Dari -> Sampai) */}
+              <div className="flex flex-wrap items-center gap-2.5">
                 {/* Branch Filter Per-Cabang */}
-                <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold">
+                <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold">
                   <Building2 className="w-3.5 h-3.5 text-brand-primary shrink-0" />
                   <select
                     value={payrollBranchFilter}
                     onChange={(e) => setPayrollBranchFilter(e.target.value)}
-                    className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[180px] truncate"
+                    className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer max-w-[200px] truncate"
                     title="Pilih filter cabang penggajian"
                   >
-                    <option value="all">🏢 Semua Cabang ({cabangList.length || 10} Cabang Resmi)</option>
+                    <option value="all">🏢 Semua Cabang ({cabangList.length || 10} Cabang)</option>
                     {cabangList.map(c => (
                       <option key={c.id} value={c.id}>
                         #{c.nomor} • {c.kode} - {c.nama.split('-')[1]?.trim() || c.nama}
@@ -3417,104 +3375,32 @@ export default function AdminDashboardPage() {
                   </select>
                 </div>
 
-                {/* Mode Selector - Penggajian Murni Mingguan */}
-                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPayrollMode('mingguan');
-                      shiftPayrollWeek('current');
-                    }}
-                    className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                      payrollMode === 'mingguan' ? 'bg-emerald-700 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    ✓ Per Minggu
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPayrollMode('rentang')}
-                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                      payrollMode === 'rentang' ? 'bg-white text-emerald-800 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Rentang Tanggal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPayrollMode('harian')}
-                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                      payrollMode === 'harian' ? 'bg-white text-emerald-800 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Per Hari
-                  </button>
-                </div>
-
-                {/* Date Input based on Mode */}
-                {payrollMode === 'mingguan' && (
-                  <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold">
-                    <button
-                      type="button"
-                      onClick={() => shiftPayrollWeek('prev')}
-                      className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[10.5px] font-bold cursor-pointer transition shadow-2xs"
-                      title="Geser ke Minggu Sebelumnya"
-                    >
-                      ◀ Minggu Lalu
-                    </button>
-                    <div className="flex items-center space-x-1.5 text-emerald-950 font-mono text-xs px-1">
-                      <Calendar className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                      <span>{payrollStartDate} s.d. {payrollEndDate}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => shiftPayrollWeek('current')}
-                      className="px-2 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-900 text-[10.5px] font-extrabold hover:bg-emerald-200 cursor-pointer transition shadow-2xs"
-                      title="Kembali ke Minggu Ini"
-                    >
-                      Minggu Ini
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => shiftPayrollWeek('next')}
-                      className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[10.5px] font-bold cursor-pointer transition shadow-2xs"
-                      title="Geser ke Minggu Berikutnya"
-                    >
-                      Minggu Depan ▶
-                    </button>
-                  </div>
-                )}
-
-                {payrollMode === 'harian' && (
-                  <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold">
-                    <Calendar className="w-3.5 h-3.5 text-brand-primary" />
-                    <input
-                      type="date"
-                      value={payrollSingleDate}
-                      onChange={(e) => setPayrollSingleDate(e.target.value)}
-                      className="bg-transparent font-mono text-xs font-bold text-slate-800 outline-none cursor-pointer"
-                    />
-                  </div>
-                )}
-
-                {payrollMode === 'rentang' && (
-                  <div className="flex items-center space-x-1 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold">
-                    <Calendar className="w-3.5 h-3.5 text-brand-primary shrink-0" />
+                {/* Pilihan Langsung Dari Tanggal s.d. Sampai Tanggal */}
+                <div className="flex flex-wrap items-center gap-2 bg-emerald-50/70 px-3 py-1.5 rounded-xl border border-emerald-200 text-xs font-bold">
+                  <div className="flex items-center space-x-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    <span className="text-[11px] text-emerald-900 font-extrabold">Dari:</span>
                     <input
                       type="date"
                       value={payrollStartDate}
                       onChange={(e) => setPayrollStartDate(e.target.value)}
-                      className="bg-transparent font-mono text-xs font-bold text-slate-800 outline-none cursor-pointer w-28"
+                      className="bg-white px-2 py-1 rounded-lg border border-emerald-200 font-mono text-xs font-bold text-slate-800 outline-none cursor-pointer focus:border-emerald-600"
                     />
-                    <span className="text-slate-400">s/d</span>
+                  </div>
+                  <span className="text-emerald-700 font-black">s.d.</span>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-[11px] text-emerald-900 font-extrabold">Sampai:</span>
                     <input
                       type="date"
                       value={payrollEndDate}
                       onChange={(e) => setPayrollEndDate(e.target.value)}
-                      className="bg-transparent font-mono text-xs font-bold text-slate-800 outline-none cursor-pointer w-28"
+                      className="bg-white px-2 py-1 rounded-lg border border-emerald-200 font-mono text-xs font-bold text-slate-800 outline-none cursor-pointer focus:border-emerald-600"
                     />
                   </div>
-                )}
+                  <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-white text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
+                    {payrollDateLabel}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -3522,34 +3408,25 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
               <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 shadow-2xs">
                 <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block">
-                  Total Gaji Bersih Periode Ini (Mingguan)
+                  Gaji Siap Ditransfer
                 </span>
                 <div className="text-xl font-mono font-black text-emerald-950 mt-1 tabular-nums">
                   {formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + d.gaji_bersih, 0))}
                 </div>
                 <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
-                  Siap transfer ke {calculatedPayrollDrafts.length} staf
+                  Untuk {calculatedPayrollDrafts.length} staf ({payrollDateLabel})
                 </span>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                  {payrollBranchFilter === 'all' ? 'Beban Upah Mingguan 10 Toko' : 'Beban Upah Mingguan Cabang'}
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                  Total Gaji Kotor Hadir
                 </span>
                 <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
-                  {formatRupiah(
-                    karyawanList
-                      .filter(k => k.role !== 'owner' && (payrollBranchFilter === 'all' || isBranchMatch(k.cabang_id, payrollBranchFilter)))
-                      .reduce((sum, k) => sum + ((k.gaji_harian || 100000) * 6), 0)
-                  )}
-                  <span className="text-xs font-normal text-slate-500"> /minggu</span>
+                  {formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + d.gaji_pokok, 0))}
                 </div>
                 <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
-                  Beban Harian: {formatRupiah(
-                    karyawanList
-                      .filter(k => k.role !== 'owner' && (payrollBranchFilter === 'all' || isBranchMatch(k.cabang_id, payrollBranchFilter)))
-                      .reduce((sum, k) => sum + (k.gaji_harian || 100000), 0)
-                  )} /hari (Dibagi 6 Hari Kerja)
+                  Akumulasi {calculatedPayrollDrafts.reduce((sum, d) => sum + (d.total_kehadiran_hari || 0), 0)} hari hadir ACC
                 </span>
               </div>
 
@@ -3561,19 +3438,19 @@ export default function AdminDashboardPage() {
                   -{formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + d.potongan_kasbon, 0))}
                 </div>
                 <span className="text-[10px] text-rose-700 font-bold mt-0.5 block">
-                  Otomatis lunas saat kunci gaji
+                  Lunas saat transfer / kunci gaji
                 </span>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 shadow-2xs">
                 <span className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider block">
-                  Plafon Kasbon Terdaftar
+                  Saldo Simpanan Staf (Bank)
                 </span>
                 <div className="text-xl font-mono font-black text-amber-950 mt-1 tabular-nums">
-                  {formatRupiah(karyawanList.filter(k => k.role !== 'owner').reduce((sum, k) => sum + (k.plafon_kasbon || 500000), 0))}
+                  {formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + (d.total_tabungan_snapshot || 0), 0))}
                 </div>
                 <span className="text-[10px] text-amber-900 font-bold mt-0.5 block">
-                  Limit pinjaman kasbon staf
+                  Sisa gaji tersimpan aman di Boss
                 </span>
               </div>
             </div>
@@ -3582,14 +3459,14 @@ export default function AdminDashboardPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200 text-[10px]">
                   <tr>
-                    <th className="py-3 px-4">Nama Staf, Cabang &amp; Rekening/DANA</th>
-                    <th className="py-3 px-4">Kehadiran Minggu Ini</th>
-                    <th className="py-3 px-4 text-right">Upah Harian (÷ 6)</th>
-                    <th className="py-3 px-4 text-right">Total Upah Mingguan</th>
-                    <th className="py-3 px-4 text-right text-rose-600">Hutang / Kasbon (Auto-Potong)</th>
-                    <th className="py-3 px-4 text-right text-amber-700">Tabungan Mingguan</th>
-                    <th className="py-3 px-4 text-right font-extrabold text-brand-dark">Gaji Bersih Ditransfer</th>
-                    <th className="py-3 px-4 text-center">Kelola Staf, Kasbon &amp; Transfer</th>
+                    <th className="py-3 px-4">Nama Staf &amp; Rekening</th>
+                    <th className="py-3 px-4">Hadir</th>
+                    <th className="py-3 px-4 text-right">Upah / Hari</th>
+                    <th className="py-3 px-4 text-right">Gaji Kotor</th>
+                    <th className="py-3 px-4 text-right text-rose-600">Potong Kasbon</th>
+                    <th className="py-3 px-4 text-right font-extrabold text-brand-dark">Gaji Siap Transfer</th>
+                    <th className="py-3 px-4 text-right text-amber-700">Saldo Simpanan (Bank)</th>
+                    <th className="py-3 px-4 text-center">Aksi &amp; Transfer</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -3614,6 +3491,7 @@ export default function AdminDashboardPage() {
                   ) : (
                     calculatedPayrollDrafts.map(draft => {
                       const kar = karyawanList.find(k => k.id === draft.karyawan_id);
+                      const saldoSimpanan = draft.total_tabungan_snapshot || 0;
                       return (
                     <tr key={draft.karyawan_id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-4">
@@ -3643,62 +3521,62 @@ export default function AdminDashboardPage() {
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
-                          <span>{draft.total_kehadiran_hari} Hari Hadir</span>
+                        <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold whitespace-nowrap">
+                          <span>{draft.total_kehadiran_hari} Hari</span>
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-semibold text-slate-700 tabular-nums">
-                        <div>{formatRupiah(draft.upah_harian || 100000)} <span className="text-[10px] text-slate-400 font-normal">/ hari</span></div>
-                        <span className="text-[9.5px] text-emerald-800 font-medium block">
-                          {formatRupiah((draft.upah_harian || 100000) * 6)} /mgg
-                        </span>
+                      <td className="py-3 px-4 text-right font-mono font-semibold text-slate-700 tabular-nums whitespace-nowrap">
+                        {formatRupiah(draft.upah_harian || 100000)}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 tabular-nums">
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 tabular-nums whitespace-nowrap">
                         {formatRupiah(draft.gaji_pokok)}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-rose-600 tabular-nums">
+                      <td className="py-3 px-4 text-right font-mono font-bold text-rose-600 tabular-nums whitespace-nowrap">
                         <div>-{formatRupiah(draft.potongan_kasbon)}</div>
                         {draft.potongan_kasbon > 0 ? (
                           <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-black border border-emerald-200">
                             ✓ Auto-Potong
                           </span>
                         ) : (
-                          <span className="text-[9px] text-slate-400 font-medium">Nihil / Lunas</span>
+                          <span className="text-[9px] text-slate-400 font-medium">Nihil</span>
                         )}
                       </td>
 
-                      {/* Celengan Tabungan Karyawan */}
-                      <td className="py-3 px-4 text-right font-mono font-bold text-amber-800 tabular-nums">
-                        {draft.potongan_tabungan && draft.potongan_tabungan > 0 ? (
-                          <div>
-                            <span className="text-amber-900">-{formatRupiah(draft.potongan_tabungan)}</span>
-                            <span className="text-[9px] text-amber-700 block font-semibold">
-                              Saldo: {formatRupiah(draft.total_tabungan_snapshot || 0)}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-normal">Rp 0 (Tanpa Nabung)</span>
-                        )}
-                      </td>
-
-                      <td className="py-3 px-4 text-right font-mono font-extrabold text-brand-dark tabular-nums text-sm">
+                      <td className="py-3 px-4 text-right font-mono font-extrabold text-brand-dark tabular-nums text-sm whitespace-nowrap">
                         {formatRupiah(draft.gaji_bersih)}
                       </td>
+
+                      {/* Saldo Simpanan Ala Bank + Tombol Buku/Tarik */}
+                      <td className="py-3 px-4 text-right tabular-nums whitespace-nowrap">
+                        <div className={`font-mono font-black text-xs ${saldoSimpanan > 0 ? 'text-amber-900' : 'text-slate-400 font-semibold'}`}>
+                          {formatRupiah(saldoSimpanan)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => kar && setSelectedKaryawanForTabungan(kar)}
+                          className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-[10px] font-bold transition cursor-pointer"
+                          title="Lihat mutasi simpanan atau cairkan saldo simpanan staf"
+                        >
+                          <PiggyBank className="w-3 h-3 text-amber-700" />
+                          <span>{saldoSimpanan > 0 ? 'Buku / Tarik' : 'Mutasi'}</span>
+                        </button>
+                      </td>
+
                       <td className="py-3 px-4 text-center">
                         <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-[260px] mx-auto">
                           {draft.status === 'paid' ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-[11px] font-black">
-                              ✓ Lunas
+                              ✓ Sudah Ditransfer
                             </span>
                           ) : (
                             <button
                               type="button"
                               onClick={() => setSelectedPayrollForPayout(draft)}
                               className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full text-xs font-bold transition shadow-xs btn-tactile"
-                              title="Cairkan Dana & Transfer ke Rekening / DANA Staf"
+                              title="Transfer gaji penuh atau sebagian (sisanya otomatis masuk Saldo Simpanan)"
                             >
                               <span>💸</span>
-                              <span>Cairkan</span>
+                              <span>Transfer</span>
                             </button>
                           )}
 
@@ -3706,7 +3584,7 @@ export default function AdminDashboardPage() {
                             type="button"
                             onClick={() => setSelectedPayrollForLoan(draft)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-xs font-extrabold transition shadow-2xs btn-tactile"
-                            title="Catat Kasbon / Bon Karyawan (Otomatis Potong Gaji Mingguan)"
+                            title="Catat Kasbon Karyawan (Otomatis potong gaji)"
                           >
                             <Plus className="w-3 h-3" />
                             <span>Kasbon</span>
@@ -3716,7 +3594,7 @@ export default function AdminDashboardPage() {
                             type="button"
                             onClick={() => setSelectedPayrollSlip(draft)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-full text-xs font-bold transition shadow-xs btn-tactile"
-                            title="Buka Rincian Presensi, Kasbon & Slip Gaji Digital"
+                            title="Buka Rincian Presensi, Kasbon & Slip Gaji"
                           >
                             <span>🔍</span>
                             <span>Slip</span>
@@ -3735,7 +3613,7 @@ export default function AdminDashboardPage() {
                                 gajiPokok: draft.gaji_pokok,
                                 tunjangan: 0,
                                 potonganKasbon: draft.potongan_kasbon,
-                                potonganTabungan: draft.potongan_tabungan,
+                                potonganTabungan: 0,
                                 totalTabungan: draft.total_tabungan_snapshot,
                                 gajiBersih: draft.gaji_bersih,
                                 totalHari: draft.total_kehadiran_hari,
@@ -3748,7 +3626,7 @@ export default function AdminDashboardPage() {
                             title="Kirim Slip Gaji Resmi Langsung ke WhatsApp Staf"
                           >
                             <MessageCircle className="w-3.5 h-3.5 fill-white" />
-                            <span>Kirim WA</span>
+                            <span>WA</span>
                           </button>
 
                           {kar && (
@@ -3772,21 +3650,9 @@ export default function AdminDashboardPage() {
                               if (kar) setSelectedKaryawanForSalaryEdit(kar);
                             }}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-bold transition shadow-2xs btn-tactile"
-                            title="Ubah Tarif Upah Harian, Skema Tabungan & Nomor Rekening / DANA"
+                            title="Ubah Tarif Upah Harian & Nomor Rekening / DANA"
                           >
-                            <span>$ Gaji / Rek</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (kar) setSelectedKaryawanForTabungan(kar);
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-xs font-bold transition shadow-2xs btn-tactile"
-                            title="Buka Buku Tabungan & Celengan Karyawan"
-                          >
-                            <PiggyBank className="w-3.5 h-3.5 text-amber-700" />
-                            <span>Tabungan</span>
+                            <span>Edit Upah / Rek</span>
                           </button>
 
                           {draft.karyawan_role !== 'owner' && (
@@ -3812,9 +3678,9 @@ export default function AdminDashboardPage() {
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start space-x-2">
               <ShieldCheck className="w-5 h-5 text-accent-gold shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <span className="font-bold block">Alur Praktis 1 Pintu (Pekerja, Kasbon &amp; Gaji Mingguan):</span>
+                <span className="font-bold block">Alur Praktis Gaji &amp; Simpanan Ala Bank:</span>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
-                  Admin Pusat mendaftarkan staf &amp; nomor DANA/rekening, memindah cabang via <strong>Ploting</strong>, serta mengisi pinjaman lewat tombol <strong>+ Kasbon</strong> yang langsung memotong gaji mingguan. Menekan <strong>&quot;Kunci Gaji Mingguan&quot;</strong> melunasi kasbon periode ini (<code>is_settled: true</code>).
+                  Pilih rentang tanggal <strong>Dari → Sampai</strong> untuk melihat hadir &amp; upah kotor, lalu potong kasbon otomatis. Saat klik <strong>💸 Transfer</strong>, jika nominal yang ditransfer lebih kecil dari <strong>Gaji Siap Transfer</strong>, sisanya otomatis menambah <strong>Saldo Simpanan</strong> staf dan bisa dicairkan kapan saja.
                 </p>
               </div>
             </div>
@@ -3976,10 +3842,7 @@ export default function AdminDashboardPage() {
           expenseList={expenseList}
           onClose={() => setSelectedPayrollSlip(null)}
           onSuccess={async () => {
-            const freshPayrolls = await db.getPayrollList();
-            setPayrollList(freshPayrolls);
-            const freshExpenses = await db.getPengeluaranList();
-            setExpenseList(freshExpenses);
+            await refreshAllData();
           }}
         />
       )}
@@ -3990,10 +3853,7 @@ export default function AdminDashboardPage() {
           onClose={() => setSelectedPayrollForPayout(null)}
           onSuccess={async () => {
             setSelectedPayrollForPayout(null);
-            const freshPayrolls = await db.getPayrollList();
-            setPayrollList(freshPayrolls);
-            const freshExpenses = await db.getPengeluaranList();
-            setExpenseList(freshExpenses);
+            await refreshAllData();
           }}
         />
       )}

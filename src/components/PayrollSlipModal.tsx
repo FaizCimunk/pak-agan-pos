@@ -630,15 +630,15 @@ export default function PayrollSlipModal({
                     </div>
                   </div>
 
-                  {/* Tabungan Rutin Mingguan */}
-                  {Boolean(currentPayroll.potongan_tabungan && currentPayroll.potongan_tabungan > 0) && (
-                    <div className="space-y-1.5 pt-2 border-t border-dashed border-slate-300">
+                  {/* Info Saldo Simpanan Bank Staf (Jika Ada) */}
+                  {Boolean(currentPayroll.total_tabungan_snapshot && currentPayroll.total_tabungan_snapshot > 0) && (
+                    <div className="space-y-1 pt-2 border-t border-dashed border-slate-300">
                       <div className="flex justify-between text-amber-800 font-bold">
-                        <span>3. Disisihkan ke Celengan Tabungan Karyawan</span>
-                        <span className="font-mono tabular-nums">-{formatRupiah(currentPayroll.potongan_tabungan!)}</span>
+                        <span>3. Info Saldo Simpanan Staf (Ala Bank)</span>
+                        <span className="font-mono tabular-nums">{formatRupiah(currentPayroll.total_tabungan_snapshot!)}</span>
                       </div>
                       <div className="text-[10px] text-amber-700">
-                        *Tersimpan aman di buku tabungan staf (Saldo sekarang: {formatRupiah(currentPayroll.total_tabungan_snapshot || currentPayroll.potongan_tabungan!)}).
+                        *Saldo simpanan tersimpan aman (bertambah otomatis bila ada sisa gaji yang belum ditransfer penuh).
                       </div>
                     </div>
                   )}
@@ -699,6 +699,7 @@ export default function PayrollSlipModal({
                   gajiPokok: currentPayroll.gaji_pokok,
                   tunjangan: 0,
                   potonganKasbon: currentPayroll.potongan_kasbon,
+                  totalTabungan: currentPayroll.total_tabungan_snapshot,
                   gajiBersih: currentPayroll.gaji_bersih,
                   totalHari: currentPayroll.total_kehadiran_hari,
                   tipeGaji: currentPayroll.tipe_gaji,
@@ -742,7 +743,6 @@ export default function PayrollSlipModal({
             setCurrentPayroll(prev => ({
               ...prev,
               status: 'paid',
-              gaji_bersih: 0
             }));
             onSuccess?.();
           }}

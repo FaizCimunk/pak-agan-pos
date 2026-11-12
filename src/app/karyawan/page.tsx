@@ -128,22 +128,19 @@ export default function KaryawanPortalPage() {
     return sum + (a.upah_harian_terhitung > 0 ? a.upah_harian_terhitung : fallbackRate);
   }, 0);
 
-  // Skema Tabungan Rutin Mingguan & Total Celengan
-  const tabunganMingguan = currentUser.tabungan_rutin_mingguan !== undefined ? currentUser.tabungan_rutin_mingguan : 200000;
+  // Saldo Simpanan Ala Bank (otomatis bertambah jika ada sisa gaji yang tidak langsung ditransfer penuh)
   const totalTabungan = currentUser.total_tabungan || 0;
 
-  // Proyeksi Gaji Mingguan (6 Hari Kerja)
+  // Proyeksi Standar 6 Hari Kerja
   const estimasiMingguan6Hari = upahHarian * 6;
-  const estimasiBersihMingguan = Math.max(0, estimasiMingguan6Hari - tabunganMingguan);
   
   // Utang / Kasbon yang disetujui pusat dan belum lunas
   const utangNominal = currentUser.utang_nominal !== undefined 
     ? currentUser.utang_nominal 
     : expenses.filter(e => e.status === 'approved' && !e.is_settled).reduce((s, e) => s + e.nominal, 0);
 
-  // Estimasi Transfer Bersih Mingguan (Kotor - Cicilan Kasbon - Potongan Tabungan)
-  const potonganTabunganPeriode = hadirCount > 0 ? Math.min(tabunganMingguan, Math.max(0, upahKotor - utangNominal)) : 0;
-  const gajiBersihSiapTerima = Math.max(0, upahKotor - utangNominal - potonganTabunganPeriode);
+  // Estimasi Transfer Bersih (Gaji Kotor Hadir - Kasbon, tanpa potongan tabungan di muka)
+  const gajiBersihSiapTerima = Math.max(0, upahKotor - utangNominal);
 
   return (
     <div className="min-h-screen bg-fintech-bg flex flex-col text-slate-800">
@@ -194,7 +191,7 @@ export default function KaryawanPortalPage() {
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                Portal Gaji &amp; Tabungan Karyawan
+                Portal Gaji &amp; Simpanan Karyawan
               </span>
               <h2 className="text-base font-black text-slate-900 leading-tight">
                 {currentUser.nama}
@@ -237,23 +234,23 @@ export default function KaryawanPortalPage() {
           </div>
         )}
 
-        {/* HERO CARD: ESTIMASI TRANSFER GAJI MINGGUAN & CELENGAN TABUNGAN */}
+        {/* HERO CARD: ESTIMASI TRANSFER GAJI & SALDO SIMPANAN */}
         <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 border-2 border-emerald-500/30 p-5 text-white shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-emerald-800/60 pb-3">
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-300 block">
-                  Estimasi Akumulasi Gaji Berjalan
+                  Estimasi Akumulasi Gaji Siap Transfer
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-[9px] font-bold text-amber-300 border border-amber-400/30">
-                  ⏳ Menunggu Kunci Boss
+                  ⏳ Menunggu Pencairan Boss
                 </span>
               </div>
               <div className="text-2xl sm:text-3xl font-mono font-black text-amber-300 mt-1">
                 {formatRupiah(gajiBersihSiapTerima)}
               </div>
               <p className="text-[10px] text-slate-300 mt-0.5">
-                *Akumulasi kehadiran berjalan. Pencairan resmi menunggu verifikasi &amp; tombol "Kunci Gaji" disetujui Pak Agan.
+                *Akumulasi kehadiran ACC dikurangi kasbon. Jika transfer sebagian, sisa gaji otomatis masuk Saldo Simpanan Anda.
               </p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/40 text-amber-300 flex items-center justify-center text-2xl shadow-inner">
@@ -261,8 +258,8 @@ export default function KaryawanPortalPage() {
             </div>
           </div>
 
-          {/* GRID METRIK GAJI: HARIAN, MINGGUAN, BULANAN, & TABUNGAN */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-black/40 p-3 rounded-2xl border border-emerald-900/60 text-xs">
+          {/* GRID METRIK GAJI & SALDO SIMPANAN */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-black/40 p-3 rounded-2xl border border-emerald-900/60 text-xs">
             <div className="p-1">
               <span className="text-[9px] text-slate-400 block uppercase font-bold">Tarif Harian:</span>
               <span className="font-mono font-bold text-white text-xs">{formatRupiah(upahHarian)}</span>
@@ -270,44 +267,31 @@ export default function KaryawanPortalPage() {
             </div>
 
             <div className="p-1">
-              <span className="text-[9px] text-emerald-300 block uppercase font-bold">1 Minggu (6 Hari):</span>
+              <span className="text-[9px] text-emerald-300 block uppercase font-bold">Standar 6 Hari:</span>
               <span className="font-mono font-bold text-emerald-300 text-xs">{formatRupiah(estimasiMingguan6Hari)}</span>
-              <span className="text-[9px] text-slate-400 block">standar mingguan</span>
+              <span className="text-[9px] text-slate-400 block">acuan 6 hari</span>
             </div>
 
-            <div className="p-1">
-              <span className="text-[9px] text-amber-300 block uppercase font-bold">Bersih Mingguan:</span>
-              <span className="font-mono font-bold text-amber-300 text-xs">{formatRupiah(estimasiBersihMingguan)}</span>
-              <span className="text-[9px] text-slate-400 block">siap ambil per minggu</span>
-            </div>
-
-            <div className="p-1 bg-emerald-950/60 rounded-xl px-2 border border-emerald-700/50">
-              <span className="text-[9px] text-emerald-400 block uppercase font-extrabold flex items-center space-x-1">
-                <span>🐷 Celengan:</span>
+            <div className="col-span-2 sm:col-span-1 p-1 bg-emerald-950/60 rounded-xl px-2.5 border border-emerald-700/50">
+              <span className="text-[9px] text-emerald-400 block uppercase font-extrabold">
+                🏦 Saldo Simpanan (Bank):
               </span>
               <span className="font-mono font-black text-emerald-200 text-xs">{formatRupiah(totalTabungan)}</span>
-              <span className="text-[8px] text-emerald-400 block">+{formatRupiah(tabunganMingguan)}/minggu</span>
+              <span className="text-[8px] text-emerald-400 block">dari sisa gaji tersimpan</span>
             </div>
           </div>
 
-          {/* Rincian Upah vs Potongan Kasbon & Celengan */}
-          <div className="grid grid-cols-3 gap-2 bg-emerald-900/20 p-2.5 rounded-2xl border border-emerald-800/40 text-xs">
+          {/* Rincian Upah vs Potongan Kasbon */}
+          <div className="grid grid-cols-2 gap-2 bg-emerald-900/20 p-2.5 rounded-2xl border border-emerald-800/40 text-xs">
             <div>
-              <span className="text-[10px] text-slate-300 block">Kehadiran Berjalan:</span>
+              <span className="text-[10px] text-slate-300 block">Kehadiran Berjalan (ACC):</span>
               <span className="font-mono font-bold text-white text-xs">{hadirCount} Hari ({formatRupiah(upahKotor)})</span>
             </div>
 
             <div>
-              <span className="text-[10px] text-rose-300 block">Potong Kasbon:</span>
+              <span className="text-[10px] text-rose-300 block">Potong Kasbon Belum Lunas:</span>
               <span className="font-mono font-bold text-rose-400 text-xs">
                 -{formatRupiah(utangNominal)}
-              </span>
-            </div>
-
-            <div>
-              <span className="text-[10px] text-emerald-300 block">Auto Tabungan:</span>
-              <span className="font-mono font-bold text-emerald-400 text-xs">
-                -{formatRupiah(potonganTabunganPeriode)}
               </span>
             </div>
           </div>
@@ -369,7 +353,7 @@ export default function KaryawanPortalPage() {
             }`}
           >
             <PiggyBank className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-            <span className="truncate">Celengan ({formatRupiah(totalTabungan)})</span>
+            <span className="truncate">Simpanan ({formatRupiah(totalTabungan)})</span>
           </button>
         </div>
 
@@ -654,34 +638,34 @@ export default function KaryawanPortalPage() {
           </div>
         )}
 
-        {/* TAB 4: BUKU CELENGAN TABUNGAN KARYAWAN */}
+        {/* TAB 4: BUKU SALDO SIMPANAN KARYAWAN */}
         {activeTab === 'tabungan' && (
           <div className="space-y-4">
             
-            {/* HERO KARTU TABUNGAN */}
+            {/* HERO KARTU SIMPANAN */}
             <div className="p-5 rounded-3xl bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-900 text-white shadow-lg space-y-4 border border-emerald-600/40">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="text-2xl">🐷</span>
+                    <span className="text-2xl">🏦</span>
                     <span className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-200">
-                      Celengan Tabungan Karyawan
+                      Saldo Simpanan Karyawan (Ala Bank)
                     </span>
                   </div>
                   <div className="text-3xl font-mono font-black text-amber-300 mt-1">
                     {formatRupiah(totalTabungan)}
                   </div>
                   <p className="text-xs text-emerald-100 font-medium mt-1">
-                    Saldo tabungan resmi Anda yang dititipkan dan tersimpan aman di kas keuangan pusat.
+                    Saldo simpanan otomatis dari sisa gaji yang belum ditransfer penuh dan tersimpan aman di Boss.
                   </p>
                 </div>
 
                 <a
                   href={`https://wa.me/6281234567890?text=${encodeURIComponent(
-                    `*PERMOHONAN PENARIKAN TABUNGAN KARYAWAN*\n\n` +
+                    `*PERMOHONAN PENCAIRAN SALDO SIMPANAN*\n\n` +
                     `Halo Pak Agan, saya *${currentUser.nama}* (${formatKaryawanRole(currentUser.role)} ${userCabang?.nama || 'Outlet'}).\n` +
-                    `Saat ini total saldo tabungan saya tercatat: *${formatRupiah(totalTabungan)}*.\n` +
-                    `Saya ingin berkonsultasi / mengajukan penarikan saldo celengan tabungan saya untuk keperluan mendesak.\n` +
+                    `Saat ini saldo simpanan saya tercatat: *${formatRupiah(totalTabungan)}*.\n` +
+                    `Saya ingin mengajukan pencairan saldo simpanan saya.\n` +
                     `Mohon informasinya. Terima kasih Pak Agan!`
                   )}`}
                   target="_blank"
@@ -689,22 +673,22 @@ export default function KaryawanPortalPage() {
                   className="px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition flex items-center space-x-1.5 cursor-pointer shrink-0"
                 >
                   <MessageCircle className="w-4 h-4 text-slate-950" />
-                  <span>Tarik Celengan</span>
+                  <span>Tarik Simpanan</span>
                 </a>
               </div>
 
-              {/* Rincian Aturan Auto-Nabung Mingguan */}
+              {/* Rincian Simpanan */}
               <div className="grid grid-cols-2 gap-2 bg-black/30 p-3 rounded-2xl border border-emerald-500/30 text-xs">
                 <div>
-                  <span className="text-[10px] text-emerald-300 block font-bold">Auto-Nabung Tiap Gajian:</span>
-                  <span className="font-mono font-black text-white text-sm">
-                    +{formatRupiah(tabunganMingguan)} / minggu
+                  <span className="text-[10px] text-emerald-300 block font-bold">Sistem Simpanan:</span>
+                  <span className="font-black text-white text-xs block mt-0.5">
+                    Otomatis dari Sisa Gaji
                   </span>
-                  <span className="text-[9px] text-slate-300 block">Dipotong otomatis saat transfer</span>
+                  <span className="text-[9px] text-slate-300 block">Tanpa potongan rutin mingguan</span>
                 </div>
 
                 <div>
-                  <span className="text-[10px] text-emerald-300 block font-bold">Total Transaksi Mutasi:</span>
+                  <span className="text-[10px] text-emerald-300 block font-bold">Total Mutasi Simpanan:</span>
                   <span className="font-mono font-black text-white text-sm">
                     {tabunganLogs.length} Kali Catatan
                   </span>
@@ -715,24 +699,24 @@ export default function KaryawanPortalPage() {
               <div className="p-3 rounded-2xl bg-white/10 text-[11px] text-emerald-100 flex items-start space-x-2 border border-white/15">
                 <ShieldCheck className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
-                  <strong>Keamanan Tabungan Terjamin:</strong> Setiap potongan tabungan mingguan otomatis masuk ke buku besar ini. Anda dapat mencairkan atau mengambil tabungan ini kapan saja dengan konfirmasi langsung ke Pak Agan.
+                  <strong>Keamanan Saldo Terjamin:</strong> Setiap sisa gaji yang tidak langsung ditransfer penuh otomatis masuk menambah saldo ini. Anda dapat mencairkannya kapan saja ke Pak Agan.
                 </p>
               </div>
             </div>
 
-            {/* MUTASI TABUNGAN KARYAWAN */}
+            {/* MUTASI SIMPANAN KARYAWAN */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between text-xs text-slate-500 font-bold px-1">
-                <span>Buku Riwayat Mutasi Celengan Anda:</span>
+                <span>Riwayat Saldo Simpanan Anda:</span>
                 <span>{tabunganLogs.length} Riwayat</span>
               </div>
 
               {tabunganLogs.length === 0 ? (
                 <div className="p-8 text-center bg-white rounded-3xl border border-slate-200/80 space-y-2">
-                  <div className="text-3xl">🐷</div>
-                  <h3 className="text-xs font-bold text-slate-700">Belum Ada Mutasi Tabungan</h3>
+                  <div className="text-3xl">🏦</div>
+                  <h3 className="text-xs font-bold text-slate-700">Belum Ada Mutasi Simpanan</h3>
                   <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                    Setoran tabungan akan otomatis tercatat setiap kali transfer gaji mingguan dikunci oleh Admin Pusat.
+                    Saldo simpanan akan otomatis bertambah bila saat pencairan gaji masih ada sisa yang belum ditransfer.
                   </p>
                 </div>
               ) : (
@@ -760,7 +744,7 @@ export default function KaryawanPortalPage() {
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-rose-100 text-rose-800'
                           }`}>
-                            {log.tipe === 'setor' ? '+ SETOR OTOMATIS' : '- PENARIKAN TABUNGAN'}
+                            {log.tipe === 'setor' ? '+ MASUK SIMPANAN' : '- PENARIKAN SALDO'}
                           </span>
                           <span className="text-[10px] font-mono text-slate-400">
                             {log.tanggal}

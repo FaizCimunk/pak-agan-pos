@@ -36,7 +36,6 @@ export default function CreateKaryawanModal({
   const [noRekening, setNoRekening] = useState<string>('');
   const [atasNamaRek, setAtasNamaRek] = useState<string>('');
   const [gajiHarianDisplay, setGajiHarianDisplay] = useState<string>('100.000');
-  const [tabunganMingguanDisplay, setTabunganMingguanDisplay] = useState<string>('0');
   const [plafonKasbonDisplay, setPlafonKasbonDisplay] = useState<string>('500.000');
   const [saving, setSaving] = useState<boolean>(false);
 
@@ -49,7 +48,6 @@ export default function CreateKaryawanModal({
 
     const uHarian = parseNominal(gajiHarianDisplay) || 100000;
     const plafon = parseNominal(plafonKasbonDisplay) || 500000;
-    const tabungan = parseNominal(tabunganMingguanDisplay) || 0;
     const cleanPhone =
       telepon.trim() ||
       (bankNama.toLowerCase().includes('dana') && noRekening.trim() ? noRekening.trim() : '0812-0000-0000');
@@ -67,7 +65,7 @@ export default function CreateKaryawanModal({
         gaji_harian: uHarian,
         gaji_pokok: uHarian * 6,
         plafon_kasbon: plafon,
-        tabungan_rutin_mingguan: tabungan,
+        tabungan_rutin_mingguan: 0,
         bank_nama: bankNama.trim() || 'DANA',
         no_rekening: noRekening.trim(),
         atas_nama_rekening: atasNamaRek.trim() || nama.trim(),
@@ -296,30 +294,8 @@ export default function CreateKaryawanModal({
                   />
                 </div>
                 <span className="text-[9px] text-slate-500 mt-1 block">
-                  Batas pinjaman kasbon mingguan
+                  Batas pinjaman kasbon staf
                 </span>
-              </div>
-            </div>
-
-            {/* Titip Tabungan Rutin Mingguan */}
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-extrabold text-amber-950 flex items-center space-x-1">
-                  <span>🐷 Titip Tabungan Rutin Mingguan (Opsional):</span>
-                </span>
-                <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
-                  Isi 0 jika tanpa tabungan
-                </span>
-              </div>
-              <div className="relative">
-                <span className="absolute left-3 top-2 font-bold text-amber-600">Rp</span>
-                <input
-                  type="text"
-                  value={tabunganMingguanDisplay}
-                  onChange={(e) => setTabunganMingguanDisplay(formatNominal(e.target.value))}
-                  placeholder="0"
-                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-amber-300 rounded-xl font-mono font-bold text-amber-950 focus:outline-none focus:border-amber-600 text-xs"
-                />
               </div>
             </div>
           </div>

@@ -3181,57 +3181,136 @@ export class PosDatabase {
     catatan?: string;
   }): Promise<boolean> {
     const existing = await this.getPayrollList();
+    const hakPeriode = params.payroll.gaji_bersih || 0;
+    const sisaDisimpan = Math.max(0, hakPeriode - params.nominalDicairkan);
+    const tarikSimpanan = Math.max(0, params.nominalDicairkan - hakPeriode);
+
+    // 1. Update saldo simpanan (ala bank) sesuai selisih transfer vs hak periode ini
+    const labelPeriode = params.payroll.periode_tanggal || params.payroll.slip_no;
+    if (sisaDisimpan > 0) {
+      await this.setorTabunganKaryawan(
+        params.payroll.karyawan_id,
+        sisaDisimpan,
+        `Sisa Gaji Disimpan Otomatis (${labelPeriode})`
+      );
+    } else if (tarikSimpanan > 0) {
+      await this.tarikTabunganKaryawan(
+        params.payroll.karyawan_id,
+        tarikSimpanan,
+        `Pencairan Bersama Gaji (${labelPeriode})`,
+        'Pak Agan (Owner Pusat)'
+      );
+    }
+
+    const latestKars = await this.getAllKaryawan();
+    const latestKar = latestKars.find(k => k.id === params.payroll.karyawan_id);
+    const updatedSaldoSimpanan = latestKar?.total_tabungan || 0;
+
+    const paidRecordId = isValidUuid(params.payroll.id) ? params.payroll.id : generateUUID();
     const paidRecord: Payroll = {
       ...params.payroll,
+      id: paidRecordId,
       status: 'paid',
+      potongan_tabungan: 0,
+      total_tabungan_snapshot: updatedSaldoSimpanan,
       gaji_bersih: params.nominalDicairkan,
       tanggal_kunci: new Date().toISOString(),
-      keterangan: params.catatan || (params.biayaAdmin > 0 ? `Transfer via Bank (Admin: ${params.biayaAdmin})` : 'Transfer M-Banking Penuh'),
+      keterangan:
+        params.catatan ||
+        (sisaDisimpan > 0
+          ? `Transfer ${params.nominalDicairkan.toLocaleString('id-ID')} • Sisa ${sisaDisimpan.toLocaleString('id-ID')} masuk Saldo Simpanan`
+          : tarikSimpanan > 0
+            ? `Transfer ${params.nominalDicairkan.toLocaleString('id-ID')} (termasuk pencairan simpanan ${tarikSimpanan.toLocaleString('id-ID')})`
+            : 'Transfer M-Banking Penuh'),
     };
 
     // Replace or add
-    const updatedPayrolls = [paidRecord, ...existing.filter(p => p.id !== params.payroll.id && !(p.karyawan_id === params.payroll.karyawan_id && p.periode_bulan === params.payroll.periode_bulan && p.periode_tahun === params.payroll.periode_tahun))];
+    const updatedPayrolls = [
+      paidRecord,
+      ...existing.filter(
+        p =>
+          p.id !== params.payroll.id &&
+          p.id !== paidRecordId &&
+          !(p.karyawan_id === params.payroll.karyawan_id && p.periode_tanggal && p.periode_tanggal === params.payroll.periode_tanggal)
+      ),
+    ];
     saveLocal(STORAGE_KEYS.PAYROLL, updatedPayrolls);
 
-    // 1. Tandai seluruh kasbon karyawan ini sebagai LUNAS (is_settled: true)
+    // 2. Tandai seluruh kasbon approved karyawan ini s.d. periode ini sebagai LUNAS (is_settled: true)
+    const settledLoanIds = new Set((params.payroll.kasbon_details || []).map(k => k.id));
     const allExpenses = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
     const updatedExpenses = allExpenses.map(e => {
-      if (e.jenis === 'kasbon' && e.status === 'approved' && e.karyawan_id === params.payroll.karyawan_id) {
+      const matchLoan =
+        settledLoanIds.size > 0
+          ? settledLoanIds.has(e.id)
+          : (e.jenis === 'kasbon' && e.status === 'approved' && e.karyawan_id === params.payroll.karyawan_id);
+      if (matchLoan) {
         return { ...e, is_settled: true };
       }
       return e;
     });
 
-    // 2. Simpan mutasi penarikan dana payout agar muncul di Riwayat Penarikan Dana staf
-    const payoutRecord: PengeluaranKasbon = {
-      id: 'payout-' + Date.now(),
-      cabang_id: params.payroll.cabang_id,
-      cabang_nama: params.payroll.cabang_nama,
-      karyawan_id: params.payroll.karyawan_id,
-      pemohon_nama: params.payroll.karyawan_nama || 'Karyawan',
-      pemohon_telepon: params.payroll.karyawan_telepon,
-      jenis: 'kasbon',
-      keperluan: `Pencairan Gaji (Pelunasan) - Slip #${params.payroll.slip_no}`,
-      nominal: params.nominalDicairkan,
-      status: 'approved',
-      metode_pencairan: 'transfer',
-      bukti_transfer_url: params.buktiTransferUrl,
-      is_settled: true,
-      tanggal: new Date().toISOString(),
-      approved_by: 'Pak Agan (Owner Pusat)',
-      approved_at: new Date().toISOString(),
-    };
-    updatedExpenses.unshift(payoutRecord);
+    // 3. Simpan mutasi transfer bila ada dana yang benar-benar ditransfer (> 0)
+    if (params.nominalDicairkan > 0) {
+      const payoutRecord: PengeluaranKasbon = {
+        id: 'payout-' + Date.now(),
+        cabang_id: params.payroll.cabang_id,
+        cabang_nama: params.payroll.cabang_nama,
+        karyawan_id: params.payroll.karyawan_id,
+        pemohon_nama: params.payroll.karyawan_nama || 'Karyawan',
+        pemohon_telepon: params.payroll.karyawan_telepon,
+        jenis: 'kasbon',
+        keperluan: `Pencairan Gaji - ${labelPeriode} (Slip #${params.payroll.slip_no})`,
+        nominal: params.nominalDicairkan,
+        status: 'approved',
+        metode_pencairan: 'transfer',
+        bukti_transfer_url: params.buktiTransferUrl,
+        is_settled: true,
+        tanggal: new Date().toISOString(),
+        approved_by: 'Pak Agan (Owner Pusat)',
+        approved_at: new Date().toISOString(),
+      };
+      updatedExpenses.unshift(payoutRecord);
+    }
 
     saveLocal(STORAGE_KEYS.EXPENSES, updatedExpenses);
 
-    // Auto-Setor Tabungan Karyawan jika payroll menyertakan potongan tabungan rutin
-    if (params.payroll.potongan_tabungan && params.payroll.potongan_tabungan > 0) {
-      await this.setorTabunganKaryawan(
-        params.payroll.karyawan_id,
-        params.payroll.potongan_tabungan,
-        `Auto-Simpan Tabungan Gaji Mingguan (Slip #${params.payroll.slip_no})`
-      );
+    // Sync to Supabase (best-effort)
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const karUuid = getKaryawanUuid(params.payroll.karyawan_id);
+        const branchUuid = getBranchUuid(params.payroll.cabang_id);
+        if (karUuid && branchUuid) {
+          await supabase.from('payroll').insert([{
+            id: paidRecordId,
+            karyawan_id: karUuid,
+            cabang_id: branchUuid,
+            slip_no: paidRecord.slip_no,
+            periode_bulan: paidRecord.periode_bulan,
+            periode_tahun: paidRecord.periode_tahun,
+            tipe_gaji: paidRecord.tipe_gaji || 'harian',
+            total_kehadiran_hari: paidRecord.total_kehadiran_hari || 0,
+            upah_harian: paidRecord.upah_harian || 0,
+            gaji_pokok: paidRecord.gaji_pokok,
+            tunjangan: 0,
+            potongan_kasbon: paidRecord.potongan_kasbon || 0,
+            potongan_tabungan: 0,
+            total_tabungan_snapshot: updatedSaldoSimpanan,
+            gaji_bersih: params.nominalDicairkan,
+            status: 'paid',
+            tanggal_kunci: paidRecord.tanggal_kunci,
+            karyawan_telepon: paidRecord.karyawan_telepon || null,
+            keterangan: paidRecord.keterangan || null,
+          }]);
+          await supabase.from('pengeluaran_kasbon')
+            .update({ is_settled: true })
+            .eq('karyawan_id', karUuid)
+            .eq('jenis', 'kasbon')
+            .eq('status', 'approved');
+        }
+      } catch (e) {
+        console.warn('Supabase payoutKaryawanSalary sync error:', e);
+      }
     }
 
     if (typeof window !== 'undefined') {
