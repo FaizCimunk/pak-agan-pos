@@ -164,7 +164,7 @@ export default function AdminSidebar({
         </div>
 
         {item.badge ? (
-          <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] shadow-sm animate-pulse shrink-0">
+          <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] shadow-sm shrink-0">
             {item.badge}
           </span>
         ) : isActive ? (

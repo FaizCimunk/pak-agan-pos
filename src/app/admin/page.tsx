@@ -918,7 +918,16 @@ export default function AdminDashboardPage() {
       {/* 1. DEDICATED FINTECH LEFT SIDEBAR (PAK AGAN) */}
       <AdminSidebar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'approval') {
+            if (pendingExpenses.length === 0 && pendingAbsensi.length > 0) {
+              setApprovalSubTab('presensi');
+            } else if (pendingExpenses.length > 0) {
+              setApprovalSubTab('belanja');
+            }
+          }
+        }}
         pendingCount={totalPendingApprovals}
         pendingAbsensiCount={pendingAbsensi.length}
         onLogout={handleLogoutOwner}
@@ -961,7 +970,9 @@ export default function AdminDashboardPage() {
             <Menu className="w-3.5 h-3.5" />
             <span>Menu Admin</span>
             {totalPendingApprovals > 0 && (
-              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
+              <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black leading-none">
+                {totalPendingApprovals}
+              </span>
             )}
           </button>
         </div>
@@ -2022,7 +2033,7 @@ export default function AdminDashboardPage() {
                 <ShoppingBag className="w-4 h-4" />
                 <span>Tab 1: ACC Nota Belanja &amp; Kasbon</span>
                 {pendingExpenses.length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white font-extrabold text-[10px] animate-pulse">
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white font-extrabold text-[10px]">
                     {pendingExpenses.length}
                   </span>
                 )}
@@ -2040,7 +2051,7 @@ export default function AdminDashboardPage() {
                 <CalendarCheck className="w-4 h-4" />
                 <span>Tab 2: ACC Presensi Kerja</span>
                 {pendingAbsensi.length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] animate-pulse">
+                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px]">
                     {pendingAbsensi.length}
                   </span>
                 )}
@@ -2318,6 +2329,28 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
               </div>
+
+              {pendingExpenses.length > 0 && !filteredApprovalExpenses.some(e => e.status === 'pending') && (
+                <div className="mx-4 mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center space-x-2 text-amber-900 font-bold">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Ada {pendingExpenses.length} pengajuan menunggu ACC yang tersembunyi oleh filter tanggal/cabang/status saat ini.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setApprovalDateMode('all');
+                      setApprovalStatusFilter('pending');
+                      setApprovalJenisFilter('all');
+                      setApprovalCabangFilter('all');
+                      setApprovalSearch('');
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[11px] shrink-0 transition"
+                  >
+                    Tampilkan Semua Pending ({pendingExpenses.length})
+                  </button>
+                </div>
+              )}
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -2604,6 +2637,26 @@ export default function AdminDashboardPage() {
                       )}
                     </div>
                   </div>
+
+                  {pendingAbsensi.length > 0 && pendingInFiltered.length === 0 && (
+                    <div className="p-3 rounded-2xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center space-x-2 text-amber-900 font-bold">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Ada {pendingAbsensi.length} presensi menunggu ACC yang tersembunyi oleh filter cabang/tanggal/status saat ini.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCabangId('all');
+                          setAbsensiDateFilterMode('all');
+                          setAbsensiApprovalFilter('pending');
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[11px] shrink-0 transition"
+                      >
+                        Tampilkan Presensi Pending ({pendingAbsensi.length})
+                      </button>
+                    </div>
+                  )}
 
                   {/* Filter Controls Bar */}
                   <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-soft-sm flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -2895,7 +2948,7 @@ export default function AdminDashboardPage() {
                                         )}
                                       </div>
                                     ) : (
-                                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-extrabold inline-block animate-pulse">
+                                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-extrabold inline-block">
                                         ⏳ Menunggu ACC
                                       </span>
                                     )}

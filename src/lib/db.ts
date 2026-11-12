@@ -96,7 +96,7 @@ function saveLocal<T>(key: string, val: T): void {
   }
 }
 
-async function withQueryTimeout<T>(promise: PromiseLike<T>, ms = 4500): Promise<T> {
+async function withQueryTimeout<T>(promise: PromiseLike<T>, ms = 10000): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
@@ -1175,7 +1175,8 @@ export class PosDatabase {
   }
 
   getAbsensiListCached(karyawanId?: string, cabangId?: string, tanggal?: string): Absensi[] {
-    let result = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI)
+    const defaultLocal = isSupabaseConfigured ? [] : INITIAL_ABSENSI;
+    let result = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, defaultLocal)
       .map(a => this.decodeAbsensiRecord(a))
       .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
     if (cabangId && cabangId !== 'all') {
@@ -1216,7 +1217,8 @@ export class PosDatabase {
         console.warn('Fallback to local absensi:', e);
       }
     }
-    const all = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI).map(a =>
+    const defaultLocal = isSupabaseConfigured ? [] : INITIAL_ABSENSI;
+    const all = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, defaultLocal).map(a =>
       this.decodeAbsensiRecord(a)
     );
 
@@ -2327,7 +2329,8 @@ export class PosDatabase {
       }
     }
 
-    const local = loadLocal<Transaksi[]>(STORAGE_KEYS.TRANSAKSI, INITIAL_TRANSAKSI);
+    const defaultLocal = isSupabaseConfigured ? [] : INITIAL_TRANSAKSI;
+    const local = loadLocal<Transaksi[]>(STORAGE_KEYS.TRANSAKSI, defaultLocal);
 
     // Gabungkan cloud dan local dengan deduplikasi berdasar invoice_no atau id
     const combinedMap = new Map<string, Transaksi>();
@@ -2580,7 +2583,8 @@ export class PosDatabase {
   // APPROVAL CENTER: BELANJA & KASBON
   // --------------------------------------------------------------------------
   getPengeluaranListCached(cabangId?: string): PengeluaranKasbon[] {
-    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES)
+    const defaultLocal = isSupabaseConfigured ? [] : INITIAL_EXPENSES;
+    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, defaultLocal)
       .map(exp => ({
         ...exp,
         cabang_nama: resolveLiveBranchName(exp.cabang_id, exp.cabang_nama),
@@ -2595,6 +2599,7 @@ export class PosDatabase {
 
   async getPengeluaranList(cabangId?: string): Promise<PengeluaranKasbon[]> {
     let cloudExpenses: PengeluaranKasbon[] = [];
+    let cloudFetchOk = false;
     if (isSupabaseConfigured && supabase) {
       try {
         let query = supabase
@@ -2608,6 +2613,7 @@ export class PosDatabase {
         }
         const { data, error } = await withQueryTimeout(query);
         if (!error && data) {
+          cloudFetchOk = true;
           cloudExpenses = data.map((d: any) => ({
             ...d,
             cabang_nama: resolveLiveBranchName(d.cabang_id, d.cabang_nama),
@@ -2618,7 +2624,8 @@ export class PosDatabase {
       }
     }
 
-    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
+    const defaultLocal = isSupabaseConfigured ? [] : INITIAL_EXPENSES;
+    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, defaultLocal);
     const combinedMap = new Map<string, PengeluaranKasbon>();
     for (const exp of cloudExpenses) {
       combinedMap.set(exp.id, exp);
@@ -2661,7 +2668,7 @@ export class PosDatabase {
     const combined = Array.from(combinedMap.values()).sort(
       (a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
     );
-    if (cloudExpenses.length > 0) {
+    if (cloudFetchOk && (!cabangId || cabangId === 'all' || cloudExpenses.length > 0)) {
       saveLocalCache(STORAGE_KEYS.EXPENSES, combined);
     }
 
@@ -2692,7 +2699,7 @@ export class PosDatabase {
       tanggal: item.tanggal || new Date().toISOString(),
     };
 
-    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
+    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, isSupabaseConfigured ? [] : INITIAL_EXPENSES);
     all.unshift(newItem);
     saveLocalCache(STORAGE_KEYS.EXPENSES, all);
 
@@ -2754,7 +2761,7 @@ export class PosDatabase {
   ): Promise<boolean> {
     const nowIso = new Date().toISOString();
     const approver = params.approvedBy || 'Pak Agan (Owner)';
-    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
+    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, isSupabaseConfigured ? [] : INITIAL_EXPENSES);
     let targetExp = all.find(e => e.id === id);
 
     let updated = all.some(e => e.id === id)
@@ -2920,7 +2927,7 @@ export class PosDatabase {
   async rejectPengeluaran(id: string, alasan: string, rejectedBy?: string): Promise<boolean> {
     const nowIso = new Date().toISOString();
     const approver = rejectedBy || 'Pak Agan (Owner)';
-    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
+    const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, isSupabaseConfigured ? [] : INITIAL_EXPENSES);
     const updated = all.map(e => {
       if (e.id === id) {
         return {
