@@ -1,20 +1,57 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import Image from 'next/image';
 import { 
   X, 
   Banknote, 
   QrCode, 
   CheckCircle2, 
   Printer, 
-  ShieldCheck,
-  Smartphone,
-  Bike,
   Building2
 } from 'lucide-react';
 import { PaymentMethod, Cabang } from '@/lib/types';
 import { formatRupiah, formatNominal, parseNominal } from '@/lib/utils';
+
+const NON_CASH_CHANNEL_INFO: Record<
+  Exclude<PaymentMethod, 'tunai'>,
+  { label: string; note: string; containerCls: string; badgeCls: string; amountCls: string }
+> = {
+  qris: {
+    label: 'QRIS',
+    note: 'Scan QRIS di meja kasir — otomatis masuk rekap QRIS',
+    containerCls: 'bg-blue-50/80 border-blue-200 text-blue-950',
+    badgeCls: 'bg-blue-700 text-white',
+    amountCls: 'text-blue-950',
+  },
+  transfer: {
+    label: 'Transfer Bank',
+    note: 'Transfer rekening toko — otomatis masuk rekap Transfer',
+    containerCls: 'bg-indigo-50/80 border-indigo-200 text-indigo-950',
+    badgeCls: 'bg-indigo-700 text-white',
+    amountCls: 'text-indigo-950',
+  },
+  shopeefood: {
+    label: 'ShopeeFood / ShopeePay',
+    note: 'Non-tunai Shopee — otomatis masuk rekap ShopeeFood',
+    containerCls: 'bg-amber-50/80 border-amber-200 text-amber-950',
+    badgeCls: 'bg-amber-600 text-white',
+    amountCls: 'text-amber-950',
+  },
+  gofood: {
+    label: 'GoFood / GoBiz',
+    note: 'Non-tunai GoFood — otomatis masuk rekap GoFood',
+    containerCls: 'bg-rose-50/80 border-rose-200 text-rose-950',
+    badgeCls: 'bg-rose-600 text-white',
+    amountCls: 'text-rose-950',
+  },
+  grabfood: {
+    label: 'GrabFood',
+    note: 'Non-tunai GrabFood — otomatis masuk rekap GrabFood',
+    containerCls: 'bg-green-50/80 border-green-200 text-green-950',
+    badgeCls: 'bg-green-700 text-white',
+    amountCls: 'text-green-950',
+  },
+};
 
 interface PaymentModalProps {
   total: number;
@@ -270,175 +307,28 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* TAB 2: QRIS */}
-          {method === 'qris' && (
-            <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 text-blue-950 space-y-3 text-center">
-              <div className="flex items-center justify-center space-x-2">
-                <span className="px-2 py-0.5 rounded bg-blue-700 text-white font-black text-[11px] tracking-wider">
-                  QRIS
-                </span>
-                <span className="text-xs font-bold text-blue-900">Pembayaran Digital Dinamis</span>
-              </div>
-
-              {/* QR Code Graphic Box */}
-              <div className="bg-white p-3 rounded-2xl border-2 border-blue-300 w-44 mx-auto shadow-sm space-y-1.5 flex flex-col items-center">
-                <div className="w-36 h-36 bg-slate-900 rounded-xl p-2 flex items-center justify-center relative overflow-hidden">
-                  <div className="w-full h-full border-2 border-white/80 rounded-lg flex flex-col justify-between p-1">
-                    <div className="flex justify-between">
-                      <div className="w-7 h-7 bg-white rounded-sm p-1">
-                        <div className="w-full h-full bg-slate-900 rounded-xs" />
-                      </div>
-                      <div className="w-7 h-7 bg-white rounded-sm p-1">
-                        <div className="w-full h-full bg-slate-900 rounded-xs" />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center">
-                      <span className="text-[10px] font-black text-amber-300 bg-emerald-950 px-1 py-0.2 rounded">
-                        🥞 BAWEL
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-end">
-                      <div className="w-7 h-7 bg-white rounded-sm p-1">
-                        <div className="w-full h-full bg-slate-900 rounded-xs" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-0.5 w-6 h-6">
-                        <div className="bg-white/90 rounded-2xs" />
-                        <div className="bg-white/40 rounded-2xs" />
-                        <div className="bg-white/50 rounded-2xs" />
-                        <div className="bg-white/90 rounded-2xs" />
-                      </div>
-                    </div>
-                  </div>
+          {/* NON-TUNAI (QRIS / Transfer / ShopeeFood / GoFood / GrabFood) - Ringkas & Nominal Jelas */}
+          {method !== 'tunai' && (() => {
+            const info = NON_CASH_CHANNEL_INFO[method];
+            return (
+              <div className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${info.containerCls}`}>
+                <div className="space-y-1 min-w-0">
+                  <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${info.badgeCls}`}>
+                    {info.label}
+                  </span>
+                  <p className="text-[11px] font-semibold leading-snug opacity-85">
+                    {info.note}
+                  </p>
                 </div>
-                <div className="text-[9px] font-mono text-slate-500 font-bold">
-                  NMID: ID102008820192
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] font-bold uppercase opacity-70 block">Nominal Pas</span>
+                  <span className={`text-xl font-mono font-black tabular-nums ${info.amountCls}`}>
+                    {formatRupiah(total)}
+                  </span>
                 </div>
               </div>
-
-              <div className="space-y-1">
-                <div className="font-mono font-black text-lg text-blue-950">
-                  {formatRupiah(total)}
-                </div>
-                <p className="text-[11px] text-blue-800 leading-snug">
-                  Pelanggan scan menggunakan <strong>M-Banking (Semua Bank) atau E-Wallet (GoPay, OVO, Dana, ShopeePay)</strong>.
-                </p>
-                <div className="text-[10px] text-emerald-700 font-bold flex items-center justify-center space-x-1 pt-0.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Uang langsung masuk otomatis ke rekening pusat</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: TRANSFER BANK (REKENING PUSAT) */}
-          {method === 'transfer' && (
-            <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-indigo-950 space-y-3">
-              <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
-                    <Building2 className="w-4 h-4" />
-                  </div>
-                  <div className="text-left">
-                    <h4 className="font-extrabold text-xs text-indigo-950">Transfer Bank Rekening Pusat</h4>
-                    <span className="text-[10px] text-indigo-700">BCA &amp; Mandiri Resmi Perusahaan</span>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-200 text-indigo-900">
-                  Rekening Owner
-                </span>
-              </div>
-
-              {/* Rincian Nomor Rekening Transfer */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
-                <div className="p-2.5 rounded-xl bg-white border border-indigo-100 shadow-xs space-y-0.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Bank BCA</span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800">BCA 014</span>
-                  </div>
-                  <div className="font-mono font-black text-sm text-slate-900 tracking-wider">
-                    8465-102-888
-                  </div>
-                  <div className="text-[10px] text-slate-500">
-                    a.n. SERABI BAWEL &amp; WEDANG GEPREK
-                  </div>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-white border border-indigo-100 shadow-xs space-y-0.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Bank Mandiri</span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900">MDR 008</span>
-                  </div>
-                  <div className="font-mono font-black text-sm text-slate-900 tracking-wider">
-                    137-00-1988888-2
-                  </div>
-                  <div className="text-[10px] text-slate-500">
-                    a.n. PAK AGAN HERBAL PUSAT
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-indigo-100/60 text-indigo-900 text-center space-y-1">
-                <div className="text-xs font-mono font-black text-indigo-950">
-                  Total Transfer: {formatRupiah(total)}
-                </div>
-                <p className="text-[11px] text-indigo-800 leading-snug">
-                  Kasir memeriksa mutasi / bukti transfer pembeli. Uang langsung masuk rekening pusat dan tercatat otomatis di mutasi transfer dashboard pusat.
-                </p>
-                <div className="text-[10px] text-emerald-700 font-bold flex items-center justify-center space-x-1 pt-0.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Otomatis menambah saldo transfer rekening pusat</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: SHOPEEFOOD / SHOPEEPAY */}
-          {method === 'shopeefood' && (
-            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-amber-950 space-y-2 text-center">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-lg font-black mx-auto shadow-sm">
-                S
-              </div>
-              <h4 className="font-extrabold text-sm">Pesanan Masuk via ShopeeFood / ShopeePay</h4>
-              <p className="text-[11px] text-amber-800 leading-snug">
-                Pembayaran otomatis lunas melalui saldo merchant Shopee. Kasir tidak memegang uang fisik. Pendapatan ini otomatis tercatat di rekap <strong>ShopeePay</strong> di dashboard Boss.
-              </p>
-              <div className="font-mono font-black text-base text-amber-900 pt-1">
-                Total Tagihan: {formatRupiah(total)}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: GOFOOD / GOBIZ */}
-          {method === 'gofood' && (
-            <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-200 text-rose-950 space-y-2 text-center">
-              <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center text-lg font-black mx-auto shadow-sm">
-                G
-              </div>
-              <h4 className="font-extrabold text-sm">Pesanan Masuk via GoFood / GoBiz</h4>
-              <p className="text-[11px] text-rose-800 leading-snug">
-                Pembayaran otomatis lunas melalui saldo GoBiz / GoPay. Kasir tidak memegang uang fisik. Pendapatan ini otomatis tercatat di rekap <strong>GoFood / GoPay</strong> di dashboard Boss.
-              </p>
-              <div className="font-mono font-black text-base text-rose-900 pt-1">
-                Total Tagihan: {formatRupiah(total)}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: GRABFOOD / GRABMERCHANT */}
-          {method === 'grabfood' && (
-            <div className="p-4 rounded-2xl bg-green-50/70 border border-green-200 text-green-950 space-y-2 text-center">
-              <div className="w-10 h-10 rounded-2xl bg-green-600 text-white flex items-center justify-center text-lg font-black mx-auto shadow-sm">
-                G
-              </div>
-              <h4 className="font-extrabold text-sm">Pesanan Masuk via GrabFood / GrabMerchant</h4>
-              <p className="text-[11px] text-green-800 leading-snug">
-                Pembayaran otomatis lunas melalui saldo GrabMerchant / OVO. Kasir tidak memegang uang fisik. Pendapatan ini otomatis tercatat di rekap <strong>GrabFood</strong> di dashboard Boss.
-              </p>
-              <div className="font-mono font-black text-base text-green-900 pt-1">
-                Total Tagihan: {formatRupiah(total)}
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Print Checkbox */}
           <div className="pt-2 flex items-center space-x-2 border-t border-slate-100">
