@@ -404,16 +404,16 @@ export default function PosCartDrawer({
         )}
       </div>
 
-      {/* Drawer Footer & Checkout Button */}
-      <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/90 space-y-3">
+      {/* Drawer Footer & Checkout Button (Compact & Always 100% Visible) */}
+      <div className="p-2.5 sm:p-3 border-t border-slate-100 bg-slate-50/90 space-y-2 shrink-0">
         <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+          <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
             <span>Subtotal ({totalQty} item)</span>
             <span className="font-mono tabular-nums">{formatRupiah(subtotal)}</span>
           </div>
-          <div className="flex items-center justify-between text-sm font-bold text-slate-900 pt-1.5 border-t border-slate-200/70">
+          <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-slate-900 pt-1 border-t border-slate-200/70">
             <span>TOTAL TAGIHAN</span>
-            <span className="text-xl font-mono font-extrabold text-brand-dark tabular-nums tracking-tight">
+            <span className="text-lg sm:text-xl font-mono font-extrabold text-brand-dark tabular-nums tracking-tight">
               {formatRupiah(total)}
             </span>
           </div>
@@ -423,18 +423,18 @@ export default function PosCartDrawer({
         {!isShiftOpen ? (
           <button
             onClick={onCheckout}
-            className="w-full py-3.5 px-4 rounded-xl bg-slate-200 text-slate-400 font-extrabold text-sm cursor-not-allowed"
+            className="w-full py-2.5 px-3 rounded-xl bg-slate-200 text-slate-400 font-extrabold text-xs cursor-not-allowed"
             disabled
           >
             Buka Shift Terlebih Dahulu
           </button>
         ) : (
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          <div className="grid grid-cols-2 gap-1.5 pt-0.5">
             <button
               type="button"
               onClick={onSaveOpenBill}
               disabled={items.length === 0}
-              className={`py-3 px-2 rounded-xl flex items-center justify-center space-x-1.5 font-extrabold text-xs transition-all btn-tactile ${
+              className={`py-2.5 px-2 rounded-xl flex items-center justify-center space-x-1 font-extrabold text-xs transition-all btn-tactile ${
                 items.length === 0
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/25 active:scale-95'
@@ -442,21 +442,21 @@ export default function PosCartDrawer({
               title="Simpan pesanan untuk dimasak dan dibayar nanti"
             >
               <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{isEditingOpenBill ? 'Simpan & Tiket Dapur' : 'Bayar Nanti'}</span>
+              <span className="truncate">{isEditingOpenBill ? 'Simpan & Tiket' : 'Bayar Nanti'}</span>
             </button>
 
             <button
               type="button"
               onClick={onCheckout}
               disabled={items.length === 0}
-              className={`py-3 px-2 rounded-xl flex items-center justify-center space-x-1.5 font-extrabold text-xs transition-all btn-tactile ${
+              className={`py-2.5 px-2 rounded-xl flex items-center justify-center space-x-1 font-extrabold text-xs transition-all btn-tactile ${
                 items.length === 0
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/25 active:scale-95'
               }`}
               title="Bayar langsung lunas di kasir"
             >
-              <span className="truncate">{isEditingOpenBill ? 'Bayar Lunas Sekarang' : 'Bayar Lunas'}</span>
+              <span className="truncate">{isEditingOpenBill ? 'Bayar Lunas' : 'Bayar Lunas'}</span>
               {items.length > 0 && <ArrowRight className="w-3.5 h-3.5 shrink-0" />}
             </button>
           </div>

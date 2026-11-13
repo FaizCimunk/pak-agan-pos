@@ -23,12 +23,14 @@ interface PosTouchGridProps {
   kategoriList?: KategoriMenu[];
   onAddToCart: (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number, varianNama?: string) => void;
   cart?: CartItem[];
+  isLandscape?: boolean;
 }
 
 export default function PosTouchGrid({
   menuList,
   onAddToCart,
   cart = [],
+  isLandscape = false,
 }: PosTouchGridProps) {
   const [selectedKatId, setSelectedKatId] = useState<'all' | 'serabi' | 'minuman' | 'makanan'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -90,10 +92,10 @@ export default function PosTouchGrid({
   };
 
   return (
-    <div className="flex flex-col h-full space-y-2">
+    <div className={`flex flex-col h-full ${isLandscape ? 'space-y-1.5' : 'space-y-2'}`}>
       
       {/* 1. Baris Pencarian Menu Penuh & Jelas */}
-      <div className="bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-soft-sm flex items-center gap-2">
+      <div className={`bg-white ${isLandscape ? 'p-1.5 sm:p-2 rounded-xl' : 'p-2 sm:p-2.5 rounded-2xl'} border border-slate-200/90 shadow-soft-sm flex items-center gap-2 shrink-0`}>
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -101,7 +103,7 @@ export default function PosTouchGrid({
             placeholder="Cari Serabi Bawel, Wedang Rempah, STMJ, Makanan..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-8 py-1.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-800 placeholder-slate-400 transition-all"
+            className={`w-full pl-9 pr-8 ${isLandscape ? 'py-1 text-xs' : 'py-1.5 text-xs sm:text-sm'} bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-800 placeholder-slate-400 transition-all`}
           />
           {searchQuery && (
             <button
@@ -114,20 +116,20 @@ export default function PosTouchGrid({
           )}
         </div>
 
-        <div className="hidden sm:flex items-center px-2.5 py-1.5 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold shrink-0 border border-emerald-200/60">
+        <div className="hidden sm:flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold shrink-0 border border-emerald-200/60">
           <UtensilsCrossed className="w-3.5 h-3.5 mr-1 text-emerald-600" />
           <span>{filteredMenu.length} Menu</span>
         </div>
       </div>
 
       {/* 2. Baris Kategori Menu Sederhana: 3 Kategori Utama (Serabi, Minuman, Makanan) */}
-      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 select-none">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 select-none shrink-0">
         
         {/* Semua */}
         <button
           type="button"
           onClick={() => setSelectedKatId('all')}
-          className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
+          className={`flex items-center space-x-1.5 ${isLandscape ? 'px-2 py-1 text-[11px]' : 'px-2.5 sm:px-3 py-1.5 text-xs'} rounded-xl font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
             selectedKatId === 'all'
               ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-600/30'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
@@ -228,7 +230,7 @@ export default function PosTouchGrid({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 pb-4">
+          <div className={`grid ${isLandscape ? 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'} gap-2 pb-3`}>
             {filteredMenu.map(item => {
               const inCartQty = getItemQtyInCart(item.id);
               const isTapped = tappedItemId === item.id;

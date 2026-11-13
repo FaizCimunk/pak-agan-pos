@@ -73,6 +73,25 @@ export default function PosPage() {
   const [kitchenTicketTrx, setKitchenTicketTrx] = useState<Transaksi | null>(null);
   const [orientationMode, setOrientationMode] = useState<'portrait' | 'landscape'>('portrait');
   const [orientationFeedback, setOrientationFeedback] = useState<string | null>(null);
+  const [isScreenLandscape, setIsScreenLandscape] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkScreenOrientation = () => {
+      if (typeof window === 'undefined') return;
+      const isLand = window.innerWidth > window.innerHeight && window.innerWidth >= 520;
+      setIsScreenLandscape(isLand);
+    };
+
+    checkScreenOrientation();
+    window.addEventListener('resize', checkScreenOrientation);
+    window.addEventListener('orientationchange', checkScreenOrientation);
+    return () => {
+      window.removeEventListener('resize', checkScreenOrientation);
+      window.removeEventListener('orientationchange', checkScreenOrientation);
+    };
+  }, []);
+
+  const isLandscapeLayout = orientationMode === 'landscape' || isScreenLandscape;
 
   const router = useRouter();
   const currentCabangRef = useRef<Cabang | null>(null);
@@ -739,29 +758,31 @@ export default function PosPage() {
       />
 
       {/* Main Dual-Pane POS Interface */}
-      <main className="pos-main-pane flex-1 flex overflow-hidden p-2.5 sm:p-3.5 md:p-4 gap-2.5 sm:gap-3.5 md:gap-4 max-w-[1440px] mx-auto w-full">
+      <main className={`pos-main-pane flex-1 flex overflow-hidden ${isLandscapeLayout ? 'p-1.5 sm:p-2 md:p-3 gap-1.5 sm:gap-2 md:gap-3' : 'p-2.5 sm:p-3.5 md:p-4 gap-2.5 sm:gap-3.5 md:gap-4'} max-w-[1440px] mx-auto w-full`}>
         
         {/* Left Side: POS Touch Grid */}
         <section className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {editingBill && (
-            <div className="mb-2.5 px-3 py-2 rounded-2xl bg-amber-500 text-white shadow-md flex items-center justify-between gap-2 text-xs shrink-0 animate-fadeIn">
+            <div className="mb-2 px-3 py-1.5 rounded-xl bg-amber-500 text-white shadow-md flex items-center justify-between gap-2 text-xs shrink-0 animate-fadeIn">
               <div className="min-w-0">
                 <div className="font-black truncate flex items-center space-x-1.5">
                   <span>✏️</span>
                   <span className="truncate">Tambah Pesanan: {penanda || 'Belum Bayar'}</span>
                 </div>
                 <div className="text-[10px] text-amber-100 truncate">
-                  Ketuk menu di bawah untuk menambah, lalu buka keranjang untuk Simpan / Bayar.
+                  Ketuk menu di bawah untuk menambah, lalu simpan / bayar di panel kanan.
                 </div>
               </div>
               <div className="flex items-center space-x-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsMobileCartOpen(true)}
-                  className="md:hidden px-2.5 py-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-[11px] shadow-xs"
-                >
-                  Lihat ({cart.reduce((sum, it) => sum + it.qty, 0)})
-                </button>
+                {!isLandscapeLayout && (
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileCartOpen(true)}
+                    className="md:hidden px-2.5 py-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-[11px] shadow-xs"
+                  >
+                    Lihat ({cart.reduce((sum, it) => sum + it.qty, 0)})
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -781,11 +802,12 @@ export default function PosPage() {
             kategoriList={kategoriList}
             onAddToCart={handleAddToCart}
             cart={cart}
+            isLandscape={isLandscapeLayout}
           />
         </section>
 
-        {/* Right Side: Order Cart Drawer (Landscape / Tablet / Desktop Screen) */}
-        <aside className="hidden md:flex w-72 md:w-80 lg:w-96 flex-col shrink-0 h-full">
+        {/* Right Side: Order Cart Drawer (Always side-by-side in Landscape, and on md+ Desktop) */}
+        <aside className={`${isLandscapeLayout ? 'flex w-64 sm:w-72 md:w-80 lg:w-96' : 'hidden md:flex w-72 md:w-80 lg:w-96'} flex-col shrink-0 h-full`}>
           <PosCartDrawer
             items={cart}
             customerName={customerName}
@@ -811,8 +833,8 @@ export default function PosPage() {
 
       </main>
 
-      {/* Floating Checkout Bar for Portrait Smartphone (< md screens) */}
-      {cart.length > 0 && (
+      {/* Floating Checkout Bar for Portrait Smartphone (hidden when in landscape layout) */}
+      {!isLandscapeLayout && cart.length > 0 && (
         <div className="md:hidden fixed bottom-3 left-3 right-3 z-30 animate-fadeIn">
           <button
             onClick={() => setIsMobileCartOpen(true)}
@@ -840,8 +862,8 @@ export default function PosPage() {
         </div>
       )}
 
-      {/* Mobile Cart Bottom Sheet Modal */}
-      {isMobileCartOpen && (
+      {/* Mobile Cart Bottom Sheet Modal (only needed in portrait mode) */}
+      {!isLandscapeLayout && isMobileCartOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fadeIn p-0 sm:p-3">
           <div className="w-full max-w-md h-[95vh] sm:h-[92vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col p-1 sm:p-2">
             <PosCartDrawer
