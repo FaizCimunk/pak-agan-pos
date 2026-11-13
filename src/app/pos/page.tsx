@@ -862,10 +862,16 @@ export default function PosPage() {
         </div>
       )}
 
-      {/* Mobile Cart Bottom Sheet Modal (only needed in portrait mode) */}
-      {!isLandscapeLayout && isMobileCartOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-fadeIn p-0 sm:p-3">
-          <div className="w-full max-w-md h-[95vh] sm:h-[92vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col p-1 sm:p-2">
+      {/* Mobile Cart Drawer (Full-Height on right for Landscape, Bottom Sheet for Portrait) */}
+      {isMobileCartOpen && (
+        <div 
+          className="md:hidden fixed inset-0 z-50 flex items-end sm:items-stretch sm:justify-end bg-slate-950/65 backdrop-blur-sm animate-fadeIn p-0 sm:p-2"
+          onClick={() => setIsMobileCartOpen(false)}
+        >
+          <div 
+            className="w-full max-w-md sm:max-w-lg h-[92vh] sm:h-full bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             <PosCartDrawer
               items={cart}
               customerName={customerName}

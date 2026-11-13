@@ -158,14 +158,14 @@ export default function ExpenseRequestModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-3 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full h-full sm:h-auto max-h-[98vh] shadow-2xl border border-slate-100 overflow-hidden flex flex-col min-h-0">
         
         {/* Header */}
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-700 via-emerald-800 to-emerald-900 text-white">
+        <div className="px-4 py-2 sm:px-5 sm:py-3 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-700 via-emerald-800 to-emerald-900 text-white shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-xl bg-white/15 border border-white/20 text-white flex items-center justify-center font-bold shadow-xs">
-              <ShoppingBag className="w-5 h-5 text-emerald-200" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/15 border border-white/20 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-200" />
             </div>
             <div>
               <div className="flex items-center space-x-1.5">
@@ -174,14 +174,14 @@ export default function ExpenseRequestModal({
                   #{cabang.nomor || '01'}
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-100/90 font-medium">
-                Pencatatan kas kecil & approval owner
+              <p className="text-[10px] sm:text-[11px] text-emerald-100/90 font-medium">
+                Pencatatan kas kecil &amp; approval owner
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -195,7 +195,7 @@ export default function ExpenseRequestModal({
               setActiveTab('form');
               setSubmittedItem(null);
             }}
-            className={`py-2 px-3 rounded-xl flex items-center justify-center space-x-1.5 transition-all ${
+            className={`py-1.5 sm:py-2 px-3 rounded-xl flex items-center justify-center space-x-1.5 transition-all ${
               activeTab === 'form'
                 ? 'bg-white text-emerald-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -208,7 +208,7 @@ export default function ExpenseRequestModal({
           <button
             type="button"
             onClick={() => setActiveTab('history')}
-            className={`py-2 px-3 rounded-xl flex items-center justify-center space-x-1.5 transition-all ${
+            className={`py-1.5 sm:py-2 px-3 rounded-xl flex items-center justify-center space-x-1.5 transition-all ${
               activeTab === 'history'
                 ? 'bg-white text-emerald-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -235,7 +235,7 @@ export default function ExpenseRequestModal({
         </div>
 
         {/* Content */}
-        <div className="p-5 overflow-y-auto space-y-4">
+        <div className="p-3 sm:p-4 overflow-y-auto space-y-3 flex-1 min-h-0">
           
           {/* TAB 1: FORM PENGAJUAN */}
           {activeTab === 'form' && (

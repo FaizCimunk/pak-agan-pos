@@ -98,11 +98,11 @@ export default function PosCartDrawer({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl border border-slate-200/90 shadow-soft-md overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 bg-white rounded-2xl border border-slate-200/90 shadow-soft-md overflow-hidden">
       
       {/* Top Banner jika sedang Edit Pesanan Belum Bayar */}
       {isEditingOpenBill && (
-        <div className="bg-amber-500 text-white px-3.5 py-2 flex items-center justify-between gap-2 text-xs animate-fadeIn shrink-0">
+        <div className="bg-amber-500 text-white px-3.5 py-1.5 flex items-center justify-between gap-2 text-xs animate-fadeIn shrink-0">
           <div className="flex items-center space-x-1.5 font-bold truncate min-w-0">
             <span>✏️</span>
             <span className="truncate">Mengubah: <strong>{penanda || 'Belum Bayar'}</strong> {editingBillInvoice ? `(${editingBillInvoice})` : ''}</span>
@@ -112,20 +112,20 @@ export default function PosCartDrawer({
               <button
                 type="button"
                 onClick={onCloseMobile}
-                className="lg:hidden text-[10px] font-black bg-emerald-700 hover:bg-emerald-800 text-white px-2.5 py-1 rounded-lg transition-colors shadow-xs"
+                className="lg:hidden text-[10px] font-black bg-emerald-700 hover:bg-emerald-800 text-white px-2 py-0.5 rounded-lg transition-colors shadow-xs"
                 title="Kembali ke daftar menu untuk tambah pesanan"
               >
-                + Tambah Menu
+                + Tambah
               </button>
             )}
             {onCancelEditOpenBill && (
               <button
                 type="button"
                 onClick={onCancelEditOpenBill}
-                className="text-[10px] font-black bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg transition-colors"
+                className="text-[10px] font-black bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-lg transition-colors"
                 title="Batal mengubah dan kembalikan keranjang"
               >
-                Batal Edit
+                Batal
               </button>
             )}
           </div>
@@ -133,9 +133,9 @@ export default function PosCartDrawer({
       )}
 
       {/* Drawer Header */}
-      <div className="p-3 sm:p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
+      <div className="p-2.5 sm:p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
         <div className="flex items-center space-x-2 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-emerald-600/10 text-emerald-800 flex items-center justify-center shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-emerald-600/10 text-emerald-800 flex items-center justify-center shrink-0">
             <ShoppingBag className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0">
@@ -183,50 +183,50 @@ export default function PosCartDrawer({
         </div>
       </div>
 
-      {/* Sleek Compact Penanda / Tanda Nama Bar (Hemat Tempat, Kasir Leluasa Scroll) */}
-      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200/80 flex items-center gap-1.5 shrink-0">
-        <div className="flex items-center space-x-1 shrink-0 text-slate-600">
-          <Tag className="w-3 h-3 text-amber-600" />
-          <span className="text-[10px] font-black uppercase tracking-tight">Tanda / Nama:</span>
+      {/* Prominent Penanda / Tanda Nama Bar (Mudah Diketik di Tablet & HP Miring) */}
+      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200/90 flex flex-col gap-1 shrink-0">
+        <div className="flex items-center justify-between">
+          <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 flex items-center space-x-1">
+            <Tag className="w-3 h-3 text-amber-600" />
+            <span>Tanda / Nama Meja:</span>
+          </label>
+          <div className="flex items-center space-x-1 shrink-0">
+            {['01', '02', '03', '04', '05'].map(num => (
+              <button
+                key={num}
+                type="button"
+                onClick={() => onPenandaChange(`No. ${num}`)}
+                className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-bold transition-all ${
+                  penanda === `No. ${num}`
+                    ? 'bg-emerald-700 text-white shadow-2xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
         </div>
 
         <input
           type="text"
           value={penanda}
           onChange={(e) => onPenandaChange(e.target.value)}
-          placeholder="Tanda / nama pemesan (No. 01 / Pak Budi / dll)..."
-          className="flex-1 min-w-0 px-2 py-0.5 bg-white rounded-lg border border-slate-300 font-bold text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
+          placeholder="Tulis no. meja / nama pemesan (cth: No. 01 / Pak Budi)..."
+          className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-300 font-extrabold text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
         />
-
-        {/* Quick Numbers */}
-        <div className="flex items-center space-x-1 shrink-0 overflow-x-auto no-scrollbar max-w-[130px] sm:max-w-none">
-          {['01', '02', '03', '04', '05', '06', '07', '08'].map(num => (
-            <button
-              key={num}
-              type="button"
-              onClick={() => onPenandaChange(`No. ${num}`)}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 transition-colors ${
-                penanda === `No. ${num}`
-                  ? 'bg-emerald-700 text-white shadow-2xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              {num}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* Cart Items List */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2.5">
+      {/* Cart Items List (min-h-0 prevents flex collapse, compact cards guarantee 100% visibility) */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-2.5 space-y-1.5">
         {items.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 py-12">
-            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
-              <ShoppingBag className="w-7 h-7 text-slate-300" />
+          <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 py-8">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-2">
+              <ShoppingBag className="w-6 h-6 text-slate-300" />
             </div>
-            <p className="font-bold text-slate-600 text-sm">Keranjang Masih Kosong</p>
-            <p className="text-xs text-slate-400 max-w-[200px] mt-1">
-              Sentuh menu di sebelah kiri untuk menambah ke pesanan
+            <p className="font-bold text-slate-600 text-xs">Keranjang Masih Kosong</p>
+            <p className="text-[11px] text-slate-400 max-w-[180px] mt-0.5">
+              Sentuh menu di katalog untuk menambah ke pesanan
             </p>
           </div>
         ) : (
@@ -235,109 +235,65 @@ export default function PosCartDrawer({
             const isDrink = station === 'wedang';
             const unitPrice = getCartItemUnitPrice(item);
             const lineSubtotal = unitPrice * item.qty;
-
-            // Cukup 2 pilihan cepat (Bungkus & Makan Sini) serta tulis catatan sendiri
             const quickTags = ['Bungkus', 'Makan Sini'];
 
             return (
               <div
                 key={`${item.menu.id}-${index}`}
-                className="p-3 rounded-2xl bg-slate-50/90 border border-slate-100 hover:border-slate-200 transition-all flex flex-col space-y-2"
+                className="p-2 sm:p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/90 hover:border-slate-300 transition-all flex flex-col gap-1 shadow-2xs"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 pr-2">
-                    <div className="flex items-center space-x-1.5 flex-wrap">
-                      {isDrink && item.temperature && (
-                        <button
-                          type="button"
-                          onClick={() => onToggleTemperature && onToggleTemperature(index)}
-                          className={`inline-flex items-center px-1.5 py-0.2 rounded-md font-extrabold text-[9px] shrink-0 border cursor-pointer ${
-                            item.temperature === 'dingin'
-                              ? 'bg-sky-100 text-sky-900 border-sky-300'
-                              : 'bg-amber-100 text-amber-900 border-amber-300'
-                          }`}
-                          title="Klik untuk ubah suhu Panas / Es"
-                        >
-                          {item.temperature === 'dingin' ? '🧊 Es' : '🔥 Panas'}
-                        </button>
-                      )}
-                      {item.varian_nama && (
-                        <span className="inline-flex items-center px-1.5 py-0.2 rounded-md font-extrabold text-[9px] shrink-0 bg-purple-100 text-purple-900 border border-purple-200">
-                          🏷️ {item.varian_nama}
-                        </span>
-                      )}
-                      <h4 className="font-extrabold text-xs text-slate-900 leading-snug">
-                        {item.menu.nama}
-                      </h4>
-                    </div>
-
-                    <span className="text-[11px] font-mono font-medium text-slate-500 tabular-nums block mt-0.5">
-                      @ {formatRupiah(unitPrice)}
-                    </span>
+                {/* Top Row: Name, Temp/Variant, Subtotal & Trash */}
+                <div className="flex items-center justify-between gap-1.5">
+                  <div className="flex items-center space-x-1.5 flex-1 min-w-0">
+                    {isDrink && item.temperature && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleTemperature && onToggleTemperature(index)}
+                        className={`inline-flex items-center px-1.5 py-0.2 rounded font-extrabold text-[9px] shrink-0 border cursor-pointer ${
+                          item.temperature === 'dingin'
+                            ? 'bg-sky-100 text-sky-900 border-sky-300'
+                            : 'bg-amber-100 text-amber-900 border-amber-300'
+                        }`}
+                        title="Klik untuk ubah suhu Panas / Es"
+                      >
+                        {item.temperature === 'dingin' ? '🧊 Es' : '🔥 Panas'}
+                      </button>
+                    )}
+                    {item.varian_nama && (
+                      <span className="inline-flex items-center px-1.5 py-0.2 rounded font-extrabold text-[9px] shrink-0 bg-purple-100 text-purple-900 border border-purple-200">
+                        🏷️ {item.varian_nama}
+                      </span>
+                    )}
+                    <h4 className="font-black text-xs text-slate-900 truncate leading-tight">
+                      {item.menu.nama}
+                    </h4>
                   </div>
 
-                  <span className="font-mono font-black text-xs text-brand-dark tabular-nums">
-                    {formatRupiah(lineSubtotal)}
-                  </span>
+                  {/* Subtotal & Delete */}
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    <span className="font-mono font-black text-xs text-brand-dark tabular-nums">
+                      {formatRupiah(lineSubtotal)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveItem(index)}
+                      className="text-slate-400 hover:text-rose-500 p-0.5 transition-colors"
+                      title="Hapus menu ini"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Notes Display or Input with Quick Note Pills Sesuai Kategori */}
-                {editingNoteIndex === index ? (
-                  <div className="flex items-center space-x-1.5 pt-1">
-                    <input
-                      type="text"
-                      value={tempNote}
-                      onChange={(e) => setTempNote(e.target.value)}
-                      placeholder="Contoh: Bungkus, sedikit gula..."
-                      className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-brand-primary"
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleSaveNote(index)}
-                      className="px-2.5 py-1 text-xs font-bold bg-brand-primary text-white rounded-lg cursor-pointer"
-                    >
-                      Simpan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingNoteIndex(null)}
-                      className="px-2 py-1 text-xs text-slate-500 hover:bg-slate-200 rounded-lg cursor-pointer"
-                    >
-                      Batal
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 pt-0.5">
-                    {item.catatan ? (
-                      <div className="flex items-center justify-between bg-amber-50/90 border border-amber-300/80 rounded-lg px-2 py-1">
-                        <span className="text-[11px] font-black text-amber-950 flex items-center space-x-1">
-                          <span>📝</span>
-                          <span className="font-mono uppercase tracking-tight">{item.catatan}</span>
-                        </span>
-                        <div className="flex items-center space-x-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleStartEditNote(index, item.catatan)}
-                            className="p-1 text-amber-700 hover:text-amber-900 cursor-pointer"
-                            title="Ubah catatan"
-                          >
-                            <Edit3 className="w-3 h-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onUpdateNotes(index, '')}
-                            className="p-1 text-rose-500 hover:text-rose-700 text-xs font-bold cursor-pointer"
-                            title="Hapus catatan"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
+                {/* Middle Row: Unit Price + Quick Notes + Stepper */}
+                <div className="flex items-center justify-between gap-1 pt-0.5">
+                  <div className="flex items-center space-x-1.5 min-w-0 flex-1 flex-wrap">
+                    <span className="text-[10px] font-mono text-slate-500 tabular-nums shrink-0">
+                      @{formatRupiah(unitPrice)}
+                    </span>
 
-                    {/* Catatan Cepat: Cukup Bungkus, Makan Sini & Tulis Catatan Sendiri */}
-                    <div className="flex items-center space-x-1.5 text-[10px] pt-0.5">
+                    {/* Quick notes pills */}
+                    <div className="flex items-center space-x-1 shrink-0">
                       {quickTags.map(tag => {
                         const isSelected = (item.catatan || '').toLowerCase().includes(tag.toLowerCase());
                         return (
@@ -345,59 +301,96 @@ export default function PosCartDrawer({
                             key={tag}
                             type="button"
                             onClick={() => handleQuickAppendNote(index, tag)}
-                            className={`px-2 py-0.5 rounded-lg font-bold shrink-0 transition-colors cursor-pointer flex items-center space-x-1 ${
+                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold shrink-0 transition-colors cursor-pointer ${
                               isSelected
                                 ? (tag === 'Bungkus' ? 'bg-amber-600 text-white shadow-2xs' : 'bg-emerald-700 text-white shadow-2xs')
-                                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                             }`}
                           >
-                            <span>{tag === 'Bungkus' ? '🛍️' : '🍽️'}</span>
-                            <span>{tag}</span>
+                            {tag}
                           </button>
                         );
                       })}
-
                       <button
                         type="button"
                         onClick={() => handleStartEditNote(index, item.catatan || '')}
-                        className="px-2 py-0.5 rounded-lg font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-100 shrink-0 cursor-pointer flex items-center space-x-1"
-                        title="Tambah atau lengkapi catatan pesanan"
+                        className="px-1.5 py-0.2 rounded text-[9px] font-bold text-slate-500 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-100 shrink-0 cursor-pointer flex items-center space-x-0.5"
+                        title="Tambah / ubah catatan"
                       >
-                        <Plus className="w-2.5 h-2.5 text-emerald-700" />
-                        <span>Tambah Catatan</span>
+                        <Edit3 className="w-2.5 h-2.5" />
+                        <span>{item.catatan ? 'Edit' : '+ Catatan'}</span>
                       </button>
                     </div>
                   </div>
-                )}
 
-                {/* Stepper & Delete */}
-                <div className="flex items-center justify-between pt-1 border-t border-slate-200/50">
-                  <button
-                    onClick={() => onRemoveItem(index)}
-                    className="text-slate-400 hover:text-rose-500 transition-colors p-1"
-                    title="Hapus"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-
-                  <div className="flex items-center space-x-2 bg-white px-2 py-1 rounded-xl border border-slate-200 shadow-2xs">
+                  {/* Big Tactile Stepper (- / qty / +) */}
+                  <div className="flex items-center space-x-1.5 bg-white px-1.5 py-0.5 rounded-lg border border-slate-200 shadow-2xs shrink-0">
                     <button
+                      type="button"
                       onClick={() => onUpdateQty(index, -1)}
-                      className="w-5 h-5 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition-all font-bold"
+                      className="w-5 h-5 rounded flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-90 transition-all font-black"
+                      title="Kurangi 1"
                     >
-                      <Minus className="w-3 h-3" />
+                      <Minus className="w-3 h-3 stroke-[3]" />
                     </button>
-                    <span className="font-mono font-black text-xs text-slate-800 w-5 text-center tabular-nums">
+                    <span className="font-mono font-black text-xs text-slate-900 w-5 text-center tabular-nums">
                       {item.qty}
                     </span>
                     <button
+                      type="button"
                       onClick={() => onUpdateQty(index, 1)}
-                      className="w-5 h-5 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition-all font-bold"
+                      className="w-5 h-5 rounded flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-90 transition-all font-black"
+                      title="Tambah 1"
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-3 h-3 stroke-[3]" />
                     </button>
                   </div>
                 </div>
+
+                {/* Active note display if exists */}
+                {item.catatan && editingNoteIndex !== index && (
+                  <div className="flex items-center justify-between bg-amber-50/80 border border-amber-200 rounded px-1.5 py-0.5 text-[10px]">
+                    <span className="text-amber-900 font-bold truncate">
+                      📝 {item.catatan}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateNotes(index, '')}
+                      className="text-rose-500 hover:text-rose-700 font-bold px-1 text-[10px]"
+                      title="Hapus catatan"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                {/* Note input if editing */}
+                {editingNoteIndex === index && (
+                  <div className="flex items-center space-x-1 pt-0.5">
+                    <input
+                      type="text"
+                      value={tempNote}
+                      onChange={(e) => setTempNote(e.target.value)}
+                      placeholder="Catatan pesanan..."
+                      className="flex-1 px-2 py-0.5 text-xs bg-white border border-slate-300 rounded focus:outline-none focus:border-brand-primary"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveNote(index)}
+                      className="px-2 py-0.5 text-xs font-bold bg-brand-primary text-white rounded cursor-pointer"
+                    >
+                      OK
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingNoteIndex(null)}
+                      className="px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-200 rounded cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })

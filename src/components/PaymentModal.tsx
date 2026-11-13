@@ -97,39 +97,40 @@ export default function PaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-3 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full h-full sm:h-auto max-h-[98vh] shadow-2xl border border-slate-100 overflow-hidden flex flex-col min-h-0">
         
         {/* Modal Header */}
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+        <div className="px-4 py-2 sm:px-5 sm:py-2.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
           <div>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Pembayaran Kasir</span>
-            <h3 className="text-base font-extrabold text-slate-900">Pilih Metode Pembayaran</h3>
+            <h3 className="text-sm sm:text-base font-extrabold text-slate-900">Pilih Metode Pembayaran</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Total Tagihan Card */}
-        <div className="px-5 py-3.5 bg-brand-subtle/60 border-b border-brand-light/50 flex items-center justify-between">
+        <div className="px-4 py-2 sm:px-5 sm:py-2.5 bg-brand-subtle/60 border-b border-brand-light/50 flex items-center justify-between shrink-0">
           <div>
-            <span className="text-xs text-brand-dark font-medium">Total Tagihan Pesanan:</span>
-            <div className="text-2xl font-mono font-extrabold text-brand-dark tabular-nums tracking-tight">
+            <span className="text-[11px] text-brand-dark font-medium">Total Tagihan Pesanan:</span>
+            <div className="text-xl sm:text-2xl font-mono font-extrabold text-brand-dark tabular-nums tracking-tight">
               {formatRupiah(total)}
             </div>
           </div>
-          <div className="px-3 py-1 rounded-full bg-white text-brand-dark border border-brand-light text-xs font-bold">
+          <div className="px-2.5 py-0.5 rounded-full bg-white text-brand-dark border border-brand-light text-xs font-bold">
             {cabang.nama.split('-')[1]?.trim() || cabang.nama}
           </div>
         </div>
 
         {/* 5 Metode Utama: Tunai, QRIS, ShopeeFood, GoFood, GrabFood */}
-        <div className="px-5 pt-3">
-          <label className="text-[11px] font-bold text-slate-500 block mb-1.5 uppercase tracking-wider">
+        <div className="px-4 pt-2.5 sm:px-5 shrink-0">
+          <label className="text-[10px] font-bold text-slate-500 block mb-1 uppercase tracking-wider">
             Pilih Channel / Posisi Uang Masuk:
           </label>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
@@ -234,7 +235,7 @@ export default function PaymentModal({
         </div>
 
         {/* Tab Contents */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-3 text-xs">
+        <div className="p-3 sm:p-4 overflow-y-auto flex-1 min-h-0 space-y-3 text-xs">
           
           {/* TAB 1: TUNAI */}
           {method === 'tunai' && (
@@ -348,7 +349,7 @@ export default function PaymentModal({
         </div>
 
         {/* Modal Actions */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end space-x-2">
+        <div className="px-4 py-2 sm:px-5 sm:py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-end space-x-2 shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"

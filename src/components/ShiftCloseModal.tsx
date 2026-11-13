@@ -130,41 +130,42 @@ export default function ShiftCloseModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-3 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full h-full sm:h-auto max-h-[98vh] shadow-2xl border border-slate-100 overflow-hidden flex flex-col min-h-0">
         
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        {/* Header - Compact for Landscape */}
+        <div className="px-4 py-2 sm:px-5 sm:py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
           <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Tutup Shift & Rekap Kas</span>
-            <h3 className="text-base font-extrabold text-slate-900">End of Day Laci Kasir</h3>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Tutup Shift &amp; Rekap Kas</span>
+            <h3 className="text-sm sm:text-base font-extrabold text-slate-900">End of Day Laci Kasir</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 overflow-y-auto space-y-4">
+        {/* Body (min-h-0 guarantees smooth scrolling and no cutoff) */}
+        <div className="p-3 sm:p-4 overflow-y-auto flex-1 min-h-0 space-y-2.5">
           
           {/* PJ & Cabang Meta */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
             <div>
-              <span className="text-slate-400 block font-medium">PJ Shift:</span>
+              <span className="text-slate-400 block font-medium text-[10px]">PJ Shift:</span>
               <span className="font-extrabold text-slate-800">{calculatedShift.karyawan_nama}</span>
             </div>
             <div className="text-right">
-              <span className="text-slate-400 block font-medium">Cabang:</span>
+              <span className="text-slate-400 block font-medium text-[10px]">Cabang:</span>
               <span className="font-bold text-slate-800">{cabang.nama.split('-')[1]?.trim() || cabang.nama}</span>
             </div>
           </div>
 
           {/* Fintech Breakdown Card */}
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-soft-sm space-y-2">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+          <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-slate-200 shadow-soft-sm space-y-1.5">
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
               Mutasi Kas Laci (Bank-Grade Balance)
             </h4>
 
@@ -437,7 +438,7 @@ export default function ShiftCloseModal({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end space-x-3">
+        <div className="px-4 py-2 sm:px-6 sm:py-3 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end space-x-3 shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/80 transition-colors"

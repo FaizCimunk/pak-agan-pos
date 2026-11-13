@@ -248,48 +248,48 @@ export default function BranchAttendanceModal({
   }, 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-3 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full h-full sm:h-auto max-h-[98vh] shadow-2xl border border-slate-100 overflow-hidden flex flex-col min-h-0">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50/70">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-primary text-white flex items-center justify-center font-bold shadow-sm shadow-brand-dark/20">
-              <CalendarCheck className="w-5 h-5" />
+        <div className="px-4 py-2 sm:px-5 sm:py-3 border-b border-slate-100 flex items-center justify-between bg-emerald-50/70 shrink-0">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-brand-primary text-white flex items-center justify-center font-bold shadow-sm shadow-brand-dark/20 shrink-0">
+              <CalendarCheck className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-extrabold text-slate-900">
-                  Presensi &amp; Absensi Karyawan Toko
+                <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
+                  Presensi &amp; Absensi Toko
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
                   {cabang.kode}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium">
-                Outlet: <strong>{cabang.nama}</strong> • Tulis nama karyawan yang hadir hari ini
+              <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
+                Outlet: <strong>{cabang.nama}</strong> • Catat kehadiran staf hari ini
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Date Selector & Tombol Tulis Nama Staf */}
-        <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center space-x-2">
-            <Calendar className="w-4 h-4 text-brand-primary shrink-0" />
-            <span className="font-bold text-slate-700">Tanggal:</span>
+        <div className="px-4 py-1.5 sm:px-5 sm:py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2 text-xs shrink-0">
+          <div className="flex items-center space-x-1.5">
+            <Calendar className="w-3.5 h-3.5 text-brand-primary shrink-0" />
+            <span className="font-bold text-slate-700 hidden sm:inline">Tanggal:</span>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-800 outline-none focus:border-brand-primary"
+              className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg font-mono font-bold text-xs text-slate-800 outline-none focus:border-brand-primary"
             />
           </div>
 
@@ -297,20 +297,20 @@ export default function BranchAttendanceModal({
           <button
             type="button"
             onClick={() => setIsAddingNewName(!isAddingNewName)}
-            className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow-sm transition-all btn-tactile w-fit"
+            className="inline-flex items-center space-x-1 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-[11px] sm:text-xs shadow-sm transition-all btn-tactile shrink-0"
           >
-            <UserPlus className="w-4 h-4" />
-            <span>{isAddingNewName ? 'Tutup Input Nama' : '+ Tulis Nama Staf'}</span>
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>{isAddingNewName ? 'Tutup Input' : '+ Tulis Nama'}</span>
           </button>
         </div>
 
         {/* Form Cepat: Tulis Nama Staf Baru / Bantuan */}
         {isAddingNewName && (
-          <div className="px-6 py-4 bg-emerald-50/60 border-b border-emerald-200/60 animate-fadeIn">
-            <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-soft-sm space-y-3">
+          <div className="px-4 py-2.5 sm:px-5 sm:py-3 bg-emerald-50/60 border-b border-emerald-200/60 animate-fadeIn shrink-0">
+            <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-soft-sm space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
-                  <UserPlus className="w-4 h-4 text-emerald-700" />
+                  <UserPlus className="w-3.5 h-3.5 text-emerald-700" />
                   Tulis Nama Karyawan / Staf Hadir Hari Ini:
                 </span>
                 <span className="text-[10px] text-slate-400">
@@ -318,9 +318,9 @@ export default function BranchAttendanceModal({
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
                     Nama Lengkap Karyawan *
                   </label>
                   <input
@@ -328,18 +328,18 @@ export default function BranchAttendanceModal({
                     placeholder="Contoh: Mas Joko / Mbak Rini"
                     value={newNama}
                     onChange={(e) => setNewNama(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 outline-none focus:border-brand-primary focus:bg-white"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg font-bold text-xs text-slate-800 outline-none focus:border-brand-primary focus:bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
                     Tugas / Posisi
                   </label>
                   <select
                     value={newRole}
                     onChange={(e) => setNewRole(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 outline-none focus:border-brand-primary"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg font-bold text-xs text-slate-800 outline-none focus:border-brand-primary"
                   >
                     <option value="Kitchen Serabi">Dapur / Tukang Bakar Serabi</option>
                     <option value="Wedang Barista">Barista Wedang Geprek</option>
@@ -350,11 +350,11 @@ export default function BranchAttendanceModal({
                 </div>
               </div>
 
-              <div className="flex justify-end pt-1">
+              <div className="flex justify-end pt-0.5">
                 <button
                   type="button"
                   onClick={handleAddNewWorker}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all btn-tactile"
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all btn-tactile"
                 >
                   + Tambahkan ke Daftar Absensi
                 </button>
@@ -364,26 +364,26 @@ export default function BranchAttendanceModal({
         )}
 
         {/* Daftar Karyawan Hadir Hari Ini */}
-        <div className="p-6 overflow-y-auto space-y-3.5 flex-1">
+        <div className="p-3 sm:p-4 overflow-y-auto space-y-2 flex-1 min-h-0">
           {loading ? (
-            <div className="text-center py-8 text-slate-400 text-xs">
+            <div className="text-center py-6 text-slate-400 text-xs">
               Memuat data absensi staf...
             </div>
           ) : workersList.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 text-xs bg-slate-50 rounded-2xl p-6 space-y-3 border border-dashed border-slate-200">
-              <Users className="w-8 h-8 text-slate-300 mx-auto" />
+            <div className="text-center py-6 text-slate-500 text-xs bg-slate-50 rounded-2xl p-4 space-y-2 border border-dashed border-slate-200">
+              <Users className="w-7 h-7 text-slate-300 mx-auto" />
               <p className="font-bold text-slate-700">
                 Belum ada staf yang dicatat untuk tanggal ini.
               </p>
               <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
-                Klik tombol <strong>&quot;+ Tulis Nama Staf&quot;</strong> di atas untuk langsung menulis nama karyawan atau tenaga bantuan yang hadir hari ini.
+                Klik tombol <strong>&quot;+ Tulis Nama&quot;</strong> di atas untuk langsung menulis nama karyawan atau tenaga bantuan yang hadir hari ini.
               </p>
               <button
                 type="button"
                 onClick={() => setIsAddingNewName(true)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm inline-flex items-center space-x-1.5"
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm inline-flex items-center space-x-1.5"
               >
-                <UserPlus className="w-4 h-4" />
+                <UserPlus className="w-3.5 h-3.5" />
                 <span>+ Tulis Nama Staf Sekarang</span>
               </button>
             </div>
@@ -392,41 +392,41 @@ export default function BranchAttendanceModal({
               return (
                 <div 
                   key={worker.karyawan_id}
-                  className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-emerald-500/40 transition-all shadow-soft-sm space-y-3"
+                  className="p-2 sm:p-2.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-500/40 transition-all shadow-soft-sm"
                 >
-                  {/* Top Bar Staf */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                    <div className="flex items-center space-x-2.5">
-                      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-xs shrink-0">
+                  {/* Row Staf & Status */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-xs shrink-0">
                         {worker.karyawan_nama.charAt(0).toUpperCase()}
                       </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="font-extrabold text-slate-900 text-sm">
+                      <div className="flex flex-wrap items-center gap-1 min-w-0">
+                        <span className="font-extrabold text-slate-900 text-xs sm:text-sm truncate">
                           {worker.karyawan_nama}
                         </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 capitalize">
                           {worker.role}
                         </span>
                         {worker.approval_status === 'approved' && (
-                          <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            ✓ Di-ACC Pusat
+                          <span className="text-[8.5px] font-extrabold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ✓ ACC
                           </span>
                         )}
                         {worker.approval_status === 'pending' && (
-                          <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
+                          <span className="text-[8.5px] font-extrabold px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
                             ⏳ Menunggu ACC
                           </span>
                         )}
                         {worker.approval_status === 'rejected' && (
-                          <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                            ✕ Ditolak Pusat
+                          <span className="text-[8.5px] font-extrabold px-1.5 py-0.2 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                            ✕ Ditolak
                           </span>
                         )}
                       </div>
                     </div>
 
                     {/* Status Presensi (Buka - Tutup Toko) */}
-                    <div className="flex items-center flex-wrap gap-1.5">
+                    <div className="flex items-center flex-wrap gap-1">
                       {(['hadir', 'setengah_hari', 'izin', 'sakit', 'alpa'] as const).map(st => {
                         const isSelected = worker.status === st;
                         let activeStyle = '';
@@ -436,7 +436,7 @@ export default function BranchAttendanceModal({
                           label = 'Hadir';
                         } else if (st === 'setengah_hari') {
                           activeStyle = 'bg-sky-600 text-white shadow-xs';
-                          label = 'Setengah Hari Kerja';
+                          label = '½ Hari';
                         } else if (st === 'izin') {
                           activeStyle = 'bg-amber-500 text-white shadow-xs';
                           label = 'Izin';
@@ -453,7 +453,7 @@ export default function BranchAttendanceModal({
                             key={st}
                             type="button"
                             onClick={() => updateWorkerStatus(worker.karyawan_id, st)}
-                            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold transition-all btn-tactile whitespace-nowrap ${
+                            className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all btn-tactile whitespace-nowrap ${
                               isSelected 
                                 ? activeStyle 
                                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -468,7 +468,7 @@ export default function BranchAttendanceModal({
                       <button
                         type="button"
                         onClick={() => handleRemoveWorker(worker.karyawan_id, worker.karyawan_nama)}
-                        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-auto sm:ml-1"
+                        className="p-1 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-auto sm:ml-1 shrink-0"
                         title="Hapus dari daftar hari ini"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -482,13 +482,13 @@ export default function BranchAttendanceModal({
         </div>
 
         {/* Footer Summary & Save */}
-        <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center space-x-3 text-xs">
-            <div className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold">
-              Total Hadir: <span className="font-extrabold text-emerald-700">{totalHadirCount} staf</span>
+        <div className="px-4 py-2 sm:px-5 sm:py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center space-x-2 text-[11px] sm:text-xs">
+            <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold">
+              Hadir: <span className="font-extrabold text-emerald-700">{totalHadirCount}</span>
             </div>
-            <div className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-bold">
-              Total Terdaftar: <span className="font-mono font-extrabold text-slate-800">{workersList.length} orang</span>
+            <div className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 font-bold">
+              Total: <span className="font-mono font-extrabold text-slate-800">{workersList.length}</span>
             </div>
           </div>
 
@@ -496,7 +496,7 @@ export default function BranchAttendanceModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-100 transition-colors"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-100 transition-colors"
             >
               Tutup
             </button>
@@ -504,10 +504,10 @@ export default function BranchAttendanceModal({
               type="button"
               onClick={handleSaveAttendance}
               disabled={saving}
-              className="px-5 py-2.5 rounded-xl bg-brand-primary hover:bg-emerald-800 text-white font-black text-xs shadow-md shadow-emerald-900/20 transition-all btn-tactile flex items-center space-x-1.5 disabled:opacity-50"
+              className="px-4 py-1.5 sm:px-5 sm:py-2 rounded-xl bg-brand-primary hover:bg-emerald-800 text-white font-black text-xs shadow-md shadow-emerald-900/20 transition-all btn-tactile flex items-center space-x-1.5 disabled:opacity-50"
             >
-              <Save className="w-4 h-4" />
-              <span>{saving ? 'Mengirim...' : 'Ajukan Presensi (ACC Pusat)'}</span>
+              <Save className="w-3.5 h-3.5" />
+              <span>{saving ? 'Mengirim...' : 'Ajukan Presensi'}</span>
             </button>
           </div>
         </div>
