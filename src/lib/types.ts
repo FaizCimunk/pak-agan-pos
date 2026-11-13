@@ -268,10 +268,12 @@ export interface TabunganKaryawanItem {
   cabang_id?: string;
   cabang_nama?: string;
   tanggal: string; // YYYY-MM-DD
-  tipe: 'setor' | 'tarik';
+  tipe: 'setor' | 'tarik'; // 'setor' = Uang Masuk (+ Kredit), 'tarik' = Uang Keluar (- Debit)
   nominal: number;
-  saldo_setelah: number;
-  keterangan: string; // Misal: "Simpanan Tabungan Gaji Mingguan (19 - 25 Okt 2026)" atau "Pencairan Tabungan ke Rekening Staf"
+  saldo_setelah: number; // Saldo dompet setelah mutasi (bisa positif, nol, atau minus jika ada utang)
+  keterangan: string; // Deskripsi mutasi masuk/keluar
+  kategori?: 'upah_hadir' | 'kasbon' | 'pencairan_gaji' | 'denda' | 'bonus' | 'koreksi' | 'manual';
+  ref_id?: string; // ID absensi, ID pengeluaran kasbon, atau ID payroll terkait
   dicatat_oleh?: string;
   created_at?: string;
 }

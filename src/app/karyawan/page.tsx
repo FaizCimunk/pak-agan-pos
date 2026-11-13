@@ -234,32 +234,50 @@ export default function KaryawanPortalPage() {
           </div>
         )}
 
-        {/* HERO CARD: ESTIMASI TRANSFER GAJI & SALDO SIMPANAN */}
-        <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 border-2 border-emerald-500/30 p-5 text-white shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-emerald-800/60 pb-3">
+        {/* HERO CARD: SALDO DOMPET GAJI REAL-TIME (ALA BANK) */}
+        <div className={`rounded-3xl border-2 p-5 text-white shadow-xl space-y-4 transition-all ${
+          totalTabungan < 0
+            ? 'bg-gradient-to-br from-slate-950 via-rose-950 to-slate-900 border-rose-500/40'
+            : totalTabungan > 0
+              ? 'bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 border-emerald-500/40'
+              : 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-850 border-slate-700'
+        }`}>
+          <div className="flex items-center justify-between border-b border-white/15 pb-3">
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-300 block">
-                  Estimasi Akumulasi Gaji Siap Transfer
+                  {totalTabungan < 0 ? 'Status Utang / Kasbon Berjalan' : 'Saldo Dompet Gaji Anda'}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-[9px] font-bold text-amber-300 border border-amber-400/30">
-                  ⏳ Menunggu Pencairan Boss
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border ${
+                  totalTabungan < 0
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-400/40 animate-pulse'
+                    : totalTabungan > 0
+                      ? 'bg-emerald-400/20 text-emerald-300 border-emerald-400/30'
+                      : 'bg-slate-400/20 text-slate-300 border-slate-400/30'
+                }`}>
+                  {totalTabungan < 0 ? '⚠️ Utang Minus' : totalTabungan > 0 ? '✓ Siap Ditarik' : 'Lunas (Rp 0)'}
                 </span>
               </div>
-              <div className="text-2xl sm:text-3xl font-mono font-black text-amber-300 mt-1">
-                {formatRupiah(gajiBersihSiapTerima)}
+              <div className={`text-2xl sm:text-3xl font-mono font-black mt-1 ${
+                totalTabungan < 0 ? 'text-rose-400' : totalTabungan > 0 ? 'text-emerald-300' : 'text-slate-300'
+              }`}>
+                {totalTabungan < 0 ? `-${formatRupiah(Math.abs(totalTabungan))}` : formatRupiah(totalTabungan)}
               </div>
               <p className="text-[10px] text-slate-300 mt-0.5">
-                *Akumulasi kehadiran ACC dikurangi kasbon. Jika transfer sebagian, sisa gaji otomatis masuk Saldo Simpanan Anda.
+                {totalTabungan < 0
+                  ? '*Minus ini otomatis berkurang / lunas saat presensi kerja Anda di-ACC oleh Boss.'
+                  : totalTabungan > 0
+                    ? '*Upah absensi approved otomatis masuk ke sini. Jika ditarik oleh Boss, saldo menjadi Rp 0.'
+                    : '*Seluruh hak gaji telah dicairkan atau belum ada absensi berjalan.'}
               </p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/40 text-amber-300 flex items-center justify-center text-2xl shadow-inner">
-              💰
+            <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 text-white flex items-center justify-center text-2xl shadow-inner">
+              {totalTabungan < 0 ? '💳' : '💰'}
             </div>
           </div>
 
           {/* GRID METRIK GAJI & SALDO SIMPANAN */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-black/40 p-3 rounded-2xl border border-emerald-900/60 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-black/40 p-3 rounded-2xl border border-white/10 text-xs">
             <div className="p-1">
               <span className="text-[9px] text-slate-400 block uppercase font-bold">Tarif Harian:</span>
               <span className="font-mono font-bold text-white text-xs">{formatRupiah(upahHarian)}</span>
@@ -272,12 +290,14 @@ export default function KaryawanPortalPage() {
               <span className="text-[9px] text-slate-400 block">acuan 6 hari</span>
             </div>
 
-            <div className="col-span-2 sm:col-span-1 p-1 bg-emerald-950/60 rounded-xl px-2.5 border border-emerald-700/50">
-              <span className="text-[9px] text-emerald-400 block uppercase font-extrabold">
-                🏦 Saldo Simpanan (Bank):
+            <div className="col-span-2 sm:col-span-1 p-1 bg-white/10 rounded-xl px-2.5 border border-white/15">
+              <span className="text-[9px] text-amber-300 block uppercase font-extrabold">
+                🏦 Rekening Dompet:
               </span>
-              <span className="font-mono font-black text-emerald-200 text-xs">{formatRupiah(totalTabungan)}</span>
-              <span className="text-[8px] text-emerald-400 block">dari sisa gaji tersimpan</span>
+              <span className={`font-mono font-black text-xs ${totalTabungan < 0 ? 'text-rose-300' : 'text-white'}`}>
+                {totalTabungan < 0 ? `-${formatRupiah(Math.abs(totalTabungan))}` : formatRupiah(totalTabungan)}
+              </span>
+              <span className="text-[8px] text-slate-300 block">sistem masuk - keluar</span>
             </div>
           </div>
 

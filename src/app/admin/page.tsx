@@ -3408,49 +3408,52 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
               <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 shadow-2xs">
                 <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block">
-                  Gaji Siap Ditransfer
+                  Total Saldo Siap Ditransfer
                 </span>
                 <div className="text-xl font-mono font-black text-emerald-950 mt-1 tabular-nums">
-                  {formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + d.gaji_bersih, 0))}
+                  {formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + Math.max(0, d.total_tabungan_snapshot || 0), 0))}
                 </div>
                 <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
-                  Untuk {calculatedPayrollDrafts.length} staf ({payrollDateLabel})
+                  Hak upah siap dicairkan ({payrollDateLabel})
                 </span>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-2xs">
                 <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
-                  Total Gaji Kotor Hadir
+                  Total Gaji Hadir (ACC)
                 </span>
                 <div className="text-xl font-mono font-black text-slate-900 mt-1 tabular-nums">
                   {formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + d.gaji_pokok, 0))}
                 </div>
                 <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
-                  Akumulasi {calculatedPayrollDrafts.reduce((sum, d) => sum + (d.total_kehadiran_hari || 0), 0)} hari hadir ACC
+                  Akumulasi {calculatedPayrollDrafts.reduce((sum, d) => sum + (d.total_kehadiran_hari || 0), 0)} hari hadir ter-ACC
                 </span>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200 shadow-2xs">
                 <span className="text-[10px] font-extrabold text-rose-800 uppercase tracking-wider block">
-                  Kasbon Terpotong Otomatis
+                  Kasbon / Utang Minus Staf
                 </span>
                 <div className="text-xl font-mono font-black text-rose-900 mt-1 tabular-nums">
-                  -{formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + d.potongan_kasbon, 0))}
+                  -{formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => {
+                    const s = d.total_tabungan_snapshot || 0;
+                    return sum + (s < 0 ? Math.abs(s) : d.potongan_kasbon);
+                  }, 0))}
                 </div>
                 <span className="text-[10px] text-rose-700 font-bold mt-0.5 block">
-                  Lunas saat transfer / kunci gaji
+                  Otomatis terpotong saat absensi di-ACC
                 </span>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 shadow-2xs">
                 <span className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider block">
-                  Saldo Simpanan Staf (Bank)
+                  Buku Dompet Karyawan
                 </span>
                 <div className="text-xl font-mono font-black text-amber-950 mt-1 tabular-nums">
-                  {formatRupiah(calculatedPayrollDrafts.reduce((sum, d) => sum + (d.total_tabungan_snapshot || 0), 0))}
+                  {calculatedPayrollDrafts.length} Staf Terdaftar
                 </div>
                 <span className="text-[10px] text-amber-900 font-bold mt-0.5 block">
-                  Sisa gaji tersimpan aman di Boss
+                  Sistem Dompet Real-Time (Masuk - Keluar)
                 </span>
               </div>
             </div>
@@ -3462,10 +3465,10 @@ export default function AdminDashboardPage() {
                     <th className="py-3 px-4">Nama Staf &amp; Rekening</th>
                     <th className="py-3 px-4">Hadir</th>
                     <th className="py-3 px-4 text-right">Upah / Hari</th>
-                    <th className="py-3 px-4 text-right">Gaji Kotor</th>
-                    <th className="py-3 px-4 text-right text-rose-600">Potong Kasbon</th>
-                    <th className="py-3 px-4 text-right font-extrabold text-brand-dark">Gaji Siap Transfer</th>
-                    <th className="py-3 px-4 text-right text-amber-700">Saldo Simpanan (Bank)</th>
+                    <th className="py-3 px-4 text-right">Gaji Kotor Hadir</th>
+                    <th className="py-3 px-4 text-right text-rose-600">Kasbon / Debit</th>
+                    <th className="py-3 px-4 text-right font-extrabold text-brand-dark">Saldo Dompet Real-Time</th>
+                    <th className="py-3 px-4 text-center">Buku Rekening</th>
                     <th className="py-3 px-4 text-center">Aksi &amp; Transfer</th>
                   </tr>
                 </thead>
@@ -3491,7 +3494,8 @@ export default function AdminDashboardPage() {
                   ) : (
                     calculatedPayrollDrafts.map(draft => {
                       const kar = karyawanList.find(k => k.id === draft.karyawan_id);
-                      const saldoSimpanan = draft.total_tabungan_snapshot || 0;
+                      const saldoDompet = draft.total_tabungan_snapshot || 0;
+                      const isMinus = saldoDompet < 0;
                       return (
                     <tr key={draft.karyawan_id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3 px-4">
@@ -3503,7 +3507,7 @@ export default function AdminDashboardPage() {
                           <button
                             type="button"
                             onClick={() => kar && setSelectedKaryawanForSalaryEdit(kar)}
-                            className="inline-flex items-center space-x-1 mt-1 px-2 py-0.5 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-900 text-[10px] font-mono font-bold transition-colors"
+                            className="inline-flex items-center space-x-1 mt-1 px-2 py-0.5 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-900 text-[10px] font-mono font-bold transition-colors cursor-pointer"
                             title="Klik untuk ubah nomor rekening / DANA"
                           >
                             <CreditCard className="w-3 h-3 text-sky-700 shrink-0" />
@@ -3513,7 +3517,7 @@ export default function AdminDashboardPage() {
                           <button
                             type="button"
                             onClick={() => kar && setSelectedKaryawanForSalaryEdit(kar)}
-                            className="inline-flex items-center space-x-1 mt-1 px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold transition-colors"
+                            className="inline-flex items-center space-x-1 mt-1 px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold transition-colors cursor-pointer"
                             title="Isi nomor rekening / DANA untuk transfer gaji"
                           >
                             <span>+ Isi No. Rekening / DANA</span>
@@ -3542,41 +3546,61 @@ export default function AdminDashboardPage() {
                         )}
                       </td>
 
-                      <td className="py-3 px-4 text-right font-mono font-extrabold text-brand-dark tabular-nums text-sm whitespace-nowrap">
-                        {formatRupiah(draft.gaji_bersih)}
+                      {/* Saldo Dompet Real-Time Staf (Positif / Minus Utang / Nol) */}
+                      <td className="py-3 px-4 text-right tabular-nums whitespace-nowrap">
+                        <div className={`font-mono font-black text-sm ${
+                          isMinus ? 'text-rose-600' : saldoDompet > 0 ? 'text-emerald-700' : 'text-slate-500'
+                        }`}>
+                          {isMinus ? `-${formatRupiah(Math.abs(saldoDompet))}` : formatRupiah(saldoDompet)}
+                        </div>
+                        <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
+                          isMinus
+                            ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                            : saldoDompet > 0
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}>
+                          {isMinus ? '⚠️ Utang Minus' : saldoDompet > 0 ? '✓ Siap Tarik' : 'Lunas (Rp 0)'}
+                        </span>
                       </td>
 
-                      {/* Saldo Simpanan Ala Bank + Tombol Buku/Tarik */}
-                      <td className="py-3 px-4 text-right tabular-nums whitespace-nowrap">
-                        <div className={`font-mono font-black text-xs ${saldoSimpanan > 0 ? 'text-amber-900' : 'text-slate-400 font-semibold'}`}>
-                          {formatRupiah(saldoSimpanan)}
-                        </div>
+                      {/* Kolom Buku Rekening Dompet */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => kar && setSelectedKaryawanForTabungan(kar)}
-                          className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-[10px] font-bold transition cursor-pointer"
-                          title="Lihat mutasi simpanan atau cairkan saldo simpanan staf"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-extrabold transition cursor-pointer shadow-2xs"
+                          title="Buka buku rekening dompet masuk & keluar staf"
                         >
-                          <PiggyBank className="w-3 h-3 text-amber-700" />
-                          <span>{saldoSimpanan > 0 ? 'Buku / Tarik' : 'Mutasi'}</span>
+                          <Wallet className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Buku Dompet</span>
                         </button>
                       </td>
 
                       <td className="py-3 px-4 text-center">
                         <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-[260px] mx-auto">
-                          {draft.status === 'paid' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-[11px] font-black">
-                              ✓ Sudah Ditransfer
+                          {saldoDompet > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPayrollForPayout(draft)}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full text-xs font-black transition shadow-xs btn-tactile cursor-pointer"
+                              title="Tarik lunas saldo jadi Rp 0 atau transfer sebagian"
+                            >
+                              <span>💸</span>
+                              <span>Tarik Gaji</span>
+                            </button>
+                          ) : isMinus ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[10.5px] font-extrabold">
+                              Menunggu Upah ACC
                             </span>
                           ) : (
                             <button
                               type="button"
                               onClick={() => setSelectedPayrollForPayout(draft)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full text-xs font-bold transition shadow-xs btn-tactile"
-                              title="Transfer gaji penuh atau sebagian (sisanya otomatis masuk Saldo Simpanan)"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-bold transition cursor-pointer"
                             >
                               <span>💸</span>
-                              <span>Transfer</span>
+                              <span>Pencairan</span>
                             </button>
                           )}
 

@@ -1498,6 +1498,69 @@ export class PosDatabase {
     }
 
     saveLocal(STORAGE_KEYS.ABSENSI, all);
+
+    // Otomatis sinkronisasi Upah Masuk (+ Kredit) ke Dompet Karyawan saat absensi di-ACC
+    for (const rec of records) {
+      if (!rec.karyawan_id) continue;
+      const upah = Number(rec.upah_harian_terhitung) > 0
+        ? Number(rec.upah_harian_terhitung)
+        : (rec.status === 'hadir' ? 100000 : rec.status === 'setengah_hari' ? 50000 : 0);
+
+      const existingLogs = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+
+      if (targetStatus === 'approved' && upah > 0) {
+        const alreadyCredited = existingLogs.some(
+          l => l.karyawan_id === rec.karyawan_id && (
+            l.ref_id === rec.id || 
+            l.keterangan?.includes(`[ABS:${rec.id}]`) ||
+            (l.kategori === 'upah_hadir' && l.tanggal === rec.tanggal && l.nominal === upah)
+          )
+        );
+        if (!alreadyCredited) {
+          await this.setorTabunganKaryawan(
+            rec.karyawan_id,
+            upah,
+            `Upah Hadir Presensi (${rec.tanggal}) [ABS:${rec.id}]`,
+            approver,
+            {
+              kategori: 'upah_hadir',
+              refId: rec.id,
+              tanggal: rec.tanggal,
+              createdAt: nowIso,
+            }
+          );
+        }
+      } else if (targetStatus === 'rejected' && upah > 0) {
+        const wasCredited = existingLogs.some(
+          l => l.karyawan_id === rec.karyawan_id && (
+            l.ref_id === rec.id || 
+            l.keterangan?.includes(`[ABS:${rec.id}]`)
+          )
+        );
+        const alreadyDebitedBack = existingLogs.some(
+          l => l.karyawan_id === rec.karyawan_id && (
+            l.ref_id === `batal-${rec.id}` || 
+            l.keterangan?.includes(`[BATAL_ABS:${rec.id}]`)
+          )
+        );
+        if (wasCredited && !alreadyDebitedBack) {
+          await this.tarikTabunganKaryawan(
+            rec.karyawan_id,
+            upah,
+            `Koreksi Pembatalan Presensi (${rec.tanggal}) [BATAL_ABS:${rec.id}]`,
+            approver,
+            {
+              kategori: 'denda',
+              refId: `batal-${rec.id}`,
+              allowOverdraft: true,
+              tanggal: rec.tanggal,
+              createdAt: nowIso,
+            }
+          );
+        }
+      }
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
@@ -2839,6 +2902,36 @@ export class PosDatabase {
       }
     }
 
+    // Uang Keluar (- Debit): Kasbon yang di-ACC langsung memotong saldo dompet staf
+    if (targetExp && targetExp.jenis === 'kasbon' && targetExp.karyawan_id && targetExp.nominal > 0) {
+      try {
+        const existingLogs = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+        const alreadyDebited = existingLogs.some(
+          l => l.karyawan_id === targetExp!.karyawan_id && (
+            l.ref_id === targetExp!.id || 
+            l.keterangan?.includes(`[EXP:${targetExp!.id}]`)
+          )
+        );
+        if (!alreadyDebited) {
+          await this.tarikTabunganKaryawan(
+            targetExp.karyawan_id,
+            targetExp.nominal,
+            `Pengambilan Kasbon: ${targetExp.keperluan} [EXP:${targetExp.id}]`,
+            approver,
+            {
+              kategori: 'kasbon',
+              refId: targetExp.id,
+              allowOverdraft: true,
+              tanggal: (targetExp.tanggal || nowIso).slice(0, 10),
+              createdAt: nowIso,
+            }
+          );
+        }
+      } catch (err) {
+        console.warn('Gagal memotong saldo dompet untuk kasbon:', err);
+      }
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));
     }
@@ -2850,6 +2943,8 @@ export class PosDatabase {
     const nowIso = new Date().toISOString();
     const approver = rejectedBy || 'Pak Agan (Owner)';
     const all = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, isSupabaseConfigured ? [] : INITIAL_EXPENSES);
+    const targetItem = all.find(e => e.id === id);
+
     const updated = all.map(e => {
       if (e.id === id) {
         return {
@@ -2864,6 +2959,41 @@ export class PosDatabase {
     });
 
     saveLocal(STORAGE_KEYS.EXPENSES, updated);
+
+    // Jika kasbon yang sebelumnya di-ACC ditolak, kembalikan saldo ke dompet staf
+    if (targetItem && targetItem.jenis === 'kasbon' && targetItem.karyawan_id && targetItem.nominal > 0) {
+      try {
+        const existingLogs = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+        const wasDebited = existingLogs.some(
+          l => l.karyawan_id === targetItem.karyawan_id && (
+            l.ref_id === targetItem.id || 
+            l.keterangan?.includes(`[EXP:${targetItem.id}]`)
+          )
+        );
+        const alreadyRefunded = existingLogs.some(
+          l => l.karyawan_id === targetItem.karyawan_id && (
+            l.ref_id === `batal-${targetItem.id}` || 
+            l.keterangan?.includes(`[BATAL_EXP:${targetItem.id}]`)
+          )
+        );
+        if (wasDebited && !alreadyRefunded) {
+          await this.setorTabunganKaryawan(
+            targetItem.karyawan_id,
+            targetItem.nominal,
+            `Koreksi Pembatalan Kasbon: ${targetItem.keperluan} [BATAL_EXP:${targetItem.id}]`,
+            approver,
+            {
+              kategori: 'bonus',
+              refId: `batal-${targetItem.id}`,
+              tanggal: nowIso.slice(0, 10),
+              createdAt: nowIso,
+            }
+          );
+        }
+      } catch (err) {
+        console.warn('Gagal mengembalikan saldo dompet untuk kasbon batal:', err);
+      }
+    }
 
     if (isSupabaseConfigured && supabase) {
       try {
@@ -2958,34 +3088,45 @@ export class PosDatabase {
     karyawanId: string, 
     nominal: number, 
     keterangan: string,
-    dicatatOleh: string = 'Pak Agan (Owner)'
+    dicatatOleh: string = 'Pak Agan (Owner)',
+    meta?: {
+      kategori?: 'upah_hadir' | 'bonus' | 'koreksi' | 'manual';
+      refId?: string;
+      tanggal?: string;
+      createdAt?: string;
+    }
   ): Promise<TabunganKaryawanItem> {
     const all = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
     const kars = await this.getAllKaryawan();
     const kar = kars.find(k => k.id === karyawanId);
     
-    const saldoAwal = kar?.total_tabungan || 0;
+    const saldoAwal = Number(kar?.total_tabungan || 0);
     const saldoAkhir = saldoAwal + nominal;
+    const newUtang = saldoAkhir < 0 ? Math.abs(saldoAkhir) : 0;
+    const nowIso = meta?.createdAt || new Date().toISOString();
+    const dateStr = meta?.tanggal || nowIso.slice(0, 10);
 
     const newItem: TabunganKaryawanItem = {
-      id: `tab-${karyawanId}-${Date.now()}`,
+      id: `tab-${karyawanId}-${Date.now()}-${Math.floor(10 + Math.random() * 90)}`,
       karyawan_id: karyawanId,
       karyawan_nama: kar?.nama || 'Karyawan',
       cabang_id: kar?.cabang_id,
-      tanggal: new Date().toISOString().slice(0, 10),
+      tanggal: dateStr,
       tipe: 'setor',
       nominal,
       saldo_setelah: saldoAkhir,
       keterangan,
+      kategori: meta?.kategori || 'manual',
+      ref_id: meta?.refId,
       dicatat_oleh: dicatatOleh,
-      created_at: new Date().toISOString(),
+      created_at: nowIso,
     };
 
     all.unshift(newItem);
     saveLocal(STORAGE_KEYS.TABUNGAN_KARYAWAN, all);
 
-    // Update saldo kumulatif di data Karyawan
-    const updatedKars = kars.map(k => k.id === karyawanId ? { ...k, total_tabungan: saldoAkhir } : k);
+    // Update saldo kumulatif & utang di data Karyawan
+    const updatedKars = kars.map(k => k.id === karyawanId ? { ...k, total_tabungan: saldoAkhir, utang_nominal: newUtang } : k);
     saveLocal(STORAGE_KEYS.KARYAWAN, updatedKars);
 
     // Sync to Supabase
@@ -3003,9 +3144,10 @@ export class PosDatabase {
             nominal: nominal,
             saldo_setelah: saldoAkhir,
             keterangan: keterangan,
-            dicatat_oleh: dicatatOleh
+            dicatat_oleh: dicatatOleh,
+            created_at: nowIso
           }]);
-          await supabase.from('karyawan').update({ total_tabungan: saldoAkhir }).eq('id', karUuid);
+          await supabase.from('karyawan').update({ total_tabungan: saldoAkhir, utang_nominal: newUtang }).eq('id', karUuid);
         }
       } catch (e) {
         console.warn('Supabase setorTabungan error:', e);
@@ -3023,37 +3165,49 @@ export class PosDatabase {
     karyawanId: string, 
     nominal: number, 
     keterangan: string,
-    dicatatOleh: string = 'Pak Agan (Owner)'
+    dicatatOleh: string = 'Pak Agan (Owner)',
+    meta?: {
+      kategori?: 'kasbon' | 'pencairan_gaji' | 'denda' | 'manual';
+      refId?: string;
+      allowOverdraft?: boolean;
+      tanggal?: string;
+      createdAt?: string;
+    }
   ): Promise<TabunganKaryawanItem> {
     const all = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
     const kars = await this.getAllKaryawan();
     const kar = kars.find(k => k.id === karyawanId);
     
-    const saldoAwal = kar?.total_tabungan || 0;
-    if (nominal > saldoAwal) {
-      throw new Error(`Saldo tabungan tidak mencukupi! Saldo saat ini: Rp ${saldoAwal.toLocaleString('id-ID')}`);
+    const saldoAwal = Number(kar?.total_tabungan || 0);
+    if (!meta?.allowOverdraft && nominal > saldoAwal && saldoAwal > 0) {
+      throw new Error(`Saldo dompet tidak mencukupi! Saldo saat ini: Rp ${saldoAwal.toLocaleString('id-ID')}`);
     }
-    const saldoAkhir = Math.max(0, saldoAwal - nominal);
+    const saldoAkhir = saldoAwal - nominal;
+    const newUtang = saldoAkhir < 0 ? Math.abs(saldoAkhir) : 0;
+    const nowIso = meta?.createdAt || new Date().toISOString();
+    const dateStr = meta?.tanggal || nowIso.slice(0, 10);
 
     const newItem: TabunganKaryawanItem = {
-      id: `tab-tarik-${karyawanId}-${Date.now()}`,
+      id: `tab-tarik-${karyawanId}-${Date.now()}-${Math.floor(10 + Math.random() * 90)}`,
       karyawan_id: karyawanId,
       karyawan_nama: kar?.nama || 'Karyawan',
       cabang_id: kar?.cabang_id,
-      tanggal: new Date().toISOString().slice(0, 10),
+      tanggal: dateStr,
       tipe: 'tarik',
       nominal,
       saldo_setelah: saldoAkhir,
       keterangan,
+      kategori: meta?.kategori || 'manual',
+      ref_id: meta?.refId,
       dicatat_oleh: dicatatOleh,
-      created_at: new Date().toISOString(),
+      created_at: nowIso,
     };
 
     all.unshift(newItem);
     saveLocal(STORAGE_KEYS.TABUNGAN_KARYAWAN, all);
 
-    // Update saldo kumulatif di data Karyawan
-    const updatedKars = kars.map(k => k.id === karyawanId ? { ...k, total_tabungan: saldoAkhir } : k);
+    // Update saldo kumulatif & utang di data Karyawan
+    const updatedKars = kars.map(k => k.id === karyawanId ? { ...k, total_tabungan: saldoAkhir, utang_nominal: newUtang } : k);
     saveLocal(STORAGE_KEYS.KARYAWAN, updatedKars);
 
     // Sync to Supabase
@@ -3071,9 +3225,10 @@ export class PosDatabase {
             nominal: nominal,
             saldo_setelah: saldoAkhir,
             keterangan: keterangan,
-            dicatat_oleh: dicatatOleh
+            dicatat_oleh: dicatatOleh,
+            created_at: nowIso
           }]);
-          await supabase.from('karyawan').update({ total_tabungan: saldoAkhir }).eq('id', karUuid);
+          await supabase.from('karyawan').update({ total_tabungan: saldoAkhir, utang_nominal: newUtang }).eq('id', karUuid);
         }
       } catch (e) {
         console.warn('Supabase tarikTabungan error:', e);
@@ -3085,6 +3240,37 @@ export class PosDatabase {
     }
 
     return newItem;
+  }
+
+  async getKaryawanDompetSummary(karyawanId: string): Promise<{
+    saldo: number;
+    totalMasuk: number;
+    totalKeluar: number;
+    isMinus: boolean;
+    utangNominal: number;
+    logs: TabunganKaryawanItem[];
+  }> {
+    const logs = await this.getTabunganKaryawanList(karyawanId);
+    const kars = await this.getAllKaryawan();
+    const kar = kars.find(k => k.id === karyawanId);
+    const saldo = Number(kar?.total_tabungan || 0);
+
+    const totalMasuk = logs
+      .filter(l => l.tipe === 'setor')
+      .reduce((sum, l) => sum + Number(l.nominal || 0), 0);
+
+    const totalKeluar = logs
+      .filter(l => l.tipe === 'tarik')
+      .reduce((sum, l) => sum + Number(l.nominal || 0), 0);
+
+    return {
+      saldo,
+      totalMasuk,
+      totalKeluar,
+      isMinus: saldo < 0,
+      utangNominal: saldo < 0 ? Math.abs(saldo) : 0,
+      logs,
+    };
   }
 
   async lockPayroll(records: Payroll[]): Promise<boolean> {
@@ -3181,24 +3367,22 @@ export class PosDatabase {
     catatan?: string;
   }): Promise<boolean> {
     const existing = await this.getPayrollList();
-    const hakPeriode = params.payroll.gaji_bersih || 0;
-    const sisaDisimpan = Math.max(0, hakPeriode - params.nominalDicairkan);
-    const tarikSimpanan = Math.max(0, params.nominalDicairkan - hakPeriode);
-
-    // 1. Update saldo simpanan (ala bank) sesuai selisih transfer vs hak periode ini
     const labelPeriode = params.payroll.periode_tanggal || params.payroll.slip_no;
-    if (sisaDisimpan > 0) {
-      await this.setorTabunganKaryawan(
-        params.payroll.karyawan_id,
-        sisaDisimpan,
-        `Sisa Gaji Disimpan Otomatis (${labelPeriode})`
-      );
-    } else if (tarikSimpanan > 0) {
+    const paidRecordId = isValidUuid(params.payroll.id) ? params.payroll.id : generateUUID();
+
+    // 1. Catat pencairan/transfer gaji langsung mendebit saldo dompet staf
+    if (params.nominalDicairkan > 0) {
       await this.tarikTabunganKaryawan(
         params.payroll.karyawan_id,
-        tarikSimpanan,
-        `Pencairan Bersama Gaji (${labelPeriode})`,
-        'Pak Agan (Owner Pusat)'
+        params.nominalDicairkan,
+        params.catatan || `Pencairan / Transfer Gaji (${labelPeriode})`,
+        'Pak Agan (Owner Pusat)',
+        {
+          kategori: 'pencairan_gaji',
+          refId: paidRecordId,
+          allowOverdraft: true,
+          tanggal: new Date().toISOString().slice(0, 10),
+        }
       );
     }
 
@@ -3206,7 +3390,6 @@ export class PosDatabase {
     const latestKar = latestKars.find(k => k.id === params.payroll.karyawan_id);
     const updatedSaldoSimpanan = latestKar?.total_tabungan || 0;
 
-    const paidRecordId = isValidUuid(params.payroll.id) ? params.payroll.id : generateUUID();
     const paidRecord: Payroll = {
       ...params.payroll,
       id: paidRecordId,
@@ -3217,11 +3400,11 @@ export class PosDatabase {
       tanggal_kunci: new Date().toISOString(),
       keterangan:
         params.catatan ||
-        (sisaDisimpan > 0
-          ? `Transfer ${params.nominalDicairkan.toLocaleString('id-ID')} • Sisa ${sisaDisimpan.toLocaleString('id-ID')} masuk Saldo Simpanan`
-          : tarikSimpanan > 0
-            ? `Transfer ${params.nominalDicairkan.toLocaleString('id-ID')} (termasuk pencairan simpanan ${tarikSimpanan.toLocaleString('id-ID')})`
-            : 'Transfer M-Banking Penuh'),
+        (updatedSaldoSimpanan === 0
+          ? `Transfer Penuh ${params.nominalDicairkan.toLocaleString('id-ID')} (Saldo dompet lunas Rp 0)`
+          : updatedSaldoSimpanan > 0
+            ? `Transfer ${params.nominalDicairkan.toLocaleString('id-ID')} • Sisa saldo dompet ${updatedSaldoSimpanan.toLocaleString('id-ID')}`
+            : `Transfer ${params.nominalDicairkan.toLocaleString('id-ID')} • Saldo minus/utang berjalan ${Math.abs(updatedSaldoSimpanan).toLocaleString('id-ID')}`),
     };
 
     // Replace or add
@@ -3319,6 +3502,80 @@ export class PosDatabase {
     }
 
     return true;
+  }
+
+  async syncPastApprovedAbsensiToDompet(): Promise<{ syncedAbsensi: number; syncedKasbon: number; message: string }> {
+    const allAbsensi = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
+    const allExpenses = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
+    const existingLogs = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+
+    let syncedAbsensi = 0;
+    let syncedKasbon = 0;
+
+    // 1. Audit absensi approved yang belum ada kreditnya di dompet
+    for (const a of allAbsensi) {
+      if (a.approval_status === 'approved' && a.karyawan_id && (a.status === 'hadir' || a.status === 'setengah_hari')) {
+        const upah = Number(a.upah_harian_terhitung) > 0
+          ? Number(a.upah_harian_terhitung)
+          : (a.status === 'hadir' ? 100000 : 50000);
+        const alreadyCredited = existingLogs.some(
+          l => l.karyawan_id === a.karyawan_id && (
+            l.ref_id === a.id || 
+            l.keterangan?.includes(`[ABS:${a.id}]`) ||
+            (l.kategori === 'upah_hadir' && l.tanggal === a.tanggal && l.nominal === upah)
+          )
+        );
+        if (!alreadyCredited && upah > 0) {
+          await this.setorTabunganKaryawan(
+            a.karyawan_id,
+            upah,
+            `Upah Hadir Presensi (${a.tanggal}) [ABS:${a.id}]`,
+            a.approved_by || 'Pak Agan (Owner)',
+            {
+              kategori: 'upah_hadir',
+              refId: a.id,
+              tanggal: a.tanggal,
+              createdAt: a.approved_at || a.created_at || new Date().toISOString(),
+            }
+          );
+          syncedAbsensi++;
+        }
+      }
+    }
+
+    // 2. Audit kasbon approved yang belum ada debitnya di dompet
+    for (const e of allExpenses) {
+      if (e.jenis === 'kasbon' && e.status === 'approved' && e.karyawan_id && e.nominal > 0) {
+        const alreadyDebited = existingLogs.some(
+          l => l.karyawan_id === e.karyawan_id && (
+            l.ref_id === e.id || 
+            l.keterangan?.includes(`[EXP:${e.id}]`)
+          )
+        );
+        if (!alreadyDebited) {
+          await this.tarikTabunganKaryawan(
+            e.karyawan_id,
+            e.nominal,
+            `Pengambilan Kasbon: ${e.keperluan} [EXP:${e.id}]`,
+            e.approved_by || 'Pak Agan (Owner)',
+            {
+              kategori: 'kasbon',
+              refId: e.id,
+              allowOverdraft: true,
+              tanggal: (e.tanggal || new Date().toISOString()).slice(0, 10),
+              createdAt: e.approved_at || e.tanggal || new Date().toISOString(),
+            }
+          );
+          syncedKasbon++;
+        }
+      }
+    }
+
+    return {
+      syncedAbsensi,
+      syncedKasbon,
+      message: `Audit Dompet Selesai: ${syncedAbsensi} presensi masuk & ${syncedKasbon} kasbon berhasil disinkronkan ke buku dompet.`,
+    };
   }
 
   // --------------------------------------------------------------------------
