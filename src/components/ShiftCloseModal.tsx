@@ -213,7 +213,7 @@ export default function ShiftCloseModal({
                 {pendingList.map((exp) => (
                   <div key={exp.id} className="flex items-center justify-between text-[11px]">
                     <span className="font-bold text-slate-800 truncate pr-2">
-                      • [{exp.jenis === 'kasbon' ? 'Kasbon' : 'Belanja'}] {exp.keperluan || exp.pemohon_nama}
+                      • [{exp.jenis === 'kasbon' ? (exp.metode_pencairan === 'transfer' ? 'Kasbon Transfer Pusat' : 'Kasbon Laci') : (exp.metode_pencairan === 'transfer' ? 'Belanja Transfer Pusat' : 'Belanja Laci')}] {exp.keperluan || exp.pemohon_nama}
                     </span>
                     <span className="font-mono font-bold text-amber-800 shrink-0">{formatRupiah(exp.nominal)}</span>
                   </div>

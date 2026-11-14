@@ -487,10 +487,12 @@ export default function ExpenseRequestModal({
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
                               item.jenis === 'kasbon'
-                                ? 'bg-indigo-100 text-indigo-800'
-                                : 'bg-emerald-100 text-emerald-800'
+                                ? (item.metode_pencairan === 'transfer' ? 'bg-blue-100 text-blue-800' : 'bg-indigo-100 text-indigo-800')
+                                : (item.metode_pencairan === 'transfer' ? 'bg-sky-100 text-sky-800' : 'bg-emerald-100 text-emerald-800')
                             }`}>
-                              {item.jenis === 'kasbon' ? 'Kasbon / Ambil Kasir' : 'Belanja Toko'}
+                              {item.jenis === 'kasbon' 
+                                ? (item.metode_pencairan === 'transfer' ? 'Kasbon Transfer Pusat' : 'Kasbon Kas Laci')
+                                : (item.metode_pencairan === 'transfer' ? 'Belanja Transfer Pusat' : 'Belanja Toko')}
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono">
                               🕒 {formatWaktu(item.tanggal)} • Oleh: {item.pemohon_nama || 'Kasir'}
@@ -504,8 +506,8 @@ export default function ExpenseRequestModal({
                           <span className="text-sm font-mono font-black text-slate-900 block tabular-nums">
                             {formatRupiah(item.nominal)}
                           </span>
-                          <span className="text-[9px] text-slate-500 font-semibold">
-                            {item.metode_pencairan === 'transfer' ? 'Transfer Bank' : 'Via Kas Laci'}
+                          <span className={`text-[9px] font-bold block ${item.metode_pencairan === 'transfer' ? 'text-blue-700' : 'text-slate-500'}`}>
+                            {item.metode_pencairan === 'transfer' ? '💳 Transfer Pusat' : '💵 Via Kas Laci'}
                           </span>
                         </div>
                       </div>
@@ -537,18 +539,34 @@ export default function ExpenseRequestModal({
                       )}
 
                       {item.status === 'approved' && (
-                        <div className="mt-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs space-y-1">
+                        <div className={`mt-2 p-2.5 rounded-xl border text-xs space-y-1 ${
+                          item.metode_pencairan === 'transfer'
+                            ? 'bg-blue-50 border-blue-200'
+                            : 'bg-emerald-50 border-emerald-200'
+                        }`}>
                           <div className="flex items-center justify-between">
-                            <span className="font-extrabold text-emerald-900 flex items-center gap-1.5 text-[11px]">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              ✓ DISETUJUI (APPROVED)
+                            <span className={`font-extrabold flex items-center gap-1.5 text-[11px] ${
+                              item.metode_pencairan === 'transfer' ? 'text-blue-900' : 'text-emerald-900'
+                            }`}>
+                              <CheckCircle2 className={`w-3.5 h-3.5 ${item.metode_pencairan === 'transfer' ? 'text-blue-600' : 'text-emerald-600'}`} />
+                              {item.metode_pencairan === 'transfer' ? '✓ DITRANSFER OLEH PUSAT' : '✓ DISETUJUI (APPROVED)'}
                             </span>
-                            <span className="text-[9px] font-mono font-bold bg-emerald-200 text-emerald-950 px-1.5 py-0.5 rounded">
-                              Masuk Tutup Buku
+                            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                              item.metode_pencairan === 'transfer'
+                                ? 'bg-blue-200 text-blue-950'
+                                : 'bg-emerald-200 text-emerald-950'
+                            }`}>
+                              {item.metode_pencairan === 'transfer' ? 'TIDAK POTONG LACI' : 'Masuk Tutup Buku'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-emerald-800/90 leading-tight">
-                            Disetujui oleh <b>{item.approved_by || 'Pak Agan (Owner)'}</b> • Resmi memotong saldo kas laci kasir.
+                          <p className={`text-[11px] leading-tight ${
+                            item.metode_pencairan === 'transfer' ? 'text-blue-900/90' : 'text-emerald-800/90'
+                          }`}>
+                            {item.metode_pencairan === 'transfer' ? (
+                              <>Disetujui oleh <b>{item.approved_by || 'Pak Agan (Owner)'}</b> • Dana ditransfer langsung ke rekening pemohon (<b>TIDAK memotong saldo kas laci kasir</b>).</>
+                            ) : (
+                              <>Disetujui oleh <b>{item.approved_by || 'Pak Agan (Owner)'}</b> • Resmi memotong saldo kas laci kasir.</>
+                            )}
                           </p>
                         </div>
                       )}

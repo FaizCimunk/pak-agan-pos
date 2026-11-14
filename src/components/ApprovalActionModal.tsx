@@ -27,7 +27,7 @@ export default function ApprovalActionModal({
   onClose,
   onSuccess,
 }: ApprovalActionModalProps) {
-  const [metode, setMetode] = useState<MetodePencairan>('laci');
+  const [metode, setMetode] = useState<MetodePencairan>(item.metode_pencairan || 'laci');
   const [loading, setLoading] = useState<boolean>(false);
   const [branchInfo, setBranchInfo] = useState<Cabang | null>(null);
   const [targetPhone, setTargetPhone] = useState<string>(item.pemohon_telepon || '');
@@ -39,6 +39,9 @@ export default function ApprovalActionModal({
   } | null>(null);
 
   useEffect(() => {
+    if (item.metode_pencairan) {
+      setMetode(item.metode_pencairan);
+    }
     // Hydrate cepat dari cache lokal agar modal terbuka instan tanpa jeda
     const cachedWorkers = db.getAllKaryawanCached();
     const cachedKar = cachedWorkers.find(
@@ -96,7 +99,7 @@ export default function ApprovalActionModal({
       `🔖 *Jenis Pengajuan:* ${item.jenis === 'kasbon' ? 'KASBON STAF' : 'BELANJA OPERASIONAL OUTLET'}`,
       `📝 *Keperluan:* ${item.keperluan}`,
       `💰 *Nominal Disetujui:* ${formatRupiah(nominal)}`,
-      `💳 *Metode Pencairan:* ${usedMetode === 'laci' ? 'Potong Uang Kas Laci Kasir (Cash Drawer)' : 'Transfer Bank Rekening'}`,
+      `💳 *Metode Pencairan:* ${usedMetode === 'laci' ? 'Potong Uang Kas Laci Kasir (Cash Drawer)' : 'Transfer Bank Rekening (TIDAK Memotong Kas Laci Kasir)'}`,
       `📅 *Waktu Approval:* ${new Date().toLocaleString('id-ID')}`,
       ``,
       `_Pesan konfirmasi resmi dari Backoffice Pusat Serabi Bawel & Wedang Geprek._`
@@ -353,6 +356,23 @@ export default function ApprovalActionModal({
                   </button>
                 </div>
               </div>
+
+              {/* Informative Banner: Transfer Bank vs Kas Laci Impact */}
+              {metode === 'transfer' ? (
+                <div className="p-3 bg-blue-50 rounded-2xl border border-blue-200 text-blue-950 text-xs flex items-center space-x-2">
+                  <CreditCard className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span className="text-[11px] font-bold">
+                    Pencairan via Transfer Bank: Dana ditransfer Owner langsung ke rekening pemohon &amp; <u>TIDAK memotong saldo laci kasir outlet</u>.
+                  </span>
+                </div>
+              ) : (
+                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-950 text-xs flex items-center space-x-2">
+                  <Coins className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="text-[11px] font-bold">
+                    Pencairan Kas Laci: Staf mengambil uang fisik dari laci kasir outlet &amp; <u>otomatis memotong kas shift kasir</u>.
+                  </span>
+                </div>
+              )}
 
               {/* Notice Auto WhatsApp */}
               <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-900 text-xs flex items-center space-x-2">

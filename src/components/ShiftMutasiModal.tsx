@@ -625,8 +625,12 @@ export default function ShiftMutasiModal({
                           {exp.jenis === 'kasbon' ? 'Kasbon' : 'Belanja'} • {exp.pemohon_nama}
                         </td>
                         <td className="py-2 px-3 text-slate-600">{exp.keperluan}</td>
-                        <td className="py-2 px-3 text-[11px] font-semibold text-slate-600">
-                          {exp.metode_pencairan === 'transfer' ? 'Transfer Pusat' : 'Kas Laci'}
+                        <td className="py-2 px-3 text-[11px] font-bold text-slate-700 whitespace-nowrap">
+                          {exp.metode_pencairan === 'transfer' ? (
+                            <span className="text-blue-700">💳 Transfer Pusat (Bebas Laci)</span>
+                          ) : (
+                            <span className="text-emerald-700">💵 Kas Laci Kasir</span>
+                          )}
                         </td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
                           {formatRupiah(exp.nominal)}

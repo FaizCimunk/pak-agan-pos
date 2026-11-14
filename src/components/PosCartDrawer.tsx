@@ -184,37 +184,51 @@ export default function PosCartDrawer({
       </div>
 
       {/* Prominent Penanda / Tanda Nama Bar (Mudah Diketik di Tablet & HP Miring) */}
-      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200/90 flex flex-col gap-1 shrink-0">
-        <div className="flex items-center justify-between">
-          <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 flex items-center space-x-1">
-            <Tag className="w-3 h-3 text-amber-600" />
-            <span>Tanda / Nama Meja:</span>
-          </label>
-          <div className="flex items-center space-x-1 shrink-0">
-            {['01', '02', '03', '04', '05'].map(num => (
+      <div className="px-2.5 py-1.5 bg-slate-50 border-b border-slate-200/90 flex flex-col gap-1.5 shrink-0">
+        <div className="relative flex items-center">
+          <div className="absolute left-2.5 flex items-center pointer-events-none text-amber-600">
+            <Tag className="w-3.5 h-3.5" />
+          </div>
+          <input
+            type="text"
+            value={penanda}
+            onChange={(e) => onPenandaChange(e.target.value)}
+            placeholder="No. Meja / Nama Pemesan..."
+            className="w-full pl-8 pr-7 py-1.5 sm:py-2 bg-white rounded-xl border border-slate-300 font-extrabold text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
+          />
+          {penanda ? (
+            <button
+              type="button"
+              onClick={() => onPenandaChange('')}
+              className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100"
+              title="Bersihkan nama / nomor meja"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
+        </div>
+
+        {/* Quick Table / Service Mode Chips (Horizontal Scroll, Tidak Pernah Terlipat) */}
+        <div className="flex items-center space-x-1 overflow-x-auto scrollbar-none py-0.5">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-0.5">Pilih:</span>
+          {['01', '02', '03', '04', '05', '06', '07', '08', 'Bungkus'].map(chip => {
+            const isMatch = chip === 'Bungkus' ? penanda.toLowerCase().includes('bungkus') : penanda === `No. ${chip}`;
+            return (
               <button
-                key={num}
+                key={chip}
                 type="button"
-                onClick={() => onPenandaChange(`No. ${num}`)}
-                className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-bold transition-all ${
-                  penanda === `No. ${num}`
-                    ? 'bg-emerald-700 text-white shadow-2xs'
+                onClick={() => onPenandaChange(chip === 'Bungkus' ? 'Bungkus' : `No. ${chip}`)}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold whitespace-nowrap shrink-0 transition-all ${
+                  isMatch
+                    ? 'bg-emerald-700 text-white shadow-2xs ring-1 ring-emerald-800'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                {num}
+                {chip === 'Bungkus' ? '🛍️ Bungkus' : chip}
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
-
-        <input
-          type="text"
-          value={penanda}
-          onChange={(e) => onPenandaChange(e.target.value)}
-          placeholder="Tulis no. meja / nama pemesan (cth: No. 01 / Pak Budi)..."
-          className="w-full px-2.5 py-1.5 bg-white rounded-xl border border-slate-300 font-extrabold text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
-        />
       </div>
 
       {/* Cart Items List (min-h-0 prevents flex collapse, compact cards guarantee 100% visibility) */}
@@ -398,25 +412,22 @@ export default function PosCartDrawer({
       </div>
 
       {/* Drawer Footer & Checkout Button (Compact & Always 100% Visible) */}
-      <div className="p-2.5 sm:p-3 border-t border-slate-100 bg-slate-50/90 space-y-2 shrink-0">
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
-            <span>Subtotal ({totalQty} item)</span>
-            <span className="font-mono tabular-nums">{formatRupiah(subtotal)}</span>
+      <div className="p-2 sm:p-2.5 border-t border-slate-100 bg-slate-50/90 space-y-1.5 shrink-0">
+        <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-slate-900">
+          <div>
+            <span className="block leading-tight font-extrabold text-slate-800">TOTAL TAGIHAN</span>
+            <span className="text-[10px] text-slate-500 font-medium">({totalQty} item terpilih)</span>
           </div>
-          <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-slate-900 pt-1 border-t border-slate-200/70">
-            <span>TOTAL TAGIHAN</span>
-            <span className="text-lg sm:text-xl font-mono font-extrabold text-brand-dark tabular-nums tracking-tight">
-              {formatRupiah(total)}
-            </span>
-          </div>
+          <span className="text-base sm:text-lg font-mono font-extrabold text-brand-dark tabular-nums tracking-tight">
+            {formatRupiah(total)}
+          </span>
         </div>
 
         {/* Dual Actions: Bayar Nanti vs Bayar Langsung */}
         {!isShiftOpen ? (
           <button
             onClick={onCheckout}
-            className="w-full py-2.5 px-3 rounded-xl bg-slate-200 text-slate-400 font-extrabold text-xs cursor-not-allowed"
+            className="w-full py-2 px-3 rounded-xl bg-slate-200 text-slate-400 font-extrabold text-xs cursor-not-allowed"
             disabled
           >
             Buka Shift Terlebih Dahulu
@@ -427,7 +438,7 @@ export default function PosCartDrawer({
               type="button"
               onClick={onSaveOpenBill}
               disabled={items.length === 0}
-              className={`py-2.5 px-2 rounded-xl flex items-center justify-center space-x-1 font-extrabold text-xs transition-all btn-tactile ${
+              className={`py-2 sm:py-2.5 px-2 rounded-xl flex items-center justify-center space-x-1 font-extrabold text-xs transition-all btn-tactile ${
                 items.length === 0
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/25 active:scale-95'
@@ -442,7 +453,7 @@ export default function PosCartDrawer({
               type="button"
               onClick={onCheckout}
               disabled={items.length === 0}
-              className={`py-2.5 px-2 rounded-xl flex items-center justify-center space-x-1 font-extrabold text-xs transition-all btn-tactile ${
+              className={`py-2 sm:py-2.5 px-2 rounded-xl flex items-center justify-center space-x-1 font-extrabold text-xs transition-all btn-tactile ${
                 items.length === 0
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/25 active:scale-95'

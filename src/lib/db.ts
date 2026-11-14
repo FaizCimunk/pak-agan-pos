@@ -2047,11 +2047,13 @@ export class PosDatabase {
     let kasbonApproved = 0;
 
     for (const exp of shiftExpenses) {
+      // PERHATIKAN: Pengeluaran / Kasbon via Transfer Bank Pusat TIDAK memotong kas laci kasir!
+      if (exp.metode_pencairan === 'transfer') continue;
       if (exp.jenis === 'belanja') belanjaApproved += Number(exp.nominal || 0);
       if (exp.jenis === 'kasbon') kasbonApproved += Number(exp.nominal || 0);
     }
 
-    // Saldo Akhir Sistem = Modal Awal + Tunai Masuk - Belanja (Approved) - Kasbon (Approved)
+    // Saldo Akhir Sistem = Modal Awal + Tunai Masuk - Belanja (Approved Laci) - Kasbon (Approved Laci)
     const saldoSistem = shift.modal_awal + tunaiMasuk - belanjaApproved - kasbonApproved;
 
     const updatedShift: Shift = {
@@ -2373,10 +2375,10 @@ export class PosDatabase {
         });
 
         const belanjaApp = shiftExpApproved
-          .filter(e => e.jenis === 'belanja')
+          .filter(e => e.jenis === 'belanja' && e.metode_pencairan !== 'transfer')
           .reduce((sum, e) => sum + Number(e.nominal || 0), 0);
         const kasbonApp = shiftExpApproved
-          .filter(e => e.jenis === 'kasbon')
+          .filter(e => e.jenis === 'kasbon' && e.metode_pencairan !== 'transfer')
           .reduce((sum, e) => sum + Number(e.nominal || 0), 0);
 
         const saldoSistem = s.modal_awal + tunai - belanjaApp - kasbonApp;
