@@ -635,23 +635,42 @@ export default function ShiftMutasiModal({
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
                           {formatRupiah(exp.nominal)}
                         </td>
-                        <td className="py-2 px-3 text-center">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
-                              exp.status === 'approved'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : exp.status === 'rejected'
-                                ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                : 'bg-amber-50 text-amber-800 border-amber-200'
-                            }`}
-                          >
-                            {exp.status === 'approved' ? 'DISETUJUI' : exp.status === 'rejected' ? 'DITOLAK' : 'MENUNGGU ACC'}
-                          </span>
+                        <td className="py-2 px-3 text-center whitespace-nowrap">
+                          <div className="flex flex-col items-center gap-1">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                                exp.status === 'approved'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : exp.status === 'rejected'
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                            >
+                              {exp.status === 'approved' ? 'DISETUJUI' : exp.status === 'rejected' ? 'DITOLAK' : 'MENUNGGU ACC'}
+                            </span>
+                            {exp.jenis === 'kasbon' && exp.status === 'approved' && (
+                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                                exp.is_settled 
+                                  ? 'bg-slate-100 text-slate-600 border-slate-200' 
+                                  : 'bg-amber-100 text-amber-900 border-amber-200'
+                              }`}>
+                                {exp.is_settled ? '✓ Lunas (Gaji Ditutup)' : '⏳ Potong Gaji Mingguan'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Catatan Edukasi Alur Keuangan Kasbon */}
+              <div className="mt-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex items-start space-x-2">
+                <span className="shrink-0 text-sm">💡</span>
+                <p className="leading-snug">
+                  <b>Alur Pelunasan Kasbon:</b> Kasbon yang Disetujui (baik via Transfer Pusat maupun Kas Laci) otomatis menjadi pengurang hak gaji staf di <b>Menu 4 (Kelola Gaji / Payroll)</b>. Begitu Admin Pusat menekan tombol <i>&quot;Kunci Gaji Periode Ini&quot;</i>, status kasbon akan otomatis <b>LUNAS / TERTUTUP</b> dan uang yang ditransfer Boss berkurang sebesar kasbon tersebut.
+                </p>
               </div>
             </div>
           )}
