@@ -21,7 +21,7 @@ import {
   Snowflake
 } from 'lucide-react';
 import { MenuItem, Cabang } from '@/lib/types';
-import { db, isBranchMatch } from '@/lib/db';
+import { db, isBranchMatch, normalizeKategoriId } from '@/lib/db';
 import { formatRupiah, formatNominal, parseNominal } from '@/lib/utils';
 
 interface EditMenuModalProps {
@@ -75,6 +75,27 @@ export default function EditMenuModal({
   // Ref penanda inisialisasi agar form TIDAK PERNAH ter-reset saat user sedang mengetik
   const initializedIdRef = useRef<string | null>(null);
 
+  // Helper pengetikan angka halus: menjaga posisi kursor stabil & tanpa lag saat input nominal
+  const handleFormattedNumberChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (val: number) => void
+  ) => {
+    const input = e.target;
+    const oldVal = input.value;
+    const oldPos = input.selectionStart || oldVal.length;
+    const oldLen = oldVal.length;
+    const num = parseNominal(oldVal);
+    setter(num);
+
+    const formatted = num === 0 ? '' : formatNominal(num);
+    const newLen = formatted.length;
+    const posDiff = newLen - oldLen;
+    requestAnimationFrame(() => {
+      const targetPos = Math.max(0, oldPos + posDiff);
+      input.setSelectionRange(targetPos, targetPos);
+    });
+  };
+
   // Handle Tombol ESC & Android Back Button agar selalu bisa kembali
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -110,7 +131,8 @@ export default function EditMenuModal({
     if (menu) {
       setNama(menu.nama || '');
       setKode(menu.kode || '');
-      setKategoriId(menu.kategori_id || 'kat-wg');
+      const initialKat = normalizeKategoriId(menu.kategori_id || menu.kategori_nama);
+      setKategoriId(initialKat);
       setHarga(menu.harga || 15000);
       setHargaEs(menu.harga_es || (menu.harga ? menu.harga + 2000 : 17000));
       setHpp(menu.hpp !== undefined ? menu.hpp : Math.round((menu.harga || 15000) * 0.32));
@@ -127,7 +149,9 @@ export default function EditMenuModal({
       setIsActive(menu.is_active ?? true);
 
       // Suhu mode initialization
-      if (menu.suhu_mode) {
+      if (initialKat === 'kat-sb' || initialKat === 'kat-6') {
+        setSuhuMode('bisa_keduanya');
+      } else if (menu.suhu_mode) {
         setSuhuMode(menu.suhu_mode);
       } else if (menu.harga_es && menu.harga_es > 0 && menu.harga_es !== menu.harga) {
         setSuhuMode('beda_harga_es');
@@ -193,7 +217,8 @@ export default function EditMenuModal({
       return;
     }
 
-    const isFood = kategoriId === 'kat-sb' || kategoriId === 'kat-6';
+    const currentNormKat = normalizeKategoriId(kategoriId);
+    const isFood = currentNormKat === 'kat-sb' || currentNormKat === 'kat-6';
 
     if (isFood && hasVariasiHarga) {
       if (varianHarga1 <= 0 || varianHarga2 <= 0) {
@@ -220,7 +245,7 @@ export default function EditMenuModal({
     setLoading(true);
 
     try {
-      const selectedKat = KATEGORI_OPTIONS.find(k => k.id === kategoriId);
+      const selectedKat = KATEGORI_OPTIONS.find(k => k.id === currentNormKat);
       const finalSuhuMode = isFood ? undefined : suhuMode;
       const finalHargaEs = (!isFood && suhuMode === 'beda_harga_es' && hargaEs > 0) ? hargaEs : undefined;
       const finalHppEs = (!isFood && suhuMode === 'beda_harga_es' && hppEs > 0) ? hppEs : undefined;
@@ -229,8 +254,8 @@ export default function EditMenuModal({
         ...(menu?.id ? { id: menu.id } : {}),
         nama: nama.trim(),
         kode: kode.trim().toUpperCase(),
-        kategori_id: kategoriId,
-        kategori_nama: selectedKat?.nama || 'Minuman Herbal',
+        kategori_id: currentNormKat,
+        kategori_nama: selectedKat?.nama || (currentNormKat === 'kat-sb' ? '🥞 Serabi Bawel' : currentNormKat === 'kat-6' ? '🍲 Makanan & Camilan' : '🍵 Minuman'),
         harga: (isFood && hasVariasiHarga) ? varianHarga1 : harga,
         harga_es: finalHargaEs,
         hpp: (isFood && hasVariasiHarga) ? varianHpp1 : hpp,
@@ -248,7 +273,7 @@ export default function EditMenuModal({
         is_favorite: isFavorite,
         is_active: isActive,
         has_temperature_option: !isFood && (suhuMode === 'bisa_keduanya' || suhuMode === 'beda_harga_es'),
-        default_temperature: (!isFood && suhuMode === 'khusus_es') ? 'dingin' : 'panas',
+        default_temperature: isFood ? undefined : (suhuMode === 'khusus_es' ? 'dingin' : 'panas'),
         cabang_ids: isAllBranches ? [] : selectedCabangIds,
       };
 
@@ -264,7 +289,8 @@ export default function EditMenuModal({
     }
   };
 
-  const isFoodOrSerabi = kategoriId === 'kat-sb' || kategoriId === 'kat-6';
+  const currentNormKat = normalizeKategoriId(kategoriId);
+  const isFoodOrSerabi = currentNormKat === 'kat-sb' || currentNormKat === 'kat-6';
   const labaKotorPanas = Math.max(0, harga - hpp);
   const grossMarginPanas = harga > 0 ? Math.round((labaKotorPanas / harga) * 100) : 0;
 
@@ -388,7 +414,7 @@ export default function EditMenuModal({
                       Kategori Dapur:
                     </label>
                     <select
-                      value={kategoriId}
+                      value={normalizeKategoriId(kategoriId)}
                       onChange={(e) => setKategoriId(e.target.value)}
                       className="w-full px-2 py-1.5 bg-white rounded-xl border border-slate-300 font-bold text-xs text-slate-900 focus:outline-none focus:border-emerald-600 cursor-pointer"
                     >
@@ -470,8 +496,9 @@ export default function EditMenuModal({
                             </span>
                             <input
                               type="text"
+                              inputMode="numeric"
                               value={harga === 0 ? '' : formatNominal(harga)}
-                              onChange={(e) => setHarga(parseNominal(e.target.value))}
+                              onChange={(e) => handleFormattedNumberChange(e, setHarga)}
                               placeholder="15.000"
                               className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs"
                               required
@@ -490,8 +517,9 @@ export default function EditMenuModal({
                             </span>
                             <input
                               type="text"
+                              inputMode="numeric"
                               value={hpp === 0 ? '' : formatNominal(hpp)}
-                              onChange={(e) => setHpp(parseNominal(e.target.value))}
+                              onChange={(e) => handleFormattedNumberChange(e, setHpp)}
                               placeholder="4.800"
                               className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-amber-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
                             />
@@ -548,8 +576,9 @@ export default function EditMenuModal({
                               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">Rp</span>
                               <input
                                 type="text"
+                                inputMode="numeric"
                                 value={varianHarga1 === 0 ? '' : formatNominal(varianHarga1)}
-                                onChange={(e) => setVarianHarga1(parseNominal(e.target.value))}
+                                onChange={(e) => handleFormattedNumberChange(e, setVarianHarga1)}
                                 placeholder="15.000"
                                 className="w-full pl-8 pr-2 py-1 bg-amber-50/30 rounded-lg border border-amber-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-amber-600"
                                 required
@@ -563,8 +592,9 @@ export default function EditMenuModal({
                               <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-slate-400 text-[10px]">Rp</span>
                               <input
                                 type="text"
+                                inputMode="numeric"
                                 value={varianHpp1 === 0 ? '' : formatNominal(varianHpp1)}
-                                onChange={(e) => setVarianHpp1(parseNominal(e.target.value))}
+                                onChange={(e) => handleFormattedNumberChange(e, setVarianHpp1)}
                                 placeholder="4.800"
                                 className="w-full pl-7 pr-1.5 py-0.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-[10px] text-slate-700 focus:outline-none"
                               />
@@ -599,8 +629,9 @@ export default function EditMenuModal({
                               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">Rp</span>
                               <input
                                 type="text"
+                                inputMode="numeric"
                                 value={varianHarga2 === 0 ? '' : formatNominal(varianHarga2)}
-                                onChange={(e) => setVarianHarga2(parseNominal(e.target.value))}
+                                onChange={(e) => handleFormattedNumberChange(e, setVarianHarga2)}
                                 placeholder="25.000"
                                 className="w-full pl-8 pr-2 py-1 bg-purple-50/30 rounded-lg border border-purple-300 font-mono font-black text-xs text-purple-950 focus:outline-none focus:border-purple-600"
                                 required
@@ -614,8 +645,9 @@ export default function EditMenuModal({
                               <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-slate-400 text-[10px]">Rp</span>
                               <input
                                 type="text"
+                                inputMode="numeric"
                                 value={varianHpp2 === 0 ? '' : formatNominal(varianHpp2)}
-                                onChange={(e) => setVarianHpp2(parseNominal(e.target.value))}
+                                onChange={(e) => handleFormattedNumberChange(e, setVarianHpp2)}
                                 placeholder="7.500"
                                 className="w-full pl-7 pr-1.5 py-0.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-[10px] text-slate-700 focus:outline-none"
                               />
@@ -746,8 +778,9 @@ export default function EditMenuModal({
                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">Rp</span>
                             <input
                               type="text"
+                              inputMode="numeric"
                               value={harga === 0 ? '' : formatNominal(harga)}
-                              onChange={(e) => setHarga(parseNominal(e.target.value))}
+                              onChange={(e) => handleFormattedNumberChange(e, setHarga)}
                               placeholder="15.000"
                               className="w-full pl-8 pr-2 py-1 bg-amber-50/30 rounded-lg border border-amber-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-amber-600"
                               required
@@ -760,8 +793,9 @@ export default function EditMenuModal({
                               <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-slate-400 text-[10px]">Rp</span>
                               <input
                                 type="text"
+                                inputMode="numeric"
                                 value={hpp === 0 ? '' : formatNominal(hpp)}
-                                onChange={(e) => setHpp(parseNominal(e.target.value))}
+                                onChange={(e) => handleFormattedNumberChange(e, setHpp)}
                                 placeholder="4.800"
                                 className="w-full pl-7 pr-1.5 py-0.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-[10px] text-slate-700 focus:outline-none"
                               />
@@ -787,8 +821,9 @@ export default function EditMenuModal({
                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">Rp</span>
                             <input
                               type="text"
+                              inputMode="numeric"
                               value={hargaEs === 0 ? '' : formatNominal(hargaEs)}
-                              onChange={(e) => setHargaEs(parseNominal(e.target.value))}
+                              onChange={(e) => handleFormattedNumberChange(e, setHargaEs)}
                               placeholder="17.000"
                               className="w-full pl-8 pr-2 py-1 bg-sky-50/30 rounded-lg border border-sky-300 font-mono font-black text-xs text-sky-950 focus:outline-none focus:border-sky-600"
                               required
@@ -801,8 +836,9 @@ export default function EditMenuModal({
                               <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-slate-400 text-[10px]">Rp</span>
                               <input
                                 type="text"
+                                inputMode="numeric"
                                 value={hppEs === 0 ? '' : formatNominal(hppEs)}
-                                onChange={(e) => setHppEs(parseNominal(e.target.value))}
+                                onChange={(e) => handleFormattedNumberChange(e, setHppEs)}
                                 placeholder="5.600"
                                 className="w-full pl-7 pr-1.5 py-0.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-[10px] text-slate-700 focus:outline-none"
                               />
@@ -830,8 +866,9 @@ export default function EditMenuModal({
                             </span>
                             <input
                               type="text"
+                              inputMode="numeric"
                               value={harga === 0 ? '' : formatNominal(harga)}
-                              onChange={(e) => setHarga(parseNominal(e.target.value))}
+                              onChange={(e) => handleFormattedNumberChange(e, setHarga)}
                               placeholder="15.000"
                               className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs"
                               required
@@ -850,8 +887,9 @@ export default function EditMenuModal({
                             </span>
                             <input
                               type="text"
+                              inputMode="numeric"
                               value={hpp === 0 ? '' : formatNominal(hpp)}
-                              onChange={(e) => setHpp(parseNominal(e.target.value))}
+                              onChange={(e) => handleFormattedNumberChange(e, setHpp)}
                               placeholder="4.800"
                               className="w-full pl-8 pr-2 py-1.5 bg-white rounded-xl border border-slate-300 font-mono font-black text-xs text-amber-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
                             />

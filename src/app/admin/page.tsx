@@ -613,8 +613,8 @@ export default function AdminDashboardPage() {
         omzetKotor += trx.total;
         trx.items.forEach(it => {
           const matchedMenu = menuObjMap[it.menu_id] || (it.nama_menu ? menuObjMap[it.nama_menu.toLowerCase()] : undefined);
-          let itemHpp: number | undefined;
-          if (matchedMenu && it.varian_nama && matchedMenu.has_variasi_harga) {
+          let itemHpp: number | undefined = (it.hpp !== undefined && it.hpp > 0) ? it.hpp : undefined;
+          if (!itemHpp && matchedMenu && it.varian_nama && matchedMenu.has_variasi_harga) {
             if (matchedMenu.varian_nama_2 && it.varian_nama.toLowerCase() === matchedMenu.varian_nama_2.toLowerCase()) {
               itemHpp = matchedMenu.varian_hpp_2;
             } else if (matchedMenu.varian_nama_1 && it.varian_nama.toLowerCase() === matchedMenu.varian_nama_1.toLowerCase()) {

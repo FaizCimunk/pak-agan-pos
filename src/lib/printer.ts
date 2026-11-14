@@ -12,15 +12,19 @@ export function getItemKitchenStation(item: {
   nama_menu?: string;
   menu_id?: string;
   kategori_id?: string;
+  kategori_nama?: string;
   nama?: string;
 }): 'serabi' | 'wedang' | 'makanan' {
   const name = (item.nama_menu || item.nama || '').toLowerCase();
   const kat = (item.kategori_id || '').toLowerCase();
+  const katNama = (item.kategori_nama || '').toLowerCase();
 
-  // 1. Serabi Bawel: Kategori serabi atau nama mengandung serabi, kinca, oncom, pandan
+  // 1. Serabi Bawel: Kategori serabi (ID kat-sb atau UUID serabi) atau nama mengandung serabi, kinca, oncom, pandan
   if (
     kat === 'kat-sb' ||
+    kat === '6d639aab-ff78-40b3-87df-4c18a4977288' ||
     kat.includes('serabi') ||
+    katNama.includes('serabi') ||
     name.includes('serabi') ||
     name.includes('kinca') ||
     name.includes('oncom') ||
@@ -29,20 +33,46 @@ export function getItemKitchenStation(item: {
     return 'serabi';
   }
 
-  // 2. Makanan & Camilan: Kategori camilan / makanan atau pisang, singkong, mendoan, goreng, tahu, camilan
+  // 2. Makanan & Camilan: Kategori makanan/camilan (ID kat-6 atau UUID makanan) atau nama masakan/camilan
   if (
     kat === 'kat-6' ||
+    kat === 'ccae656c-4c48-421f-aa93-efe6e5b28f43' ||
     kat.includes('makanan') ||
     kat.includes('camilan') ||
     kat.includes('snack') ||
+    kat.includes('dapur') ||
+    katNama.includes('makanan') ||
+    katNama.includes('camilan') ||
+    katNama.includes('snack') ||
+    katNama.includes('dapur') ||
+    katNama.includes('masak') ||
+    name.includes('mie') ||
+    name.includes('ayam') ||
+    name.includes('nasi') ||
+    name.includes('bakso') ||
     name.includes('pisang') ||
     name.includes('singkong') ||
     name.includes('mendoan') ||
     name.includes('goreng') ||
     name.includes('tahu') ||
+    name.includes('tempe') ||
     name.includes('camilan') ||
+    name.includes('snack') ||
     name.includes('kentang') ||
-    name.includes('bakwan')
+    name.includes('bakwan') ||
+    name.includes('soto') ||
+    name.includes('sate') ||
+    name.includes('bebek') ||
+    name.includes('roti') ||
+    name.includes('kwetiau') ||
+    name.includes('bihun') ||
+    name.includes('dimsum') ||
+    name.includes('pangsit') ||
+    name.includes('telur') ||
+    name.includes('seblak') ||
+    name.includes('batagor') ||
+    name.includes('siomay') ||
+    name.includes('risol')
   ) {
     return 'makanan';
   }

@@ -161,8 +161,10 @@ export interface TransaksiItem {
   menu_id: string;
   nama_menu: string;
   harga: number;
+  hpp?: number; // HPP per porsi yang berlaku saat transaksi
   qty: number;
   subtotal: number;
+  subtotal_hpp?: number; // Total HPP = hpp * qty
   catatan?: string;
   temperature?: 'panas' | 'dingin'; // Varian Panas / Dingin (Es)
   varian_nama?: string; // Nama varian porsi (misal: "Jumbo", "Box Isi 5", "Es Dingin")
@@ -199,6 +201,7 @@ export interface CartItem {
   catatan: string;
   temperature?: 'panas' | 'dingin'; // Varian Panas / Dingin (Es)
   custom_harga?: number; // Harga varian khusus (misal harga_es atau varian_harga_2)
+  custom_hpp?: number; // HPP varian khusus (misal hpp_es atau varian_hpp_2)
   varian_nama?: string; // Nama varian porsi (misal: "Jumbo", "Box Isi 5", "Es Dingin")
 }
 

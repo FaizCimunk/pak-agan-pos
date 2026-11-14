@@ -21,7 +21,7 @@ import { getItemKitchenStation } from '@/lib/printer';
 interface PosTouchGridProps {
   menuList: MenuItem[];
   kategoriList?: KategoriMenu[];
-  onAddToCart: (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number, varianNama?: string) => void;
+  onAddToCart: (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number, varianNama?: string, customHpp?: number) => void;
   cart?: CartItem[];
   isLandscape?: boolean;
 }
@@ -83,9 +83,9 @@ export default function PosTouchGrid({
     return found.reduce((sum, ci) => sum + ci.qty, 0);
   };
 
-  const handleItemClick = (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number, varianNama?: string) => {
+  const handleItemClick = (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number, varianNama?: string, customHpp?: number) => {
     setTappedItemId(item.id);
-    onAddToCart(item, temp, customHarga, varianNama);
+    onAddToCart(item, temp, customHarga, varianNama, customHpp);
     setTimeout(() => {
       setTappedItemId(null);
     }, 200);
@@ -247,11 +247,11 @@ export default function PosTouchGrid({
                   onClick={() => {
                     // Tap on card body: if food variation, add varian 1; if simple drink, add directly
                     if (hasFoodVariations) {
-                      handleItemClick(item, undefined, item.varian_harga_1, item.varian_nama_1 || 'Reguler');
+                      handleItemClick(item, undefined, item.varian_harga_1, item.varian_nama_1 || 'Reguler', item.varian_hpp_1 !== undefined ? item.varian_hpp_1 : item.hpp);
                     } else if (!hasDiffIce && !isKhususEs) {
-                      handleItemClick(item, isKhususPanas ? 'panas' : undefined, item.harga);
+                      handleItemClick(item, isKhususPanas ? 'panas' : undefined, item.harga, undefined, item.hpp);
                     } else if (isKhususEs) {
-                      handleItemClick(item, 'dingin', item.harga_es || item.harga);
+                      handleItemClick(item, 'dingin', item.harga_es || item.harga, undefined, item.hpp_es !== undefined ? item.hpp_es : item.hpp);
                     }
                   }}
                   className={`group relative bg-white rounded-2xl border p-2 sm:p-2.5 flex flex-col justify-between shadow-soft-sm hover:shadow-soft-md transition-all select-none ${
@@ -309,7 +309,7 @@ export default function PosTouchGrid({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleItemClick(item, undefined, item.varian_harga_1, item.varian_nama_1 || 'Reguler');
+                            handleItemClick(item, undefined, item.varian_harga_1, item.varian_nama_1 || 'Reguler', item.varian_hpp_1 !== undefined ? item.varian_hpp_1 : item.hpp);
                           }}
                           className="py-1 px-1 rounded-xl bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-950 border border-amber-300 transition-all text-center cursor-pointer shadow-2xs active:scale-95"
                           title={`Tambah ${item.varian_nama_1 || 'Reguler'}`}
@@ -326,7 +326,7 @@ export default function PosTouchGrid({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleItemClick(item, undefined, item.varian_harga_2, item.varian_nama_2 || 'Jumbo');
+                            handleItemClick(item, undefined, item.varian_harga_2, item.varian_nama_2 || 'Jumbo', item.varian_hpp_2 !== undefined ? item.varian_hpp_2 : item.hpp);
                           }}
                           className="py-1 px-1 rounded-xl bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-950 border border-purple-300 transition-all text-center cursor-pointer shadow-2xs active:scale-95"
                           title={`Tambah ${item.varian_nama_2 || 'Jumbo'}`}
@@ -346,7 +346,7 @@ export default function PosTouchGrid({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleItemClick(item, 'panas', item.harga);
+                            handleItemClick(item, 'panas', item.harga, undefined, item.hpp);
                           }}
                           className="py-1 px-1 rounded-xl bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-950 border border-amber-300 transition-all text-center cursor-pointer shadow-2xs active:scale-95"
                           title="Tambah varian Panas"
@@ -363,7 +363,7 @@ export default function PosTouchGrid({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleItemClick(item, 'dingin', item.harga_es);
+                            handleItemClick(item, 'dingin', item.harga_es, undefined, item.hpp_es !== undefined ? item.hpp_es : item.hpp);
                           }}
                           className="py-1 px-1 rounded-xl bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-950 border border-sky-300 transition-all text-center cursor-pointer shadow-2xs active:scale-95"
                           title="Tambah varian Es Dingin"
@@ -387,7 +387,7 @@ export default function PosTouchGrid({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleItemClick(item, 'panas', item.harga);
+                              handleItemClick(item, 'panas', item.harga, undefined, item.hpp);
                             }}
                             className="px-1.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-900 border border-amber-200 text-[10px] font-black transition-all active:scale-95 cursor-pointer whitespace-nowrap text-center"
                             title="Pilih Panas"
@@ -398,7 +398,7 @@ export default function PosTouchGrid({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleItemClick(item, 'dingin', item.harga);
+                              handleItemClick(item, 'dingin', item.harga, undefined, item.hpp_es !== undefined ? item.hpp_es : item.hpp);
                             }}
                             className="px-1.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-900 border border-sky-200 text-[10px] font-black transition-all active:scale-95 cursor-pointer whitespace-nowrap text-center"
                             title="Pilih Es"
@@ -421,11 +421,11 @@ export default function PosTouchGrid({
                           onClick={(e) => {
                             e.stopPropagation();
                             if (isKhususEs) {
-                              handleItemClick(item, 'dingin', item.harga_es || item.harga);
+                              handleItemClick(item, 'dingin', item.harga_es || item.harga, undefined, item.hpp_es !== undefined ? item.hpp_es : item.hpp);
                             } else if (isKhususPanas) {
-                              handleItemClick(item, 'panas', item.harga);
+                              handleItemClick(item, 'panas', item.harga, undefined, item.hpp);
                             } else {
-                              handleItemClick(item, undefined, item.harga);
+                              handleItemClick(item, undefined, item.harga, undefined, item.hpp);
                             }
                           }}
                           className={`h-7 px-2 rounded-xl font-extrabold text-[10px] sm:text-[11px] flex items-center justify-center space-x-1 transition-all shadow-2xs shrink-0 cursor-pointer active:scale-95 whitespace-nowrap ${

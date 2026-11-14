@@ -364,6 +364,74 @@ export function getKategoriUuid(idOrCode?: string | null): string | null {
   return null;
 }
 
+export const KATEGORI_ID_BY_UUID: Record<string, string> = {
+  '6d639aab-ff78-40b3-87df-4c18a4977288': 'kat-sb',
+  '26606c3e-0efb-46e2-b7c5-52669da2b7e1': 'kat-wg',
+  'ccae656c-4c48-421f-aa93-efe6e5b28f43': 'kat-6',
+};
+
+export function normalizeKategoriId(idOrUuid?: string | null): string {
+  if (!idOrUuid) return 'kat-wg';
+  const clean = idOrUuid.trim().toLowerCase();
+  if (KATEGORI_ID_BY_UUID[clean]) return KATEGORI_ID_BY_UUID[clean];
+  if (clean === 'kat-sb' || clean === 'kat-wg' || clean === 'kat-6') return clean;
+  if (clean.includes('serabi')) return 'kat-sb';
+  if (clean.includes('makanan') || clean.includes('camilan') || clean.includes('snack') || clean.includes('dapur')) return 'kat-6';
+  return 'kat-wg';
+}
+
+export function decodeMenuRecord(raw: any): MenuItem {
+  let deskripsiClean = raw.deskripsi || '';
+  let meta: any = {};
+  const metaMatch = typeof deskripsiClean === 'string' ? deskripsiClean.match(/\[\[VMETA:([\s\S]*?)\]\]/) : null;
+  if (metaMatch) {
+    try {
+      meta = JSON.parse(metaMatch[1]);
+    } catch {}
+    deskripsiClean = deskripsiClean.replace(/\s*\[\[VMETA:[\s\S]*?\]\]/g, '').trim();
+  }
+
+  const rawKatId = raw.kategori_id || meta.kategori_id;
+  const normKatId = normalizeKategoriId(rawKatId);
+  const rawKatNama = raw.kategori?.nama || raw.kategori_nama;
+  const resolvedKatNama = rawKatNama || (normKatId === 'kat-sb' ? '🥞 Serabi Bawel' : normKatId === 'kat-6' ? '🍲 Makanan & Camilan' : '🍵 Minuman');
+
+  const hasVariasi = raw.has_variasi_harga !== undefined ? !!raw.has_variasi_harga : (meta.has_variasi_harga !== undefined ? !!meta.has_variasi_harga : false);
+  const varNama1 = raw.varian_nama_1 || meta.varian_nama_1 || 'Reguler';
+  const varHarga1 = raw.varian_harga_1 !== undefined ? Number(raw.varian_harga_1) : (meta.varian_harga_1 !== undefined ? Number(meta.varian_harga_1) : Number(raw.harga) || 15000);
+  const varHpp1 = raw.varian_hpp_1 !== undefined ? Number(raw.varian_hpp_1) : (meta.varian_hpp_1 !== undefined ? Number(meta.varian_hpp_1) : (Number(raw.hpp) || 4800));
+  const varNama2 = raw.varian_nama_2 || meta.varian_nama_2 || 'Jumbo';
+  const varHarga2 = raw.varian_harga_2 !== undefined ? Number(raw.varian_harga_2) : (meta.varian_harga_2 !== undefined ? Number(meta.varian_harga_2) : (varHarga1 + 5000));
+  const varHpp2 = raw.varian_hpp_2 !== undefined ? Number(raw.varian_hpp_2) : (meta.varian_hpp_2 !== undefined ? Number(meta.varian_hpp_2) : (varHpp1 + 2000));
+
+  const suhuMode = raw.suhu_mode || meta.suhu_mode;
+  const hargaEs = raw.harga_es !== undefined ? Number(raw.harga_es) : (meta.harga_es !== undefined ? Number(meta.harga_es) : undefined);
+  const hppEs = raw.hpp_es !== undefined ? Number(raw.hpp_es) : (meta.hpp_es !== undefined ? Number(meta.hpp_es) : undefined);
+
+  const isFood = normKatId === 'kat-sb' || normKatId === 'kat-6';
+
+  return {
+    ...raw,
+    kategori_id: normKatId,
+    kategori_nama: resolvedKatNama,
+    deskripsi: deskripsiClean,
+    has_variasi_harga: hasVariasi,
+    varian_nama_1: hasVariasi ? varNama1 : undefined,
+    varian_harga_1: hasVariasi ? varHarga1 : undefined,
+    varian_hpp_1: hasVariasi ? varHpp1 : undefined,
+    varian_nama_2: hasVariasi ? varNama2 : undefined,
+    varian_harga_2: hasVariasi ? varHarga2 : undefined,
+    varian_hpp_2: hasVariasi ? varHpp2 : undefined,
+    suhu_mode: isFood ? undefined : suhuMode,
+    harga_es: isFood ? undefined : hargaEs,
+    hpp_es: isFood ? undefined : hppEs,
+    has_temperature_option: !isFood && (suhuMode === 'bisa_keduanya' || suhuMode === 'beda_harga_es'),
+    default_temperature: isFood ? undefined : (suhuMode === 'khusus_es' ? 'dingin' : 'panas'),
+    harga: Number(raw.harga) || 15000,
+    hpp: Number(raw.hpp) !== undefined ? Number(raw.hpp) : Math.round((Number(raw.harga) || 15000) * 0.32),
+  };
+}
+
 export function syncCabangNamesToMap(cabangs: Array<{ id?: string; uuid?: string; nomor?: number; kode?: string; nama?: string }>): void {
   hasSyncedLocalCabangMap = true;
   for (const cbg of cabangs) {
@@ -544,10 +612,7 @@ export class PosDatabase {
           .select('*, kategori:kategori_menu(nama)')
           .order('created_at', { ascending: true });
         if (!error && Array.isArray(data)) {
-          const mapped: MenuItem[] = data.map(item => ({
-            ...item,
-            kategori_nama: item.kategori?.nama,
-          }));
+          const mapped: MenuItem[] = data.map(item => decodeMenuRecord(item));
           saveLocal(STORAGE_KEYS.MENU, mapped);
           return mapped;
         }
@@ -555,7 +620,8 @@ export class PosDatabase {
         console.warn('Fallback to local menu data:', e);
       }
     }
-    return loadLocal<MenuItem[]>(STORAGE_KEYS.MENU, isSupabaseConfigured ? [] : INITIAL_MENU);
+    const local = loadLocal<MenuItem[]>(STORAGE_KEYS.MENU, isSupabaseConfigured ? [] : INITIAL_MENU);
+    return local.map(item => decodeMenuRecord(item));
   }
 
   async saveMenu(item: Partial<MenuItem>): Promise<MenuItem> {
@@ -566,9 +632,10 @@ export class PosDatabase {
       // Update existing menu
       const index = current.findIndex(m => m.id === item.id);
       if (index !== -1) {
-        savedItem = {
+        savedItem = decodeMenuRecord({
           ...current[index],
           ...item,
+          kategori_id: normalizeKategoriId(item.kategori_id || current[index].kategori_id),
           harga: Number(item.harga) !== undefined && !isNaN(Number(item.harga)) ? Number(item.harga) : current[index].harga,
           harga_es: item.harga_es !== undefined ? (item.harga_es ? Number(item.harga_es) : undefined) : current[index].harga_es,
           hpp: Number(item.hpp) !== undefined && !isNaN(Number(item.hpp)) ? Number(item.hpp) : (current[index].hpp || Math.round((Number(item.harga) || 15000) * 0.32)),
@@ -581,7 +648,7 @@ export class PosDatabase {
           varian_nama_2: item.varian_nama_2 !== undefined ? item.varian_nama_2 : current[index].varian_nama_2,
           varian_harga_2: item.varian_harga_2 !== undefined ? item.varian_harga_2 : current[index].varian_harga_2,
           varian_hpp_2: item.varian_hpp_2 !== undefined ? item.varian_hpp_2 : current[index].varian_hpp_2,
-        };
+        });
         current[index] = savedItem;
       } else {
         throw new Error(`Menu dengan ID ${item.id} tidak ditemukan.`);
@@ -589,10 +656,10 @@ export class PosDatabase {
     } else {
       // Create new menu (pakai UUID agar konsisten antara lokal & Supabase saat edit/hapus)
       const newMenuId = generateUUID();
-      savedItem = {
+      savedItem = decodeMenuRecord({
         id: newMenuId,
-        kategori_id: item.kategori_id || 'kat-wg',
-        kategori_nama: item.kategori_nama || 'Wedang Geprek Rempah',
+        kategori_id: normalizeKategoriId(item.kategori_id),
+        kategori_nama: item.kategori_nama,
         kode: item.kode || `MN-${Math.floor(10 + Math.random() * 90)}`,
         nama: item.nama || 'Minuman Herbal Baru',
         deskripsi: item.deskripsi || '',
@@ -613,7 +680,7 @@ export class PosDatabase {
         is_active: item.is_active ?? true,
         cabang_ids: item.cabang_ids || [],
         created_at: new Date().toISOString(),
-      };
+      });
       current.push(savedItem);
     }
 
@@ -627,12 +694,28 @@ export class PosDatabase {
         const supabaseMenuId = getMenuUuid(savedItem.id) || getMenuUuid(savedItem.kode) || (isValidUuid(savedItem.id) ? savedItem.id : generateUUID());
         const supabaseKatId = getKategoriUuid(savedItem.kategori_id);
 
+        const metaToSave = {
+          kategori_id: savedItem.kategori_id,
+          has_variasi_harga: savedItem.has_variasi_harga,
+          varian_nama_1: savedItem.varian_nama_1,
+          varian_harga_1: savedItem.varian_harga_1,
+          varian_hpp_1: savedItem.varian_hpp_1,
+          varian_nama_2: savedItem.varian_nama_2,
+          varian_harga_2: savedItem.varian_harga_2,
+          varian_hpp_2: savedItem.varian_hpp_2,
+          suhu_mode: savedItem.suhu_mode,
+          harga_es: savedItem.harga_es,
+          hpp_es: savedItem.hpp_es,
+        };
+        const cleanDesk = (savedItem.deskripsi || '').replace(/\s*\[\[VMETA:[\s\S]*?\]\]/g, '').trim();
+        const packedDeskripsi = cleanDesk ? `${cleanDesk} [[VMETA:${JSON.stringify(metaToSave)}]]` : `[[VMETA:${JSON.stringify(metaToSave)}]]`;
+
         const supabaseRow: any = {
           id: supabaseMenuId,
           kategori_id: supabaseKatId,
           kode: savedItem.kode,
           nama: savedItem.nama,
-          deskripsi: savedItem.deskripsi || null,
+          deskripsi: packedDeskripsi,
           harga: savedItem.harga,
           hpp: savedItem.hpp || 0,
           gambar: savedItem.gambar || null,
@@ -2390,16 +2473,36 @@ export class PosDatabase {
             kembali: Number(d.kembali || 0),
             status: d.status,
             is_offline_synced: d.is_offline_synced,
-            items: (d.items || []).map((it: any) => ({
-              id: it.id,
-              transaksi_id: it.transaksi_id,
-              menu_id: it.menu_id,
-              nama_menu: it.nama_menu,
-              harga: Number(it.harga),
-              qty: Number(it.qty),
-              subtotal: Number(it.subtotal),
-              catatan: it.catatan,
-            })),
+            items: (d.items || []).map((it: any) => {
+              let cleanCatatan = it.catatan || '';
+              let temp = it.temperature;
+              let varianNama = it.varian_nama;
+              let hpp = it.hpp !== undefined ? Number(it.hpp) : undefined;
+              const metaMatch = typeof cleanCatatan === 'string' ? cleanCatatan.match(/\[\[IMETA:([\s\S]*?)\]\]/) : null;
+              if (metaMatch) {
+                try {
+                  const meta = JSON.parse(metaMatch[1]);
+                  if (meta.temp) temp = meta.temp;
+                  if (meta.var) varianNama = meta.var;
+                  if (meta.hpp !== undefined) hpp = Number(meta.hpp);
+                } catch {}
+                cleanCatatan = cleanCatatan.replace(/\s*\[\[IMETA:[\s\S]*?\]\]/g, '').trim();
+              }
+              return {
+                id: it.id,
+                transaksi_id: it.transaksi_id,
+                menu_id: it.menu_id,
+                nama_menu: it.nama_menu,
+                harga: Number(it.harga),
+                hpp,
+                qty: Number(it.qty),
+                subtotal: Number(it.subtotal),
+                subtotal_hpp: hpp ? hpp * Number(it.qty) : undefined,
+                catatan: cleanCatatan || undefined,
+                temperature: temp,
+                varian_nama: varianNama,
+              };
+            }),
           }));
         }
       } catch (e) {
@@ -2418,9 +2521,34 @@ export class PosDatabase {
     for (const trx of local) {
       const key = trx.invoice_no || trx.id;
       if (!combinedMap.has(key)) {
+        const enrichedItems = (trx.items || []).map((it: any) => {
+          let cleanCatatan = it.catatan || '';
+          let temp = it.temperature;
+          let varianNama = it.varian_nama;
+          let hpp = it.hpp !== undefined ? Number(it.hpp) : undefined;
+          const metaMatch = typeof cleanCatatan === 'string' ? cleanCatatan.match(/\[\[IMETA:([\s\S]*?)\]\]/) : null;
+          if (metaMatch) {
+            try {
+              const meta = JSON.parse(metaMatch[1]);
+              if (meta.temp) temp = meta.temp;
+              if (meta.var) varianNama = meta.var;
+              if (meta.hpp !== undefined) hpp = Number(meta.hpp);
+            } catch {}
+            cleanCatatan = cleanCatatan.replace(/\s*\[\[IMETA:[\s\S]*?\]\]/g, '').trim();
+          }
+          return {
+            ...it,
+            catatan: cleanCatatan || undefined,
+            temperature: temp,
+            varian_nama: varianNama,
+            hpp,
+            subtotal_hpp: hpp ? hpp * Number(it.qty) : undefined,
+          };
+        });
         combinedMap.set(key, {
           ...trx,
           cabang_nama: resolveLiveBranchName(trx.cabang_id, trx.cabang_nama),
+          items: enrichedItems,
         });
       }
     }
@@ -3940,29 +4068,46 @@ export class PosDatabase {
     const allMenus = await this.getMenuList();
     const menuHppMap: Record<string, number> = {};
     const menuHppEsMap: Record<string, number> = {};
+    const menuObjMap: Record<string, MenuItem> = {};
     allMenus.forEach(m => { 
       const defaultHpp = m.hpp !== undefined && m.hpp > 0 ? m.hpp : Math.round(m.harga * 0.32) || 4000;
       const defaultHppEs = m.hpp_es !== undefined && m.hpp_es > 0 ? m.hpp_es : defaultHpp;
       menuHppMap[m.id] = defaultHpp;
       menuHppEsMap[m.id] = defaultHppEs;
+      menuObjMap[m.id] = m;
       if (m.kode) {
         menuHppMap[m.kode] = defaultHpp;
         menuHppEsMap[m.kode] = defaultHppEs;
+        menuObjMap[m.kode] = m;
       }
       if (m.nama) {
         menuHppMap[m.nama.toLowerCase()] = defaultHpp;
         menuHppEsMap[m.nama.toLowerCase()] = defaultHppEs;
+        menuObjMap[m.nama.toLowerCase()] = m;
       }
     });
 
     for (const trx of dayTransactions) {
       omzetKotor += trx.total;
       for (const it of trx.items) {
-        const isDingin = it.temperature === 'dingin';
-        const itemHpp = isDingin
-          ? (menuHppEsMap[it.menu_id] || (it.nama_menu && menuHppEsMap[it.nama_menu.toLowerCase()]) || menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000)
-          : (menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000);
-        totalHppBahan += (itemHpp * it.qty);
+        let itemHpp: number | undefined = (it.hpp !== undefined && it.hpp > 0) ? it.hpp : undefined;
+        if (!itemHpp || itemHpp <= 0) {
+          const matchedMenu = menuObjMap[it.menu_id] || (it.nama_menu ? menuObjMap[it.nama_menu.toLowerCase()] : undefined);
+          if (matchedMenu && it.varian_nama && matchedMenu.has_variasi_harga) {
+            if (matchedMenu.varian_nama_2 && it.varian_nama.toLowerCase() === matchedMenu.varian_nama_2.toLowerCase()) {
+              itemHpp = matchedMenu.varian_hpp_2;
+            } else if (matchedMenu.varian_nama_1 && it.varian_nama.toLowerCase() === matchedMenu.varian_nama_1.toLowerCase()) {
+              itemHpp = matchedMenu.varian_hpp_1;
+            }
+          }
+          if (!itemHpp || itemHpp <= 0) {
+            const isDingin = it.temperature === 'dingin';
+            itemHpp = isDingin
+              ? (menuHppEsMap[it.menu_id] || (it.nama_menu && menuHppEsMap[it.nama_menu.toLowerCase()]) || menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000)
+              : (menuHppMap[it.menu_id] || (it.nama_menu && menuHppMap[it.nama_menu.toLowerCase()]) || 4000);
+          }
+        }
+        totalHppBahan += ((itemHpp || 0) * it.qty);
       }
     }
 
@@ -4520,6 +4665,17 @@ export class PosDatabase {
       if (!alreadyExists && trx.items && trx.items.length > 0) {
         const itemsPayload = trx.items.map(it => {
           const menuUuid = getMenuUuid(it.menu_id);
+          let cleanCat = (it.catatan || '').replace(/\s*\[\[IMETA:[\s\S]*?\]\]/g, '').trim();
+          const metaObj: any = {};
+          if (it.temperature) metaObj.temp = it.temperature;
+          if (it.varian_nama) metaObj.var = it.varian_nama;
+          if (it.hpp !== undefined && it.hpp > 0) metaObj.hpp = it.hpp;
+
+          const hasMeta = Object.keys(metaObj).length > 0;
+          const packedCat = hasMeta
+            ? (cleanCat ? `${cleanCat} [[IMETA:${JSON.stringify(metaObj)}]]` : `[[IMETA:${JSON.stringify(metaObj)}]]`)
+            : (cleanCat || null);
+
           return {
             id: generateUUID(),
             transaksi_id: trx.id,
@@ -4528,7 +4684,7 @@ export class PosDatabase {
             harga: it.harga,
             qty: it.qty,
             subtotal: it.subtotal,
-            catatan: it.catatan || null,
+            catatan: packedCat,
           };
         });
         const { error: itemsErr } = await withQueryTimeout(

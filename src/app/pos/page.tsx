@@ -374,10 +374,32 @@ export default function PosPage() {
   };
 
   // Cart Management
-  const handleAddToCart = (item: MenuItem, temp?: 'panas' | 'dingin', customHarga?: number, varianNama?: string) => {
+  const handleAddToCart = (
+    item: MenuItem, 
+    temp?: 'panas' | 'dingin', 
+    customHarga?: number, 
+    varianNama?: string,
+    customHpp?: number
+  ) => {
     const isDrink = getItemKitchenStation(item) === 'wedang';
     const finalTemp = isDrink ? (temp || (item.suhu_mode === 'khusus_es' ? 'dingin' : 'panas')) : undefined;
     const finalUnitPrice = customHarga || (finalTemp === 'dingin' && item.harga_es ? item.harga_es : item.harga);
+
+    // Hitung HPP akurat untuk variasi porsi, es/panas, maupun porsi standar
+    let finalUnitHpp = customHpp;
+    if (finalUnitHpp === undefined || finalUnitHpp <= 0) {
+      if (finalTemp === 'dingin' && item.hpp_es) {
+        finalUnitHpp = item.hpp_es;
+      } else if (item.has_variasi_harga && varianNama) {
+        if (item.varian_nama_2 && varianNama.toLowerCase() === item.varian_nama_2.toLowerCase()) {
+          finalUnitHpp = item.varian_hpp_2 || item.hpp;
+        } else if (item.varian_nama_1 && varianNama.toLowerCase() === item.varian_nama_1.toLowerCase()) {
+          finalUnitHpp = item.varian_hpp_1 || item.hpp;
+        }
+      } else {
+        finalUnitHpp = item.hpp;
+      }
+    }
 
     setCart(prev => {
       const existingIndex = prev.findIndex(ci => 
@@ -400,6 +422,7 @@ export default function PosPage() {
         catatan: '',
         temperature: finalTemp,
         custom_harga: finalUnitPrice,
+        custom_hpp: finalUnitHpp,
         varian_nama: varianNama,
       }];
     });
@@ -437,12 +460,14 @@ export default function PosPage() {
 
       const nextTemp: 'panas' | 'dingin' = target.temperature === 'dingin' ? 'panas' : 'dingin';
       const nextPrice = nextTemp === 'dingin' && target.menu.harga_es ? target.menu.harga_es : target.menu.harga;
+      const nextHpp = nextTemp === 'dingin' && target.menu.hpp_es ? target.menu.hpp_es : target.menu.hpp;
 
       const next = [...prev];
       next[itemIndex] = { 
         ...target, 
         temperature: nextTemp,
         custom_harga: nextPrice,
+        custom_hpp: nextHpp,
       };
       return next;
     });
@@ -473,12 +498,29 @@ export default function PosPage() {
         total: subtotal,
         items: cart.map(it => {
           const unitPrice = getCartItemUnitPrice(it);
+          let unitHpp = it.custom_hpp;
+          if (unitHpp === undefined || unitHpp <= 0) {
+            if (it.temperature === 'dingin' && it.menu.hpp_es) {
+              unitHpp = it.menu.hpp_es;
+            } else if (it.menu.has_variasi_harga && it.varian_nama) {
+              if (it.menu.varian_nama_2 && it.varian_nama.toLowerCase() === it.menu.varian_nama_2.toLowerCase()) {
+                unitHpp = it.menu.varian_hpp_2 || it.menu.hpp;
+              } else if (it.menu.varian_nama_1 && it.varian_nama.toLowerCase() === it.menu.varian_nama_1.toLowerCase()) {
+                unitHpp = it.menu.varian_hpp_1 || it.menu.hpp;
+              }
+            } else {
+              unitHpp = it.menu.hpp;
+            }
+          }
+          const finalHpp = unitHpp !== undefined && unitHpp > 0 ? unitHpp : undefined;
           return {
             menu_id: it.menu.id,
             nama_menu: it.menu.nama,
             harga: unitPrice,
+            hpp: finalHpp,
             qty: it.qty,
             subtotal: unitPrice * it.qty,
+            subtotal_hpp: finalHpp ? finalHpp * it.qty : undefined,
             catatan: it.catatan,
             temperature: it.temperature,
             varian_nama: it.varian_nama,
@@ -533,12 +575,29 @@ export default function PosPage() {
       is_offline_synced: false,
       items: cart.map(it => {
         const unitPrice = getCartItemUnitPrice(it);
+        let unitHpp = it.custom_hpp;
+        if (unitHpp === undefined || unitHpp <= 0) {
+          if (it.temperature === 'dingin' && it.menu.hpp_es) {
+            unitHpp = it.menu.hpp_es;
+          } else if (it.menu.has_variasi_harga && it.varian_nama) {
+            if (it.menu.varian_nama_2 && it.varian_nama.toLowerCase() === it.menu.varian_nama_2.toLowerCase()) {
+              unitHpp = it.menu.varian_hpp_2 || it.menu.hpp;
+            } else if (it.menu.varian_nama_1 && it.varian_nama.toLowerCase() === it.menu.varian_nama_1.toLowerCase()) {
+              unitHpp = it.menu.varian_hpp_1 || it.menu.hpp;
+            }
+          } else {
+            unitHpp = it.menu.hpp;
+          }
+        }
+        const finalHpp = unitHpp !== undefined && unitHpp > 0 ? unitHpp : undefined;
         return {
           menu_id: it.menu.id,
           nama_menu: it.menu.nama,
           harga: unitPrice,
+          hpp: finalHpp,
           qty: it.qty,
           subtotal: unitPrice * it.qty,
+          subtotal_hpp: finalHpp ? finalHpp * it.qty : undefined,
           catatan: it.catatan,
           temperature: it.temperature,
           varian_nama: it.varian_nama,
@@ -575,7 +634,7 @@ export default function PosPage() {
         kategori_id: 'kat-wg',
         kategori_nama: 'Minuman / Menu',
         harga: it.harga,
-        hpp: 0,
+        hpp: it.hpp || 0,
         deskripsi: '',
         gambar: '',
         is_favorite: false,
@@ -587,6 +646,7 @@ export default function PosPage() {
         catatan: it.catatan || '',
         temperature: it.temperature,
         custom_harga: it.harga,
+        custom_hpp: it.hpp,
         varian_nama: it.varian_nama,
       };
     });
@@ -671,12 +731,29 @@ export default function PosPage() {
         is_offline_synced: navigator.onLine,
         items: cart.map(it => {
           const unitPrice = getCartItemUnitPrice(it);
+          let unitHpp = it.custom_hpp;
+          if (unitHpp === undefined || unitHpp <= 0) {
+            if (it.temperature === 'dingin' && it.menu.hpp_es) {
+              unitHpp = it.menu.hpp_es;
+            } else if (it.menu.has_variasi_harga && it.varian_nama) {
+              if (it.menu.varian_nama_2 && it.varian_nama.toLowerCase() === it.menu.varian_nama_2.toLowerCase()) {
+                unitHpp = it.menu.varian_hpp_2 || it.menu.hpp;
+              } else if (it.menu.varian_nama_1 && it.varian_nama.toLowerCase() === it.menu.varian_nama_1.toLowerCase()) {
+                unitHpp = it.menu.varian_hpp_1 || it.menu.hpp;
+              }
+            } else {
+              unitHpp = it.menu.hpp;
+            }
+          }
+          const finalHpp = unitHpp !== undefined && unitHpp > 0 ? unitHpp : undefined;
           return {
             menu_id: it.menu.id,
             nama_menu: it.menu.nama,
             harga: unitPrice,
+            hpp: finalHpp,
             qty: it.qty,
             subtotal: unitPrice * it.qty,
+            subtotal_hpp: finalHpp ? finalHpp * it.qty : undefined,
             catatan: it.catatan,
             temperature: it.temperature,
             varian_nama: it.varian_nama,
