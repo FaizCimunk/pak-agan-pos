@@ -100,53 +100,55 @@ export default function PosCartDrawer({
   return (
     <div className="flex flex-col h-full min-h-0 bg-white rounded-2xl border border-slate-200/90 shadow-soft-md overflow-hidden">
       
-      {/* Top Banner jika sedang Edit Pesanan Belum Bayar */}
-      {isEditingOpenBill && (
-        <div className="bg-amber-500 text-white px-3.5 py-1.5 flex items-center justify-between gap-2 text-xs animate-fadeIn shrink-0">
-          <div className="flex items-center space-x-1.5 font-bold truncate min-w-0">
-            <span>✏️</span>
-            <span className="truncate">Mengubah: <strong>{penanda || 'Belum Bayar'}</strong> {editingBillInvoice ? `(${editingBillInvoice})` : ''}</span>
-          </div>
-          <div className="flex items-center space-x-1.5 shrink-0">
-            {onCloseMobile && (
-              <button
-                type="button"
-                onClick={onCloseMobile}
-                className="lg:hidden text-[10px] font-black bg-emerald-700 hover:bg-emerald-800 text-white px-2 py-0.5 rounded-lg transition-colors shadow-xs"
-                title="Kembali ke daftar menu untuk tambah pesanan"
-              >
-                + Tambah
-              </button>
-            )}
-            {onCancelEditOpenBill && (
-              <button
-                type="button"
-                onClick={onCancelEditOpenBill}
-                className="text-[10px] font-black bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-lg transition-colors"
-                title="Batal mengubah dan kembalikan keranjang"
-              >
-                Batal
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Drawer Header */}
-      <div className="p-2.5 sm:p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
+      {/* Drawer Header (Menyatu dengan Mode Edit agar menghemat ruang vertikal layar) */}
+      <div className={`p-2 sm:p-2.5 border-b flex items-center justify-between shrink-0 transition-colors ${
+        isEditingOpenBill 
+          ? 'bg-amber-500 text-white border-amber-600 shadow-xs' 
+          : 'bg-slate-50/70 border-slate-100 text-slate-800'
+      }`}>
         <div className="flex items-center space-x-2 min-w-0">
-          <div className="w-6 h-6 rounded-lg bg-emerald-600/10 text-emerald-800 flex items-center justify-center shrink-0">
-            <ShoppingBag className="w-3.5 h-3.5" />
+          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+            isEditingOpenBill ? 'bg-white/20 text-white' : 'bg-emerald-600/10 text-emerald-800'
+          }`}>
+            {isEditingOpenBill ? (
+              <span className="text-xs">✏️</span>
+            ) : (
+              <ShoppingBag className="w-3.5 h-3.5" />
+            )}
           </div>
           <div className="min-w-0">
-            <h2 className="font-extrabold text-slate-800 text-xs sm:text-sm truncate">Pesanan Kasir</h2>
-            <span className="text-[10px] text-slate-500 font-medium truncate block">
-              {totalQty} item pesanan terpilih
+            <h2 className={`font-extrabold text-xs sm:text-sm truncate ${isEditingOpenBill ? 'text-white' : 'text-slate-800'}`}>
+              {isEditingOpenBill ? `Ubah: ${penanda || 'Belum Bayar'}` : 'Pesanan Kasir'}
+            </h2>
+            <span className={`text-[10px] font-medium truncate block ${isEditingOpenBill ? 'text-amber-100' : 'text-slate-500'}`}>
+              {totalQty} item {isEditingOpenBill && editingBillInvoice ? `• ${editingBillInvoice}` : 'terpilih'}
             </span>
           </div>
         </div>
 
         <div className="flex items-center space-x-1.5 shrink-0">
+          {onCloseMobile && isEditingOpenBill && (
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="lg:hidden text-[10px] font-black bg-emerald-700 hover:bg-emerald-800 text-white px-2 py-0.5 rounded-lg transition-colors shadow-xs"
+              title="Kembali ke daftar menu untuk tambah pesanan"
+            >
+              + Tambah
+            </button>
+          )}
+
+          {isEditingOpenBill && onCancelEditOpenBill && (
+            <button
+              type="button"
+              onClick={onCancelEditOpenBill}
+              className="text-[10px] font-black bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-lg transition-colors"
+              title="Batal mengubah dan kembalikan keranjang"
+            >
+              Batal
+            </button>
+          )}
+
           {onCloseMobile && !isEditingOpenBill && (
             <button
               type="button"
@@ -162,7 +164,11 @@ export default function PosCartDrawer({
           {items.length > 0 && (
             <button
               onClick={onClearCart}
-              className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center space-x-1 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors"
+              className={`text-xs font-bold flex items-center space-x-1 px-2 py-1 rounded-lg transition-colors ${
+                isEditingOpenBill
+                  ? 'text-white/80 hover:text-white hover:bg-white/10'
+                  : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'
+              }`}
               title="Kosongkan Keranjang"
             >
               <Trash2 className="w-3 h-3" />
@@ -174,7 +180,11 @@ export default function PosCartDrawer({
             <button
               type="button"
               onClick={onCloseMobile}
-              className="lg:hidden p-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors"
+              className={`p-1.5 rounded-lg transition-colors ${
+                isEditingOpenBill
+                  ? 'bg-white/20 hover:bg-white/30 text-white'
+                  : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+              }`}
               title="Tutup Keranjang"
             >
               <X className="w-3.5 h-3.5" />
@@ -183,34 +193,33 @@ export default function PosCartDrawer({
         </div>
       </div>
 
-      {/* Prominent Penanda / Tanda Nama Bar (Mudah Diketik di Tablet & HP Miring) */}
-      <div className="px-2.5 py-1.5 bg-slate-50 border-b border-slate-200/90 flex flex-col gap-1.5 shrink-0">
-        <div className="relative flex items-center">
-          <div className="absolute left-2.5 flex items-center pointer-events-none text-amber-600">
-            <Tag className="w-3.5 h-3.5" />
+      {/* Prominent Penanda / Tanda Nama Bar (Ramping & Satu Baris Efisien) */}
+      <div className="px-2 py-1 bg-slate-50 border-b border-slate-200/90 flex items-center gap-1.5 shrink-0">
+        <div className="relative flex-1 min-w-[100px] max-w-[140px] sm:max-w-[170px] shrink-0">
+          <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center pointer-events-none text-amber-600">
+            <Tag className="w-3 h-3" />
           </div>
           <input
             type="text"
             value={penanda}
             onChange={(e) => onPenandaChange(e.target.value)}
-            placeholder="No. Meja / Nama Pemesan..."
-            className="w-full pl-8 pr-7 py-1.5 sm:py-2 bg-white rounded-xl border border-slate-300 font-extrabold text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
+            placeholder="Meja / Nama..."
+            className="w-full pl-6 pr-5 py-1 bg-white rounded-lg border border-slate-300 font-extrabold text-[11px] sm:text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
           />
           {penanda ? (
             <button
               type="button"
               onClick={() => onPenandaChange('')}
-              className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100"
               title="Bersihkan nama / nomor meja"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3 h-3" />
             </button>
           ) : null}
         </div>
 
-        {/* Quick Table / Service Mode Chips (Horizontal Scroll, Tidak Pernah Terlipat) */}
-        <div className="flex items-center space-x-1 overflow-x-auto scrollbar-none py-0.5">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-0.5">Pilih:</span>
+        {/* Quick Table / Service Mode Chips (Horizontal Scroll Satu Baris) */}
+        <div className="flex items-center space-x-1 overflow-x-auto scrollbar-none flex-1 py-0.5">
           {['01', '02', '03', '04', '05', '06', '07', '08', 'Bungkus'].map(chip => {
             const isMatch = chip === 'Bungkus' ? penanda.toLowerCase().includes('bungkus') : penanda === `No. ${chip}`;
             return (
@@ -218,7 +227,7 @@ export default function PosCartDrawer({
                 key={chip}
                 type="button"
                 onClick={() => onPenandaChange(chip === 'Bungkus' ? 'Bungkus' : `No. ${chip}`)}
-                className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold whitespace-nowrap shrink-0 transition-all ${
+                className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold whitespace-nowrap shrink-0 transition-all ${
                   isMatch
                     ? 'bg-emerald-700 text-white shadow-2xs ring-1 ring-emerald-800'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -232,7 +241,7 @@ export default function PosCartDrawer({
       </div>
 
       {/* Cart Items List (min-h-0 prevents flex collapse, compact cards guarantee 100% visibility) */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-2.5 space-y-1.5">
+      <div className="flex-1 min-h-0 overflow-y-auto p-1.5 sm:p-2 space-y-1.5">
         {items.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 py-8">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-2">
@@ -254,7 +263,7 @@ export default function PosCartDrawer({
             return (
               <div
                 key={`${item.menu.id}-${index}`}
-                className="p-2 sm:p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/90 hover:border-slate-300 transition-all flex flex-col gap-1 shadow-2xs"
+                className="p-1.5 sm:p-2 rounded-xl bg-slate-50/90 border border-slate-200/90 hover:border-slate-300 transition-all flex flex-col gap-0.5 shadow-2xs"
               >
                 {/* Top Row: Name, Temp/Variant, Subtotal & Trash */}
                 <div className="flex items-center justify-between gap-1.5">
@@ -338,22 +347,22 @@ export default function PosCartDrawer({
                   </div>
 
                   {/* Big Tactile Stepper (- / qty / +) */}
-                  <div className="flex items-center space-x-1.5 bg-white px-1.5 py-0.5 rounded-lg border border-slate-200 shadow-2xs shrink-0">
+                  <div className="flex items-center space-x-1 bg-white px-1 py-0.5 rounded-lg border border-slate-200 shadow-2xs shrink-0">
                     <button
                       type="button"
                       onClick={() => onUpdateQty(index, -1)}
-                      className="w-5 h-5 rounded flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-90 transition-all font-black"
+                      className="w-4.5 h-4.5 rounded flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-90 transition-all font-black"
                       title="Kurangi 1"
                     >
                       <Minus className="w-3 h-3 stroke-[3]" />
                     </button>
-                    <span className="font-mono font-black text-xs text-slate-900 w-5 text-center tabular-nums">
+                    <span className="font-mono font-black text-xs text-slate-900 w-4.5 text-center tabular-nums">
                       {item.qty}
                     </span>
                     <button
                       type="button"
                       onClick={() => onUpdateQty(index, 1)}
-                      className="w-5 h-5 rounded flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-90 transition-all font-black"
+                      className="w-4.5 h-4.5 rounded flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-90 transition-all font-black"
                       title="Tambah 1"
                     >
                       <Plus className="w-3 h-3 stroke-[3]" />
@@ -412,13 +421,13 @@ export default function PosCartDrawer({
       </div>
 
       {/* Drawer Footer & Checkout Button (Compact & Always 100% Visible) */}
-      <div className="p-2 sm:p-2.5 border-t border-slate-100 bg-slate-50/90 space-y-1.5 shrink-0">
-        <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-slate-900">
-          <div>
-            <span className="block leading-tight font-extrabold text-slate-800">TOTAL TAGIHAN</span>
-            <span className="text-[10px] text-slate-500 font-medium">({totalQty} item terpilih)</span>
+      <div className="p-1.5 sm:p-2 border-t border-slate-100 bg-slate-50/90 space-y-1 shrink-0">
+        <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-slate-900 px-0.5">
+          <div className="flex items-center space-x-1">
+            <span className="font-extrabold text-slate-800 text-[11px] sm:text-xs">TOTAL:</span>
+            <span className="text-[10px] text-slate-500 font-medium">({totalQty} item)</span>
           </div>
-          <span className="text-base sm:text-lg font-mono font-extrabold text-brand-dark tabular-nums tracking-tight">
+          <span className="text-sm sm:text-base font-mono font-black text-brand-dark tabular-nums tracking-tight">
             {formatRupiah(total)}
           </span>
         </div>
@@ -427,18 +436,18 @@ export default function PosCartDrawer({
         {!isShiftOpen ? (
           <button
             onClick={onCheckout}
-            className="w-full py-2 px-3 rounded-xl bg-slate-200 text-slate-400 font-extrabold text-xs cursor-not-allowed"
+            className="w-full py-1.5 px-3 rounded-xl bg-slate-200 text-slate-400 font-extrabold text-xs cursor-not-allowed"
             disabled
           >
             Buka Shift Terlebih Dahulu
           </button>
         ) : (
-          <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+          <div className="grid grid-cols-2 gap-1.5">
             <button
               type="button"
               onClick={onSaveOpenBill}
               disabled={items.length === 0}
-              className={`py-2 sm:py-2.5 px-2 rounded-xl flex items-center justify-center space-x-1 font-extrabold text-xs transition-all btn-tactile ${
+              className={`py-1.5 sm:py-2 px-2 rounded-xl flex items-center justify-center space-x-1 font-extrabold text-xs transition-all btn-tactile ${
                 items.length === 0
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/25 active:scale-95'
@@ -453,7 +462,7 @@ export default function PosCartDrawer({
               type="button"
               onClick={onCheckout}
               disabled={items.length === 0}
-              className={`py-2 sm:py-2.5 px-2 rounded-xl flex items-center justify-center space-x-1 font-extrabold text-xs transition-all btn-tactile ${
+              className={`py-1.5 sm:py-2 px-2 rounded-xl flex items-center justify-center space-x-1 font-extrabold text-xs transition-all btn-tactile ${
                 items.length === 0
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/25 active:scale-95'

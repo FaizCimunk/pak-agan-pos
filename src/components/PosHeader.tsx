@@ -145,10 +145,10 @@ export default function PosHeader({
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-soft-sm">
         
         {/* DESKTOP & TABLET / LANDSCAPE BAR (Screens >= sm / 640px) */}
-        <div className="pos-header-bar hidden sm:flex px-3 lg:px-4 py-2 items-center justify-between gap-2">
+        <div className="pos-header-bar hidden sm:flex px-2.5 sm:px-3 lg:px-4 py-1 sm:py-1.5 lg:py-2 items-center justify-between gap-2">
           {/* Left: Brand Identity & Locked Cabang */}
-          <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-9 h-9 lg:w-11 lg:h-11 rounded-2xl bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-950 border border-emerald-500/40 flex items-center justify-center text-white shadow-md shadow-emerald-950/20 shrink-0">
+          <div className="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
+            <div className="w-8 h-8 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-950 border border-emerald-500/40 flex items-center justify-center text-white shadow-md shadow-emerald-950/20 shrink-0">
               <div className="flex items-center justify-center -space-x-1 drop-shadow-md">
                 <span className="text-sm lg:text-base select-none transform -rotate-6">🥞</span>
                 <span className="text-sm lg:text-base select-none transform rotate-6">🍵</span>

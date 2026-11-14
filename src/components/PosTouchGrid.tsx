@@ -94,113 +94,208 @@ export default function PosTouchGrid({
   return (
     <div className={`flex flex-col h-full ${isLandscape ? 'space-y-1.5' : 'space-y-2'}`}>
       
-      {/* 1. Baris Pencarian Menu Penuh & Jelas */}
-      <div className={`bg-white ${isLandscape ? 'p-1.5 sm:p-2 rounded-xl' : 'p-2 sm:p-2.5 rounded-2xl'} border border-slate-200/90 shadow-soft-sm flex items-center gap-2 shrink-0`}>
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Cari Serabi Bawel, Wedang Rempah, STMJ, Makanan..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={`w-full pl-9 pr-8 ${isLandscape ? 'py-1 text-xs' : 'py-1.5 text-xs sm:text-sm'} bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-800 placeholder-slate-400 transition-all`}
-          />
-          {searchQuery && (
+      {/* 1 & 2. Baris Pencarian Menu & Kategori */}
+      {isLandscape ? (
+        /* Mode Miring (Landscape): Search + Kategori Menyatu dalam 1 Baris Ramping */
+        <div className="bg-white p-1 sm:p-1.5 rounded-xl border border-slate-200/90 shadow-soft-xs flex items-center gap-1.5 shrink-0">
+          <div className="relative w-32 sm:w-40 md:w-48 shrink-0">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari menu..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-7 pr-6 py-1 bg-slate-50 focus:bg-white rounded-lg border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 placeholder-slate-400"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-slate-200/80 rounded-full w-3.5 h-3.5 flex items-center justify-center"
+              >
+                <X className="w-2 h-2" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none flex-1 py-0.5 select-none">
             <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 bg-slate-200/80 rounded-full w-4 h-4 flex items-center justify-center transition-colors"
-              title="Hapus pencarian"
+              type="button"
+              onClick={() => setSelectedKatId('all')}
+              className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-[10px] font-black whitespace-nowrap shrink-0 transition-all ${
+                selectedKatId === 'all'
+                  ? 'bg-emerald-700 text-white shadow-2xs ring-1 ring-emerald-800'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
             >
-              <X className="w-2.5 h-2.5" />
+              <span>Semua</span>
+              <span className={`px-1 py-0.2 rounded-full text-[9px] font-mono ${
+                selectedKatId === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {categoryCounts.all}
+              </span>
             </button>
-          )}
+
+            <button
+              type="button"
+              onClick={() => setSelectedKatId('serabi')}
+              className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-[10px] font-black whitespace-nowrap shrink-0 transition-all ${
+                selectedKatId === 'serabi'
+                  ? 'bg-amber-600 text-white shadow-2xs ring-1 ring-amber-700'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <span>🥞</span>
+              <span>Serabi</span>
+              <span className={`px-1 py-0.2 rounded-full text-[9px] font-mono ${
+                selectedKatId === 'serabi' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {categoryCounts.serabi}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedKatId('minuman')}
+              className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-[10px] font-black whitespace-nowrap shrink-0 transition-all ${
+                selectedKatId === 'minuman'
+                  ? 'bg-emerald-700 text-white shadow-2xs ring-1 ring-emerald-800'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <span>🍵</span>
+              <span>Minuman</span>
+              <span className={`px-1 py-0.2 rounded-full text-[9px] font-mono ${
+                selectedKatId === 'minuman' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {categoryCounts.minuman}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedKatId('makanan')}
+              className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-[10px] font-black whitespace-nowrap shrink-0 transition-all ${
+                selectedKatId === 'makanan'
+                  ? 'bg-blue-600 text-white shadow-2xs ring-1 ring-blue-700'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <span>🍲</span>
+              <span>Makanan</span>
+              <span className={`px-1 py-0.2 rounded-full text-[9px] font-mono ${
+                selectedKatId === 'makanan' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {categoryCounts.makanan}
+              </span>
+            </button>
+          </div>
         </div>
+      ) : (
+        /* Mode Potret: 2 Baris Klasik yang Nyaman & Lega */
+        <>
+          <div className="bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-soft-sm flex items-center gap-2 shrink-0">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cari Serabi Bawel, Wedang Rempah, STMJ, Makanan..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-8 py-1.5 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-800 placeholder-slate-400 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 bg-slate-200/80 rounded-full w-4 h-4 flex items-center justify-center transition-colors"
+                  title="Hapus pencarian"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              )}
+            </div>
 
-        <div className="hidden sm:flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold shrink-0 border border-emerald-200/60">
-          <UtensilsCrossed className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-          <span>{filteredMenu.length} Menu</span>
-        </div>
-      </div>
+            <div className="hidden sm:flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold shrink-0 border border-emerald-200/60">
+              <UtensilsCrossed className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+              <span>{filteredMenu.length} Menu</span>
+            </div>
+          </div>
 
-      {/* 2. Baris Kategori Menu Sederhana: 3 Kategori Utama (Serabi, Minuman, Makanan) */}
-      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 select-none shrink-0">
-        
-        {/* Semua */}
-        <button
-          type="button"
-          onClick={() => setSelectedKatId('all')}
-          className={`flex items-center space-x-1.5 ${isLandscape ? 'px-2 py-1 text-[11px]' : 'px-2.5 sm:px-3 py-1.5 text-xs'} rounded-xl font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
-            selectedKatId === 'all'
-              ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-600/30'
-              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>Semua</span>
-          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-            selectedKatId === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-          }`}>
-            {categoryCounts.all}
-          </span>
-        </button>
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 select-none shrink-0">
+            <button
+              type="button"
+              onClick={() => setSelectedKatId('all')}
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
+                selectedKatId === 'all'
+                  ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-600/30'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>Semua</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                selectedKatId === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {categoryCounts.all}
+              </span>
+            </button>
 
-        {/* 1. Serabi */}
-        <button
-          type="button"
-          onClick={() => setSelectedKatId('serabi')}
-          className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
-            selectedKatId === 'serabi'
-              ? 'bg-amber-600 text-white shadow-md shadow-amber-900/20 ring-2 ring-amber-500/30'
-              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>🥞</span>
-          <span>Serabi</span>
-          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-            selectedKatId === 'serabi' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-          }`}>
-            {categoryCounts.serabi}
-          </span>
-        </button>
+            <button
+              type="button"
+              onClick={() => setSelectedKatId('serabi')}
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
+                selectedKatId === 'serabi'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-900/20 ring-2 ring-amber-500/30'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>🥞</span>
+              <span>Serabi</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                selectedKatId === 'serabi' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {categoryCounts.serabi}
+              </span>
+            </button>
 
-        {/* 2. Minuman */}
-        <button
-          type="button"
-          onClick={() => setSelectedKatId('minuman')}
-          className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
-            selectedKatId === 'minuman'
-              ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-600/30'
-              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>🍵</span>
-          <span>Minuman</span>
-          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-            selectedKatId === 'minuman' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-          }`}>
-            {categoryCounts.minuman}
-          </span>
-        </button>
+            <button
+              type="button"
+              onClick={() => setSelectedKatId('minuman')}
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
+                selectedKatId === 'minuman'
+                  ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-600/30'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>🍵</span>
+              <span>Minuman</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                selectedKatId === 'minuman' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {categoryCounts.minuman}
+              </span>
+            </button>
 
-        {/* 3. Makanan & Camilan */}
-        <button
-          type="button"
-          onClick={() => setSelectedKatId('makanan')}
-          className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
-            selectedKatId === 'makanan'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20 ring-2 ring-blue-500/30'
-              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>🍲</span>
-          <span>Makanan</span>
-          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-            selectedKatId === 'makanan' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-          }`}>
-            {categoryCounts.makanan}
-          </span>
-        </button>
-
-      </div>
+            <button
+              type="button"
+              onClick={() => setSelectedKatId('makanan')}
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition-all btn-tactile ${
+                selectedKatId === 'makanan'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20 ring-2 ring-blue-500/30'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>🍲</span>
+              <span>Makanan</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                selectedKatId === 'makanan' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {categoryCounts.makanan}
+              </span>
+            </button>
+          </div>
+        </>
+      )}
 
       {/* 3. Grid Menu Kasir Touch Screen (Compact & Tidak Perlu Banyak Scroll) */}
       <div className="flex-1 overflow-y-auto pr-1">
@@ -254,7 +349,7 @@ export default function PosTouchGrid({
                       handleItemClick(item, 'dingin', item.harga_es || item.harga, undefined, item.hpp_es !== undefined ? item.hpp_es : item.hpp);
                     }
                   }}
-                  className={`group relative bg-white rounded-2xl border p-2 sm:p-2.5 flex flex-col justify-between shadow-soft-sm hover:shadow-soft-md transition-all select-none ${
+                  className={`group relative bg-white rounded-2xl border ${isLandscape ? 'p-1.5 sm:p-2' : 'p-2 sm:p-2.5'} flex flex-col justify-between shadow-soft-sm hover:shadow-soft-md transition-all select-none ${
                     inCartQty > 0
                       ? 'border-emerald-600 ring-2 ring-emerald-600/30 bg-emerald-50/20'
                       : 'border-slate-200/90 hover:border-emerald-500'

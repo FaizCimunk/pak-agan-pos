@@ -839,7 +839,7 @@ export default function PosPage() {
         
         {/* Left Side: POS Touch Grid */}
         <section className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {editingBill && (
+          {editingBill && !isLandscapeLayout && (
             <div className="mb-2 px-3 py-1.5 rounded-xl bg-amber-500 text-white shadow-md flex items-center justify-between gap-2 text-xs shrink-0 animate-fadeIn">
               <div className="min-w-0">
                 <div className="font-black truncate flex items-center space-x-1.5">
