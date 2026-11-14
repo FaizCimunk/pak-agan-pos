@@ -101,26 +101,26 @@ export default function PosCartDrawer({
     <div className="flex flex-col h-full min-h-0 bg-white rounded-2xl border border-slate-200/90 shadow-soft-md overflow-hidden">
       
       {/* Drawer Header (Menyatu dengan Mode Edit agar menghemat ruang vertikal layar) */}
-      <div className={`p-2 sm:p-2.5 border-b flex items-center justify-between shrink-0 transition-colors ${
+      <div className={`px-2 py-1.5 sm:py-2 border-b flex items-center justify-between shrink-0 transition-colors ${
         isEditingOpenBill 
           ? 'bg-amber-500 text-white border-amber-600 shadow-xs' 
           : 'bg-slate-50/70 border-slate-100 text-slate-800'
       }`}>
-        <div className="flex items-center space-x-2 min-w-0">
-          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+        <div className="flex items-center space-x-1.5 min-w-0">
+          <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
             isEditingOpenBill ? 'bg-white/20 text-white' : 'bg-emerald-600/10 text-emerald-800'
           }`}>
             {isEditingOpenBill ? (
-              <span className="text-xs">✏️</span>
+              <span className="text-[10px]">✏️</span>
             ) : (
-              <ShoppingBag className="w-3.5 h-3.5" />
+              <ShoppingBag className="w-3 h-3" />
             )}
           </div>
           <div className="min-w-0">
-            <h2 className={`font-extrabold text-xs sm:text-sm truncate ${isEditingOpenBill ? 'text-white' : 'text-slate-800'}`}>
+            <h2 className={`font-extrabold text-[11px] sm:text-xs truncate ${isEditingOpenBill ? 'text-white' : 'text-slate-800'}`}>
               {isEditingOpenBill ? `Ubah: ${penanda || 'Belum Bayar'}` : 'Pesanan Kasir'}
             </h2>
-            <span className={`text-[10px] font-medium truncate block ${isEditingOpenBill ? 'text-amber-100' : 'text-slate-500'}`}>
+            <span className={`text-[9px] font-medium truncate block ${isEditingOpenBill ? 'text-amber-100' : 'text-slate-500'}`}>
               {totalQty} item {isEditingOpenBill && editingBillInvoice ? `• ${editingBillInvoice}` : 'terpilih'}
             </span>
           </div>
@@ -194,26 +194,26 @@ export default function PosCartDrawer({
       </div>
 
       {/* Prominent Penanda / Tanda Nama Bar (Ramping & Satu Baris Efisien) */}
-      <div className="px-2 py-1 bg-slate-50 border-b border-slate-200/90 flex items-center gap-1.5 shrink-0">
-        <div className="relative flex-1 min-w-[100px] max-w-[140px] sm:max-w-[170px] shrink-0">
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center pointer-events-none text-amber-600">
-            <Tag className="w-3 h-3" />
+      <div className="px-1.5 py-0.5 bg-slate-50 border-b border-slate-200/90 flex items-center gap-1 shrink-0">
+        <div className="relative flex-1 min-w-[70px] max-w-[100px] sm:max-w-[125px] shrink-0">
+          <div className="absolute left-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none text-amber-600">
+            <Tag className="w-2.5 h-2.5" />
           </div>
           <input
             type="text"
             value={penanda}
             onChange={(e) => onPenandaChange(e.target.value)}
-            placeholder="Meja / Nama..."
-            className="w-full pl-6 pr-5 py-1 bg-white rounded-lg border border-slate-300 font-extrabold text-[11px] sm:text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
+            placeholder="Meja/Nama..."
+            className="w-full pl-5 pr-4 py-0.5 bg-white rounded-lg border border-slate-300 font-extrabold text-[10px] sm:text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs placeholder:font-normal placeholder:text-slate-400"
           />
           {penanda ? (
             <button
               type="button"
               onClick={() => onPenandaChange('')}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100"
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100"
               title="Bersihkan nama / nomor meja"
             >
-              <X className="w-3 h-3" />
+              <X className="w-2.5 h-2.5" />
             </button>
           ) : null}
         </div>
@@ -227,7 +227,7 @@ export default function PosCartDrawer({
                 key={chip}
                 type="button"
                 onClick={() => onPenandaChange(chip === 'Bungkus' ? 'Bungkus' : `No. ${chip}`)}
-                className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold whitespace-nowrap shrink-0 transition-all ${
+                className={`px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold whitespace-nowrap shrink-0 transition-all ${
                   isMatch
                     ? 'bg-emerald-700 text-white shadow-2xs ring-1 ring-emerald-800'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -308,64 +308,58 @@ export default function PosCartDrawer({
                   </div>
                 </div>
 
-                {/* Middle Row: Unit Price + Quick Notes + Stepper */}
+                {/* Middle Row: Stepper + Unit Price + Quick Bungkus & Note Button */}
                 <div className="flex items-center justify-between gap-1 pt-0.5">
-                  <div className="flex items-center space-x-1.5 min-w-0 flex-1 flex-wrap">
-                    <span className="text-[10px] font-mono text-slate-500 tabular-nums shrink-0">
-                      @{formatRupiah(unitPrice)}
-                    </span>
-
-                    {/* Quick notes pills */}
-                    <div className="flex items-center space-x-1 shrink-0">
-                      {quickTags.map(tag => {
-                        const isSelected = (item.catatan || '').toLowerCase().includes(tag.toLowerCase());
-                        return (
-                          <button
-                            key={tag}
-                            type="button"
-                            onClick={() => handleQuickAppendNote(index, tag)}
-                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold shrink-0 transition-colors cursor-pointer ${
-                              isSelected
-                                ? (tag === 'Bungkus' ? 'bg-amber-600 text-white shadow-2xs' : 'bg-emerald-700 text-white shadow-2xs')
-                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                            }`}
-                          >
-                            {tag}
-                          </button>
-                        );
-                      })}
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    {/* Stepper */}
+                    <div className="flex items-center space-x-1 bg-white px-1 py-0.5 rounded-lg border border-slate-200 shadow-2xs">
                       <button
                         type="button"
-                        onClick={() => handleStartEditNote(index, item.catatan || '')}
-                        className="px-1.5 py-0.2 rounded text-[9px] font-bold text-slate-500 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-100 shrink-0 cursor-pointer flex items-center space-x-0.5"
-                        title="Tambah / ubah catatan"
+                        onClick={() => onUpdateQty(index, -1)}
+                        className="w-4 h-4 rounded flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-90 transition-all font-black"
+                        title="Kurangi 1"
                       >
-                        <Edit3 className="w-2.5 h-2.5" />
-                        <span>{item.catatan ? 'Edit' : '+ Catatan'}</span>
+                        <Minus className="w-2.5 h-2.5 stroke-[3]" />
+                      </button>
+                      <span className="font-mono font-black text-xs text-slate-900 w-4 text-center tabular-nums">
+                        {item.qty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onUpdateQty(index, 1)}
+                        className="w-4 h-4 rounded flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-90 transition-all font-black"
+                        title="Tambah 1"
+                      >
+                        <Plus className="w-2.5 h-2.5 stroke-[3]" />
                       </button>
                     </div>
+
+                    <span className="text-[10px] font-mono text-slate-500 tabular-nums">
+                      @{formatRupiah(unitPrice)}
+                    </span>
                   </div>
 
-                  {/* Big Tactile Stepper (- / qty / +) */}
-                  <div className="flex items-center space-x-1 bg-white px-1 py-0.5 rounded-lg border border-slate-200 shadow-2xs shrink-0">
+                  <div className="flex items-center space-x-1 shrink-0">
                     <button
                       type="button"
-                      onClick={() => onUpdateQty(index, -1)}
-                      className="w-4.5 h-4.5 rounded flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-90 transition-all font-black"
-                      title="Kurangi 1"
+                      onClick={() => handleQuickAppendNote(index, 'Bungkus')}
+                      className={`px-1.5 py-0.2 rounded text-[9px] font-bold transition-colors cursor-pointer ${
+                        (item.catatan || '').toLowerCase().includes('bungkus')
+                          ? 'bg-amber-600 text-white shadow-2xs'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                      title="Tandai Bungkus"
                     >
-                      <Minus className="w-3 h-3 stroke-[3]" />
+                      Bungkus
                     </button>
-                    <span className="font-mono font-black text-xs text-slate-900 w-4.5 text-center tabular-nums">
-                      {item.qty}
-                    </span>
                     <button
                       type="button"
-                      onClick={() => onUpdateQty(index, 1)}
-                      className="w-4.5 h-4.5 rounded flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-90 transition-all font-black"
-                      title="Tambah 1"
+                      onClick={() => handleStartEditNote(index, item.catatan || '')}
+                      className="px-1.5 py-0.2 rounded text-[9px] font-bold text-slate-500 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-100 shrink-0 cursor-pointer flex items-center space-x-0.5"
+                      title="Tambah / ubah catatan"
                     >
-                      <Plus className="w-3 h-3 stroke-[3]" />
+                      <Edit3 className="w-2 h-2" />
+                      <span>{item.catatan ? 'Edit' : '+ Catatan'}</span>
                     </button>
                   </div>
                 </div>

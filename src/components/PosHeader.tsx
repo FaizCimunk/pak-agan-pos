@@ -145,44 +145,44 @@ export default function PosHeader({
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-soft-sm">
         
         {/* DESKTOP & TABLET / LANDSCAPE BAR (Screens >= sm / 640px) */}
-        <div className="pos-header-bar hidden sm:flex px-2.5 sm:px-3 lg:px-4 py-1 sm:py-1.5 lg:py-2 items-center justify-between gap-2">
+        <div className="pos-header-bar hidden sm:flex px-2 sm:px-3 lg:px-4 py-0.5 sm:py-1 lg:py-1.5 items-center justify-between gap-1.5 sm:gap-2">
           {/* Left: Brand Identity & Locked Cabang */}
-          <div className="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
-            <div className="w-8 h-8 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-950 border border-emerald-500/40 flex items-center justify-center text-white shadow-md shadow-emerald-950/20 shrink-0">
+          <div className="flex items-center space-x-1.5 sm:space-x-2.5 min-w-0">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-11 lg:h-11 rounded-lg lg:rounded-2xl bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-950 border border-emerald-500/40 flex items-center justify-center text-white shadow-md shadow-emerald-950/20 shrink-0">
               <div className="flex items-center justify-center -space-x-1 drop-shadow-md">
-                <span className="text-sm lg:text-base select-none transform -rotate-6">🥞</span>
-                <span className="text-sm lg:text-base select-none transform rotate-6">🍵</span>
+                <span className="text-xs sm:text-sm lg:text-base select-none transform -rotate-6">🥞</span>
+                <span className="text-xs sm:text-sm lg:text-base select-none transform rotate-6">🍵</span>
               </div>
             </div>
 
             <div className="min-w-0">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
                 <span className="font-extrabold text-slate-900 text-xs lg:text-base tracking-tight leading-none truncate">
                   <span className="hidden lg:inline">SERABI BAWEL &amp; WEDANG GEPREK</span>
                   <span className="lg:hidden">SERABI BAWEL</span>
                 </span>
-                <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold shrink-0">
+                <div className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[9px] sm:text-[10px] font-extrabold shrink-0">
                   <Lock className="w-2.5 h-2.5 text-emerald-600" />
                   <span>{currentCabang?.kode || 'CBG'}</span>
                   <span className="hidden xl:inline">• {currentCabang?.nama?.split('-')[1]?.trim() || currentCabang?.nama || 'Cabang'}</span>
                 </div>
               </div>
-              <div className="text-[11px] text-slate-500 font-medium mt-0.5 hidden md:block">
+              <div className="text-[10px] text-slate-500 font-medium mt-0.5 hidden md:block">
                 Kasir Outlet • Cabang Resmi
               </div>
             </div>
           </div>
 
           {/* Right: Status, Putar Layar & Menu Toko */}
-          <div className="flex items-center space-x-1.5 lg:space-x-2.5 shrink-0">
+          <div className="flex items-center space-x-1 sm:space-x-1.5 lg:space-x-2.5 shrink-0">
             {activeShift ? (
               <button
                 onClick={() => setIsMenuOpen(true)}
-                className="flex items-center space-x-1.5 px-2.5 lg:px-3 py-1.5 bg-emerald-50/90 hover:bg-emerald-100/90 border border-emerald-200/90 rounded-xl text-[11px] lg:text-xs transition-colors group cursor-pointer"
+                className="flex items-center space-x-1.5 px-2 py-1 bg-emerald-50/90 hover:bg-emerald-100/90 border border-emerald-200/90 rounded-xl text-[10px] sm:text-[11px] lg:text-xs transition-colors group cursor-pointer"
                 title="Klik untuk buka Menu Toko"
               >
-                <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 lg:ring-4 ring-emerald-100 animate-pulse shrink-0"></span>
-                <span className="font-extrabold text-emerald-900 max-w-[85px] lg:max-w-none truncate">{shortCashierName}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100 animate-pulse shrink-0"></span>
+                <span className="font-extrabold text-emerald-900 max-w-[80px] lg:max-w-none truncate">{shortCashierName}</span>
                 <span className="text-emerald-300">|</span>
                 <span className="font-mono font-black text-emerald-800">
                   {formatRupiah(activeShift.saldo_akhir_sistem)}
@@ -191,7 +191,7 @@ export default function PosHeader({
             ) : (
               <button
                 onClick={onOpenShiftClick}
-                className="px-3 py-1.5 bg-accent-gold text-white text-xs font-black rounded-xl hover:bg-amber-600 transition-all shadow-md shadow-amber-600/25 btn-tactile"
+                className="px-2.5 py-1 bg-accent-gold text-white text-xs font-black rounded-xl hover:bg-amber-600 transition-all shadow-md shadow-amber-600/25 btn-tactile"
               >
                 + Buka Shift
               </button>
@@ -201,14 +201,14 @@ export default function PosHeader({
             <button
               type="button"
               onClick={onOpenBillsClick}
-              className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-[11px] lg:text-xs font-bold transition-all border shrink-0 btn-tactile ${
+              className={`flex items-center space-x-1 px-2 py-1 rounded-xl text-[10px] sm:text-[11px] font-bold transition-all border shrink-0 btn-tactile ${
                 openBillsCount > 0
                   ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-500/30 animate-pulse'
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
               }`}
               title="Daftar Tagihan Belum Dibayar (Bayar Nanti)"
             >
-              <Clock className="w-3.5 h-3.5" />
+              <Clock className="w-3 h-3" />
               <span className="font-extrabold">{openBillsCount} <span className="hidden lg:inline">Tagihan</span></span>
             </button>
 
@@ -216,9 +216,9 @@ export default function PosHeader({
               <button 
                 onClick={checkAndSync}
                 disabled={isSyncing || !isOnline}
-                className="flex items-center space-x-1 px-2 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-accent-gold border border-amber-200 hover:bg-amber-100 transition-colors shrink-0"
+                className="flex items-center space-x-1 px-1.5 py-1 rounded-xl text-[10px] font-bold bg-amber-50 text-accent-gold border border-amber-200 hover:bg-amber-100 transition-colors shrink-0"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
                 <span className="hidden md:inline font-mono">{pendingSyncCount}</span>
               </button>
             )}
@@ -227,7 +227,7 @@ export default function PosHeader({
               <button
                 type="button"
                 onClick={onToggleOrientation}
-                className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold border transition-all shrink-0 btn-tactile cursor-pointer ${
+                className={`flex items-center space-x-1 px-2 py-1 rounded-xl text-[10px] sm:text-[11px] font-extrabold border transition-all shrink-0 btn-tactile cursor-pointer ${
                   orientationMode === 'landscape'
                     ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm'
                     : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
@@ -238,7 +238,7 @@ export default function PosHeader({
                     : 'Terkunci Potret — Klik untuk miringkan & kunci Landscape'
                 }
               >
-                <RotateCw className="w-3.5 h-3.5" />
+                <RotateCw className="w-3 h-3" />
                 <span>{orientationMode === 'landscape' ? 'Potret' : 'Miringkan'}</span>
               </button>
             )}

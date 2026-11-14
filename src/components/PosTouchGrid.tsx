@@ -472,19 +472,22 @@ export default function PosTouchGrid({
                         </button>
                       </div>
                     ) : isDrink && !isKhususPanas && !isKhususEs ? (
-                      /* KASUS 2: MINUMAN BISA PANAS/ES (Harga Sama, Kasir Bisa Langsung Pilih) */
-                      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="font-mono font-black text-xs text-emerald-950 tabular-nums whitespace-nowrap">
-                          {formatRupiah(item.harga)}
+                      /* KASUS 2: MINUMAN BISA PANAS/ES (Harga Sama, Kasir Bisa Langsung Pilih Tanpa Tumpang Tindih) */
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-black text-xs text-emerald-950 tabular-nums">
+                            {formatRupiah(item.harga)}
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-400">Pilih:</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-1 sm:flex sm:items-center sm:space-x-1 shrink-0">
+                        <div className="grid grid-cols-2 gap-1">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleItemClick(item, 'panas', item.harga, undefined, item.hpp);
                             }}
-                            className="px-1.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-900 border border-amber-200 text-[10px] font-black transition-all active:scale-95 cursor-pointer whitespace-nowrap text-center"
+                            className="py-1 px-1 rounded-lg bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-950 border border-amber-300 text-[10px] font-black transition-all active:scale-95 cursor-pointer text-center truncate shadow-2xs"
                             title="Pilih Panas"
                           >
                             🔥 Panas
@@ -495,7 +498,7 @@ export default function PosTouchGrid({
                               e.stopPropagation();
                               handleItemClick(item, 'dingin', item.harga, undefined, item.hpp_es !== undefined ? item.hpp_es : item.hpp);
                             }}
-                            className="px-1.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-900 border border-sky-200 text-[10px] font-black transition-all active:scale-95 cursor-pointer whitespace-nowrap text-center"
+                            className="py-1 px-1 rounded-lg bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-950 border border-sky-300 text-[10px] font-black transition-all active:scale-95 cursor-pointer text-center truncate shadow-2xs"
                             title="Pilih Es"
                           >
                             🧊 Es
@@ -504,12 +507,10 @@ export default function PosTouchGrid({
                       </div>
                     ) : (
                       /* KASUS 3: MAKANAN / SERABI / MINUMAN KHUSUS (Single Button Sederhana Tanpa Pusing) */
-                      <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-mono font-black text-xs sm:text-sm text-emerald-950 tabular-nums whitespace-nowrap">
-                            {formatRupiah(isKhususEs && item.harga_es ? item.harga_es : item.harga)}
-                          </span>
-                        </div>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-mono font-black text-xs sm:text-sm text-emerald-950 tabular-nums whitespace-nowrap">
+                          {formatRupiah(isKhususEs && item.harga_es ? item.harga_es : item.harga)}
+                        </span>
 
                         <button
                           type="button"
@@ -523,7 +524,7 @@ export default function PosTouchGrid({
                               handleItemClick(item, undefined, item.harga, undefined, item.hpp);
                             }
                           }}
-                          className={`h-7 px-2 rounded-xl font-extrabold text-[10px] sm:text-[11px] flex items-center justify-center space-x-1 transition-all shadow-2xs shrink-0 cursor-pointer active:scale-95 whitespace-nowrap ${
+                          className={`h-6.5 sm:h-7 px-2 rounded-xl font-extrabold text-[10px] sm:text-[11px] flex items-center justify-center space-x-1 transition-all shadow-2xs shrink-0 cursor-pointer active:scale-95 whitespace-nowrap ${
                             inCartQty > 0
                               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                               : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200/80'

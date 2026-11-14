@@ -884,7 +884,7 @@ export default function PosPage() {
         </section>
 
         {/* Right Side: Order Cart Drawer (Always side-by-side in Landscape, and on md+ Desktop) */}
-        <aside className={`${isLandscapeLayout ? 'flex w-72 sm:w-80 md:w-88 lg:w-96' : 'hidden md:flex w-72 md:w-80 lg:w-96'} flex-col shrink-0 h-full min-h-0`}>
+        <aside className={`${isLandscapeLayout ? 'flex w-[260px] sm:w-[275px] md:w-80 lg:w-96' : 'hidden md:flex w-72 md:w-80 lg:w-96'} flex-col shrink-0 h-full min-h-0`}>
           <PosCartDrawer
             items={cart}
             customerName={customerName}
