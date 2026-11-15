@@ -34,7 +34,7 @@ import {
   FixedCostHarianCabang,
   PembayaranFixedCostBulanan
 } from '@/lib/types';
-import { db, isBranchMatch, isAbsensiApproved } from '@/lib/db';
+import { db, isBranchMatch, isAbsensiApproved, isKaryawanMarkedDeleted } from '@/lib/db';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { formatRupiah, formatNominal, parseNominal, formatWaktu, formatTanggalId, generateWhatsAppPayrollSlipLink, formatKaryawanRole, getTodayDateString, toWibDateString, getShiftOperationalDate, getBusinessDateForRecord } from '@/lib/utils';
 
@@ -184,8 +184,24 @@ export default function AdminDashboardPage() {
   // Fixed Cost Monthly Payments & Deduction Mode (Kas Riil vs Cadangan Amortisasi /30 Hr)
   const [fixedCostPayments, setFixedCostPayments] = useState<PembayaranFixedCostBulanan[]>([]);
   const [fixedCostDeductionMode] = useState<'kas_riil' | 'cadangan_amortisasi'>('kas_riil');
-  // Upah Staf Deduction Mode (Beban Standar Toko /Hari vs Presensi Riil Hadir)
-  const [upahDeductionMode] = useState<'standar_harian' | 'presensi_riil'>('standar_harian');
+  // Upah Staf Deduction Mode (Default: Presensi Riil Hadir & Di-ACC, opsional: Standar /6 Hr)
+  const [upahDeductionMode, setUpahDeductionMode] = useState<'presensi_riil' | 'standar_harian'>('presensi_riil');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('pakagan_upah_mode');
+      if (savedMode === 'standar_harian' || savedMode === 'presensi_riil') {
+        setUpahDeductionMode(savedMode);
+      }
+    }
+  }, []);
+
+  const handleChangeUpahMode = (mode: 'presensi_riil' | 'standar_harian') => {
+    setUpahDeductionMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('pakagan_upah_mode', mode);
+    }
+  };
 
   // Check auth session (auto-authenticate for direct seamless access)
   useEffect(() => {
@@ -592,20 +608,54 @@ export default function AdminDashboardPage() {
       const effectiveFixedCost = effectiveSewaHarian + effectiveWifiHarian + effectiveIuranHarian + effectiveBiayaLainHarian;
 
       // 2. Upah Karyawan:
-      // a. Presensi Riil Hari Ini (Hanya Yang Sudah Di-ACC Owner)
-      const branchAbsensi = absensiList.filter(a => isBranchMatch(a.cabang_id, cabang.id) && a.tanggal === targetDate && isAbsensiApproved(a));
-      const actualPresensiGaji = branchAbsensi.reduce((sum, a) => sum + (a.upah_harian_terhitung || 0), 0);
+      // a. Presensi Riil Hari Ini (Hanya Yang Berangkat & Sudah Di-ACC Owner)
+      const branchAbsensi = absensiList.filter(a => 
+        isBranchMatch(a.cabang_id, cabang.id) && 
+        a.tanggal === targetDate && 
+        isAbsensiApproved(a)
+      );
+      const actualPresensiGaji = branchAbsensi.reduce((sum, a) => {
+        // Sakit, Izin, Alpa tidak memotong kas / upah = 0
+        if (a.status === 'sakit' || a.status === 'izin' || a.status === 'alpa') return sum;
+        if (a.upah_harian_terhitung !== undefined && a.upah_harian_terhitung > 0) {
+          return sum + a.upah_harian_terhitung;
+        }
+        const staffObj = karyawanList.find(k => 
+          k.id === a.karyawan_id || 
+          (k.nama && a.karyawan_nama && k.nama.toLowerCase().trim() === a.karyawan_nama.toLowerCase().trim())
+        );
+        const baseRate = staffObj?.gaji_harian || (staffObj?.gaji_pokok ? Math.round(staffObj.gaji_pokok / 6) : 100000);
+        const mult = a.status === 'setengah_hari' ? 0.5 : 1;
+        return sum + (baseRate * mult);
+      }, 0);
+
       const stafHadirCount = branchAbsensi.filter(a => a.status === 'hadir' || a.status === 'setengah_hari').length;
+      const stafSakitIzinCount = branchAbsensi.filter(a => a.status === 'sakit' || a.status === 'izin' || a.status === 'alpa').length;
+
+      // Pending absensi yang belum di-ACC
+      const branchPendingAbsensi = absensiList.filter(a => 
+        isBranchMatch(a.cabang_id, cabang.id) && 
+        a.tanggal === targetDate && 
+        !isAbsensiApproved(a) &&
+        a.approval_status !== 'rejected'
+      );
+      const stafPendingCount = branchPendingAbsensi.length;
 
       // b. Beban Standar Harian Toko (Staf terdaftar & aktif di cabang ini, Gaji Mingguan dibagi 6)
-      const branchWorkers = karyawanList.filter(k => isBranchMatch(k.cabang_id, cabang.id) && k.role !== 'owner' && !k.is_locked && k.is_active !== false);
+      const branchWorkers = karyawanList.filter(k => 
+        isBranchMatch(k.cabang_id, cabang.id) && 
+        k.role !== 'owner' && 
+        !k.is_locked && 
+        k.is_active !== false &&
+        !isKaryawanMarkedDeleted(k)
+      );
       const standardDailyWage = branchWorkers.reduce((sum, k) => {
         if (k.gaji_harian && k.gaji_harian > 0) return sum + k.gaji_harian;
         if (k.gaji_pokok && k.gaji_pokok > 0) return sum + Math.round(k.gaji_pokok / 6);
         return sum + 100000;
       }, 0);
 
-      const totalGajiKaryawan = upahDeductionMode === 'standar_harian' ? standardDailyWage : actualPresensiGaji;
+      const totalGajiKaryawan = upahDeductionMode === 'presensi_riil' ? actualPresensiGaji : standardDailyWage;
 
       // 3. Omzet & Total HPP Bahan Baku Terpakai (mengikuti tanggal BUKA kasir shift)
       const branchTrx = transaksiList.filter(t => 
@@ -711,6 +761,8 @@ export default function AdminDashboardPage() {
         omzetKotor,
         uangBersihBoss,
         stafHadirCount,
+        stafSakitIzinCount,
+        stafPendingCount,
         branchWorkersCount: branchWorkers.length,
       };
     });
@@ -814,6 +866,8 @@ export default function AdminDashboardPage() {
     const totalPotongan = effectiveFixedCost + hpp + gaji + belanja + kerugian;
     const uangBersih = omzet - totalPotongan;
     const stafHadir = targetBreakdowns.reduce((sum, b) => sum + b.stafHadirCount, 0);
+    const stafSakitIzin = targetBreakdowns.reduce((sum, b) => sum + (b.stafSakitIzinCount || 0), 0);
+    const stafPendingCount = targetBreakdowns.reduce((sum, b) => sum + (b.stafPendingCount || 0), 0);
     const totalWorkersCount = targetBreakdowns.reduce((sum, b) => sum + b.branchWorkersCount, 0);
 
     return {
@@ -836,6 +890,8 @@ export default function AdminDashboardPage() {
       totalPotongan,
       uangBersih,
       stafHadir,
+      stafSakitIzin,
+      stafPendingCount,
       totalWorkersCount,
     };
   }, [bossDailyProfits, selectedCabangId, cabangList, fixedCostPayments, fixedCostDeductionMode, selectedBossSummaryDate, upahDeductionMode]);
@@ -1265,7 +1321,7 @@ export default function AdminDashboardPage() {
                     Uang Bersih Rekening Boss (Pak Agan)
                   </h2>
                   <p className="text-xs text-emerald-200/80 mt-0.5">
-                    Dari total uang masuk kasir di atas, otomatis dipotong beban tetap sewa, HPP bahan, upah staf mingguan (÷6), dan belanja laci disetujui.
+                    Dari total uang masuk kasir di atas, otomatis dipotong beban tetap sewa, HPP bahan porsi terjual, upah staf yang hadir &amp; di-ACC, serta belanja laci disetujui.
                   </p>
                 </div>
 
@@ -1348,19 +1404,45 @@ export default function AdminDashboardPage() {
                       <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">
                         4. Upah Staf Toko
                       </span>
-                      <span className="text-[8.5px] font-bold px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
-                        {upahDeductionMode === 'standar_harian' ? 'Standar' : 'ACC Riil'}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleChangeUpahMode(upahDeductionMode === 'presensi_riil' ? 'standar_harian' : 'presensi_riil')}
+                        className={`text-[8.5px] font-bold px-2 py-0.5 rounded-full border transition-all cursor-pointer ${
+                          upahDeductionMode === 'presensi_riil'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                            : 'bg-blue-500/20 text-blue-300 border-blue-500/30 hover:bg-blue-500/30'
+                        }`}
+                        title="Klik untuk beralih antara Mode Riil Di-ACC vs Mode Standar /6 Hari"
+                      >
+                        {upahDeductionMode === 'presensi_riil' ? '✓ Riil Di-ACC' : 'Standar'}
+                      </button>
                     </div>
                     <div className="text-base sm:text-lg xl:text-xl font-mono font-extrabold text-blue-300 mt-1.5 tabular-nums tracking-tight break-words">
-                      -{formatRupiah(activeExecutiveSummary.gaji)}
+                      {activeExecutiveSummary.gaji === 0 ? 'Rp 0' : `-${formatRupiah(activeExecutiveSummary.gaji)}`}
                     </div>
                   </div>
-                  <span className="text-[10px] text-white/60 block mt-2">
-                    {upahDeductionMode === 'standar_harian'
-                      ? `${activeExecutiveSummary.totalWorkersCount} Staf Terdaftar (/6 Hari Kerja)`
-                      : `${activeExecutiveSummary.stafHadir} Staf Presensi Di-ACC`}
-                  </span>
+                  <div className="mt-2 space-y-0.5">
+                    <span className="text-[10px] text-white/70 block">
+                      {upahDeductionMode === 'presensi_riil' ? (
+                        activeExecutiveSummary.stafHadir > 0
+                          ? `${activeExecutiveSummary.stafHadir} Staf Berangkat (Di-ACC)`
+                          : activeExecutiveSummary.stafPendingCount > 0
+                            ? `0 Di-ACC • ${activeExecutiveSummary.stafPendingCount} Menunggu ACC`
+                            : `0 Staf Hadir (Rp 0 Beban Hari Ini)`
+                      ) : (
+                        `${activeExecutiveSummary.totalWorkersCount} Staf Ploting (/6 Hari Kerja)`
+                      )}
+                    </span>
+                    {upahDeductionMode === 'presensi_riil' && activeExecutiveSummary.stafPendingCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('approval')}
+                        className="text-[9.5px] text-amber-300 hover:text-amber-200 underline font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>⏳ Ada {activeExecutiveSummary.stafPendingCount} presensi perlu di-ACC →</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* 5. Belanja Toko Laci (Kas Kecil Approved) */}
@@ -1822,10 +1904,10 @@ export default function AdminDashboardPage() {
                   <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
                     <div className="flex items-center space-x-1.5 text-blue-700 font-extrabold text-xs">
                       <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[10px]">4</span>
-                      <span>Potong Upah Staf (÷6 Hari)</span>
+                      <span>Potong Upah Staf (Hadir &amp; Di-ACC)</span>
                     </div>
                     <p className="text-[11px] text-slate-600 leading-relaxed">
-                      Mengambil standar gaji mingguan staf ÷ 6 hari kerja atau presensi hadir yang <strong>sudah di-ACC Boss</strong> di Menu 3.
+                      Hanya memotong kas bila staf <strong>berangkat (hadir) dan sudah di-ACC Boss</strong> di Menu 3. Jika izin/sakit/alpa atau belum absen, beban = Rp 0.
                     </p>
                   </div>
 

@@ -4349,9 +4349,13 @@ export class PosDatabase {
     const iuranHarian = Math.round(iuranBulanan / 30);
     const biayaLainHarian = Math.round(biayaLainBulanan / 30);
 
-    // 2. Gaji Karyawan yang Hadir Hari Ini (Tulis Nama)
+    // 2. Gaji Karyawan yang Hadir Hari Ini (Hanya Yang Berangkat & Sudah Di-ACC)
     const absensiHariIni = await this.getAbsensiList(undefined, cabangId, tanggal);
-    const totalGajiKaryawan = absensiHariIni.reduce((sum, a) => sum + (a.upah_harian_terhitung || 0), 0);
+    const totalGajiKaryawan = absensiHariIni.reduce((sum, a) => {
+      if (!isAbsensiApproved(a)) return sum;
+      if (a.status === 'sakit' || a.status === 'izin' || a.status === 'alpa') return sum;
+      return sum + (a.upah_harian_terhitung || 0);
+    }, 0);
 
     // 3. Omzet Kotor Kasir & Total HPP Bahan Baku Terpakai Hari Ini (ikut tanggal buka kasir shift)
     const shifts = await this.getShiftList(cabangId);

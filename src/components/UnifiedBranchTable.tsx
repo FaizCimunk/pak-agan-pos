@@ -50,6 +50,8 @@ interface UnifiedBranchTableProps {
       omzetKotor: number;
       uangBersihBoss: number;
       stafHadirCount: number;
+      stafPendingCount?: number;
+      stafSakitIzinCount?: number;
     }[];
     totalOmzet10Toko: number;
     totalSewa10Toko: number;
