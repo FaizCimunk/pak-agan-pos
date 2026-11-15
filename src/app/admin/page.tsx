@@ -207,6 +207,50 @@ export default function AdminDashboardPage() {
         sessionStorage.setItem(OWNER_AUTH_KEY, 'true');
       }
       setIsAuthenticated(true);
+
+      // Pembersihan otomatis sisa data uji coba Temon di client local storage
+      const isCleanedTest = localStorage.getItem('pakagan_temon_test_cleaned_v2');
+      if (!isCleanedTest) {
+        localStorage.setItem('pakagan_temon_test_cleaned_v2', 'true');
+        try {
+          const tabKey = 'pak_agan_tabungan_karyawan';
+          const localTab = JSON.parse(localStorage.getItem(tabKey) || '[]');
+          const filteredTab = localTab.filter((t: any) => 
+            !t.keterangan?.includes('b36bc6ce-668a-453b-810c-a5ab3165aa4f') &&
+            !t.keterangan?.includes('5b7111a6-e2c8-4b15-96ce-1d2a0d78d05a') &&
+            !(t.karyawan_nama && t.karyawan_nama.toLowerCase() === 'temon')
+          );
+          localStorage.setItem(tabKey, JSON.stringify(filteredTab));
+
+          const expKey = 'pak_agan_expenses';
+          const localExp = JSON.parse(localStorage.getItem(expKey) || '[]');
+          const filteredExp = localExp.filter((e: any) => 
+            e.id !== 'b36bc6ce-668a-453b-810c-a5ab3165aa4f' &&
+            !(e.pemohon_nama && e.pemohon_nama.toLowerCase() === 'temon')
+          );
+          localStorage.setItem(expKey, JSON.stringify(filteredExp));
+
+          const absKey = 'pak_agan_absensi';
+          const localAbs = JSON.parse(localStorage.getItem(absKey) || '[]');
+          const filteredAbs = localAbs.filter((a: any) => 
+            a.id !== '5b7111a6-e2c8-4b15-96ce-1d2a0d78d05a' &&
+            a.id !== 'a2fdf705-d01d-4de6-a750-4b87acf00197' &&
+            !(a.karyawan_nama && a.karyawan_nama.toLowerCase() === 'temon')
+          );
+          localStorage.setItem(absKey, JSON.stringify(filteredAbs));
+
+          const karKey = 'pak_agan_karyawan';
+          const localKar = JSON.parse(localStorage.getItem(karKey) || '[]');
+          const updatedKar = localKar.map((k: any) => 
+            (k.nama && k.nama.toLowerCase() === 'temon')
+              ? { ...k, total_tabungan: 0, utang_nominal: 0 }
+              : k
+          );
+          localStorage.setItem(karKey, JSON.stringify(updatedKar));
+        } catch (e) {
+          console.warn('Auto cleanup error:', e);
+        }
+      }
     }
   }, []);
 

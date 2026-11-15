@@ -3571,12 +3571,21 @@ export class PosDatabase {
           if (karUuid) query = query.eq('karyawan_id', karUuid);
         }
         const { data, error } = await query;
-        if (!error && data && data.length > 0) {
-          return data.map((d: any) => ({
+        if (!error && data) {
+          const mapped: TabunganKaryawanItem[] = data.map((d: any) => ({
             ...d,
             nominal: Number(d.nominal),
             saldo_setelah: Number(d.saldo_setelah)
           }));
+          // Sinkronkan ke local cache agar mutasi yang sudah dihapus di cloud tidak membayangi lagi
+          if (karyawanId) {
+            const allLocal = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+            const others = allLocal.filter(t => t.karyawan_id !== karyawanId && getKaryawanUuid(t.karyawan_id) !== getKaryawanUuid(karyawanId));
+            saveLocal(STORAGE_KEYS.TABUNGAN_KARYAWAN, [...mapped, ...others]);
+          } else {
+            saveLocal(STORAGE_KEYS.TABUNGAN_KARYAWAN, mapped);
+          }
+          return mapped;
         }
       } catch (e) {
         console.warn('Fallback to local tabungan:', e);
@@ -3584,7 +3593,7 @@ export class PosDatabase {
     }
     const all = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
     if (!karyawanId) return all;
-    return all.filter(t => t.karyawan_id === karyawanId);
+    return all.filter(t => t.karyawan_id === karyawanId || getKaryawanUuid(t.karyawan_id) === getKaryawanUuid(karyawanId));
   }
 
   async setorTabunganKaryawan(
@@ -3774,6 +3783,88 @@ export class PosDatabase {
       utangNominal: saldo < 0 ? Math.abs(saldo) : 0,
       logs,
     };
+  }
+
+  async deleteTabunganItem(itemId: string, karyawanId: string): Promise<boolean> {
+    const all = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+    const updated = all.filter(t => t.id !== itemId);
+    saveLocal(STORAGE_KEYS.TABUNGAN_KARYAWAN, updated);
+
+    // Hitung ulang saldo karyawan dari mutasi yang tersisa
+    const staffLogs = updated.filter(t => t.karyawan_id === karyawanId || getKaryawanUuid(t.karyawan_id) === getKaryawanUuid(karyawanId));
+    const totalSetor = staffLogs.filter(t => t.tipe === 'setor').reduce((sum, t) => sum + Number(t.nominal || 0), 0);
+    const totalTarik = staffLogs.filter(t => t.tipe === 'tarik').reduce((sum, t) => sum + Number(t.nominal || 0), 0);
+    const newSaldo = totalSetor - totalTarik;
+    const newUtang = newSaldo < 0 ? Math.abs(newSaldo) : 0;
+
+    const kars = await this.getAllKaryawan();
+    const updatedKars = kars.map(k => (k.id === karyawanId || getKaryawanUuid(k.id) === getKaryawanUuid(karyawanId))
+      ? { ...k, total_tabungan: newSaldo, utang_nominal: newUtang }
+      : k
+    );
+    saveLocal(STORAGE_KEYS.KARYAWAN, updatedKars);
+
+    // Hapus di Supabase
+    if (isSupabaseConfigured && supabase) {
+      try {
+        if (isValidUuid(itemId)) {
+          await supabase.from('tabungan_karyawan_log').delete().eq('id', itemId);
+        }
+        const karUuid = getKaryawanUuid(karyawanId);
+        if (karUuid) {
+          await supabase.from('karyawan').update({ total_tabungan: newSaldo, utang_nominal: newUtang }).eq('id', karUuid);
+        }
+      } catch (e) {
+        console.warn('Supabase deleteTabunganItem error:', e);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return true;
+  }
+
+  async resetKaryawanDompet(karyawanId: string): Promise<boolean> {
+    const karUuid = getKaryawanUuid(karyawanId);
+
+    // 1. Bersihkan logs tabungan karyawan di local storage
+    const allTab = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+    const remainingTab = allTab.filter(t => t.karyawan_id !== karyawanId && getKaryawanUuid(t.karyawan_id) !== karUuid);
+    saveLocal(STORAGE_KEYS.TABUNGAN_KARYAWAN, remainingTab);
+
+    // 2. Bersihkan kasbon uji coba staf ini dari pengeluaran lokal
+    const allExpenses = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
+    const remainingExpenses = allExpenses.filter(e => !(e.karyawan_id === karyawanId || getKaryawanUuid(e.karyawan_id) === karUuid));
+    saveLocal(STORAGE_KEYS.EXPENSES, remainingExpenses);
+
+    // 3. Reset saldo karyawan ke 0
+    const kars = await this.getAllKaryawan();
+    const updatedKars = kars.map(k => (k.id === karyawanId || getKaryawanUuid(k.id) === karUuid)
+      ? { ...k, total_tabungan: 0, utang_nominal: 0 }
+      : k
+    );
+    saveLocal(STORAGE_KEYS.KARYAWAN, updatedKars);
+
+    // 4. Sync ke Supabase
+    if (isSupabaseConfigured && supabase && karUuid) {
+      try {
+        await supabase.from('tabungan_karyawan_log').delete().eq('karyawan_id', karUuid);
+        await supabase.from('pengeluaran_kasbon').delete().eq('karyawan_id', karUuid);
+        await supabase.from('karyawan').update({ total_tabungan: 0, utang_nominal: 0 }).eq('id', karUuid);
+      } catch (e) {
+        console.warn('Supabase resetKaryawanDompet error:', e);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return true;
   }
 
   async lockPayroll(records: Payroll[]): Promise<boolean> {
