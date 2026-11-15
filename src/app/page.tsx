@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   User, 
   Eye, 
@@ -344,6 +345,15 @@ export default function LoginPage() {
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 font-medium">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>Sistem Terenkripsi &bull; Akses Resmi Terlindungi</span>
+            </div>
+            <div className="mt-2">
+              <Link
+                href="/master-gate"
+                className="text-[10px] text-slate-400 hover:text-emerald-700 transition font-mono"
+                title="Akses Master Root Developer"
+              >
+                ⚡ Master Root Gateway
+              </Link>
             </div>
           </div>
 

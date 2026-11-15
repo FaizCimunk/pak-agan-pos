@@ -28,8 +28,7 @@ export type AdminTabId =
   | 'payroll'
   | 'fixedcost'
   | 'profiltoko'
-  | 'menu'
-  | 'keamanan';
+  | 'menu';
 
 interface AdminSidebarProps {
   activeTab: AdminTabId;
@@ -121,12 +120,6 @@ export default function AdminSidebar({
       label: 'Identitas Toko & Struk',
       sub: 'Nama toko, password kasir, PJ/WA & struk',
       icon: Store,
-    },
-    {
-      id: 'keamanan',
-      label: 'Kelola Akun & Sandi',
-      sub: 'Ubah username & sandi Owner, 10 kasir & staf',
-      icon: KeyRound,
     },
   ];
 
