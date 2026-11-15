@@ -2213,7 +2213,15 @@ export class PosDatabase {
     saveLocalCache(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + branchUuid, newShift);
     saveLocal(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabang_id, newShift);
 
+    // Pastikan shift lama untuk cabang ini otomatis ditutup buku
     const shifts = loadLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
+    for (const s of shifts) {
+      if (isBranchMatch(s.cabang_id, cabang_id) && s.status === 'open') {
+        s.status = 'closed';
+        s.waktu_tutup = s.waktu_tutup || new Date().toISOString();
+        s.catatan = s.catatan ? `${s.catatan} | Ditutup otomatis` : 'Ditutup otomatis';
+      }
+    }
     shifts.push(newShift);
     saveLocalCache(STORAGE_KEYS.SHIFTS, shifts);
 
@@ -2546,6 +2554,43 @@ export class PosDatabase {
     return closedShift;
   }
 
+  // Hapus shift (untuk membersihkan shift uji coba atau duplikat)
+  async deleteShift(shiftId: string): Promise<boolean> {
+    const shifts = loadLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
+    const updated = shifts.filter(s => s.id !== shiftId);
+    saveLocal(STORAGE_KEYS.SHIFTS, updated);
+
+    // Bersihkan juga dari active shift jika shift ini tersimpan sebagai aktif
+    for (const c of CABANG_MAP_INFO) {
+      if (typeof window !== 'undefined') {
+        const keyUuid = STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + c.uuid;
+        const keyId = STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + c.id;
+        try {
+          const raw = localStorage.getItem(keyUuid) || localStorage.getItem(keyId);
+          if (raw && raw.includes(shiftId)) {
+            localStorage.removeItem(keyUuid);
+            localStorage.removeItem(keyId);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    if (isSupabaseConfigured && supabase && isValidUuid(shiftId)) {
+      try {
+        await supabase.from('shift').delete().eq('id', shiftId);
+      } catch (e) {
+        console.warn('Supabase deleteShift error:', e);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+    return true;
+  }
+
   // Ambil seluruh riwayat shift (buka & tutup buku kasir) terintegrasi Supabase + lokal + kalkulasi ulang
   async getShiftList(
     cabangId?: string,
@@ -2738,7 +2783,32 @@ export class PosDatabase {
         };
       });
 
-    return enriched.sort((a, b) => new Date(b.waktu_buka).getTime() - new Date(a.waktu_buka).getTime());
+    const seenOpenBranch = new Set<string>();
+    const sortedEnriched = enriched.sort((a, b) => new Date(b.waktu_buka).getTime() - new Date(a.waktu_buka).getTime());
+
+    const finalShifts: Shift[] = [];
+    for (const s of sortedEnriched) {
+      const branchKey = getBranchUuid(s.cabang_id) || s.cabang_id;
+      if (s.status === 'open') {
+        if (seenOpenBranch.has(branchKey)) {
+          // Cabang ini sudah memiliki shift aktif yang lebih baru.
+          // Shift lama otomatis diset 'closed' agar tidak membingungkan dan tidak berstatus LIVE ganda.
+          s.status = 'closed';
+          if (!s.waktu_tutup) {
+            const openMs = new Date(s.waktu_buka).getTime();
+            s.waktu_tutup = new Date(openMs + 8 * 3600 * 1000).toISOString();
+          }
+          if (!s.catatan) {
+            s.catatan = 'Tutup buku otomatis (shift baru telah dibuka)';
+          }
+        } else {
+          seenOpenBranch.add(branchKey);
+        }
+      }
+      finalShifts.push(s);
+    }
+
+    return finalShifts;
   }
 
   // --------------------------------------------------------------------------
