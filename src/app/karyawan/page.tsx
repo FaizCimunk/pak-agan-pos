@@ -630,7 +630,7 @@ export default function KaryawanPortalPage() {
                           Sedang ditinjau oleh Pak Agan
                         </span>
                         <a
-                          href={`https://wa.me/6281234567890?text=${encodeURIComponent(
+                          href={`https://wa.me/6281398431313?text=${encodeURIComponent(
                             `Halo Pak Agan, saya ${currentUser.nama} dari ${userCabang?.nama || 'Cabang'} ingin konfirmasi pengajuan kasbon sebesar ${formatRupiah(exp.nominal)} untuk keperluan: "${exp.keperluan}". Mohon persetujuannya di sistem Approval Center. Terima kasih.`
                           )}`}
                           target="_blank"
@@ -673,7 +673,7 @@ export default function KaryawanPortalPage() {
                 </div>
 
                 <a
-                  href={`https://wa.me/6281234567890?text=${encodeURIComponent(
+                  href={`https://wa.me/6281398431313?text=${encodeURIComponent(
                     `*PERMOHONAN PENCAIRAN SALDO SIMPANAN*\n\n` +
                     `Halo Pak Agan, saya *${currentUser.nama}* (${formatKaryawanRole(currentUser.role)} ${userCabang?.nama || 'Outlet'}).\n` +
                     `Saat ini saldo simpanan saya tercatat: *${formatRupiah(totalTabungan)}*.\n` +
@@ -833,7 +833,7 @@ export default function KaryawanPortalPage() {
                     cabang_nama: userCabang?.nama || 'Cabang',
                     karyawan_id: currentUser.id,
                     pemohon_nama: currentUser.nama,
-                    pemohon_telepon: currentUser.telepon || '0812-3456-7890',
+                    pemohon_telepon: currentUser.telepon || '',
                     jenis: 'kasbon',
                     keperluan: kasbonKeperluan.trim(),
                     nominal: kasbonNominal,
@@ -847,7 +847,7 @@ export default function KaryawanPortalPage() {
                   );
 
                   // Buka WhatsApp konfirmasi ke Owner
-                  const waUrl = `https://wa.me/6281234567890?text=${encodeURIComponent(
+                  const waUrl = `https://wa.me/6281398431313?text=${encodeURIComponent(
                     `*PENGAJUAN KASBON KARYAWAN - SERABI BAWEL & WEDANG GEPREK*\n\n` +
                     `Halo Pak Agan, saya ingin mengajukan kasbon:\n` +
                     `• Nama: *${currentUser.nama}* (${formatKaryawanRole(currentUser.role)})\n` +

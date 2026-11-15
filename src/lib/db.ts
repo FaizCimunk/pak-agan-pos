@@ -4179,7 +4179,7 @@ export class PosDatabase {
           username: 'pakagan',
           nama: 'Pak Agan (Owner Pusat)',
           role: 'owner',
-          telepon: '0812-3456-7890',
+          telepon: '0813-9843-1313',
           pin_hash: DEFAULT_PIN_HASH,
           password_plain: 'Owner#Serabi2026!',
           is_locked: false,

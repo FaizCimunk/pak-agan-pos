@@ -210,7 +210,7 @@ export default function ApprovalRecapReportModal({
                 Pusat Pengawasan Operasional &amp; Pembukuan Kas Multi-Cabang (10 Cabang Resmi)
               </p>
               <p className="text-[10px] text-slate-400">
-                Kantor Pusat: Jl. Malioboro No. 45, D.I. Yogyakarta • Kontak Hotline: 0812-3456-7890 • Email: admin@pakagan.id
+                Kantor Pusat: Jl. Malioboro No. 45, D.I. Yogyakarta • Kontak Hotline: 0813-9843-1313 • Email: admin@pakagan.id
               </p>
             </div>
 

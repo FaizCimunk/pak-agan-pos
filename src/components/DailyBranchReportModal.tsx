@@ -52,7 +52,7 @@ export default function DailyBranchReportModal({
 
   // Dynamic Penanggung Jawab (PJ) Cabang based on selected cabang
   const pjNama = targetCabang?.pj_nama || branchCashier?.nama || targetCabang?.kasir_username || 'Penanggung Jawab Cabang';
-  const pjTelepon = targetCabang?.pj_telepon || branchCashier?.telepon || targetCabang?.telepon || '0812-3456-7890';
+  const pjTelepon = targetCabang?.pj_telepon || branchCashier?.telepon || targetCabang?.telepon || '0813-9843-1313';
 
   React.useEffect(() => {
     document.body.classList.add('printing-modal-open');
@@ -164,7 +164,7 @@ export default function DailyBranchReportModal({
 
   // Generate WhatsApp Message directly to Branch PJ (Penanggung Jawab Outlet)
   const generateWhatsAppUrl = () => {
-    const rawPhone = pjTelepon || '081234567890';
+    const rawPhone = pjTelepon || '081398431313';
     const cleanPhone = rawPhone.replace(/[^0-9]/g, '').replace(/^0/, '62');
     const dateFormatted = new Date(selectedDate).toLocaleDateString('id-ID', {
       weekday: 'long',

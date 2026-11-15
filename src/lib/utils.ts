@@ -332,7 +332,7 @@ export async function hashPin(pin: string): Promise<string> {
 
 // Generate WhatsApp link for Pengeluaran / Kasbon approval
 export function generateWhatsAppApprovalLink({
-  ownerPhone = '6281234567890',
+  ownerPhone = '6281398431313',
   cabangNama,
   staffNama,
   jenis,
@@ -408,7 +408,7 @@ export function generateWhatsAppPayrollSlipLink({
     ? '62' + cleanPhone.slice(1)
     : cleanPhone.startsWith('62')
       ? cleanPhone
-      : '6281234567890';
+      : '6281398431313';
 
   const tabunganSection = (totalTabungan && totalTabungan > 0)
     ? `\n*INFO SALDO SIMPANAN STAF:*\n• Saldo Simpanan Tersimpan : *${formatRupiah(totalTabungan)}*\n`

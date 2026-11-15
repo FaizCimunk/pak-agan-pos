@@ -560,7 +560,7 @@ export default function PayrollSlipModal({
                       Sistem Manajemen Penggajian &amp; Operasional Multi-Cabang
                     </div>
                     <div className="text-[10px] text-slate-400">
-                      Kantor Pusat: Jl. Malioboro No. 45, Yogyakarta • Telp: 0812-3456-7890
+                      Kantor Pusat: Jl. Malioboro No. 45, Yogyakarta • Telp: 0813-9843-1313
                     </div>
                   </div>
 
