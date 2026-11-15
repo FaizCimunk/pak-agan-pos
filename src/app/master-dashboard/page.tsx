@@ -44,10 +44,6 @@ export default function MasterDashboardPage() {
   const [defconLevel, setDefconLevel] = useState<number>(5);
   const [defconAlert, setDefconAlert] = useState<string | null>(null);
 
-  // Neural Matrix Event Trigger Simulation
-  const [neuralLoad, setNeuralLoad] = useState<number>(48);
-  const [activeSimulation, setActiveSimulation] = useState<string | null>(null);
-
   // Owner Central Dashboard Settings
   const [ownerKaryawan, setOwnerKaryawan] = useState<Karyawan | null>(null);
   const [ownerNama, setOwnerNama] = useState<string>('Pak Agan (Owner)');
@@ -206,22 +202,11 @@ export default function MasterDashboardPage() {
       if (confirmLock) {
         setDefconLevel(1);
         setDefconAlert('DEFCON 1 AKTIF: Sistem dalam status siaga darurat.');
-        setNeuralLoad(94);
       }
     } else {
       setDefconLevel(5);
       setDefconAlert(null);
-      setNeuralLoad(48);
     }
-  };
-
-  const handleSimulateEvent = (eventName: string) => {
-    setActiveSimulation(eventName);
-    setNeuralLoad(prev => Math.min(98, prev + 12));
-    setTimeout(() => {
-      setActiveSimulation(null);
-      setNeuralLoad(prev => Math.max(48, prev - 10));
-    }, 2000);
   };
 
   const handleToggleGembokCabang = async (cabang: Cabang) => {
@@ -410,88 +395,7 @@ export default function MasterDashboardPage() {
           </button>
         </div>
 
-        {/* 3. MULTI-AGENT AI NEURAL MATRIX */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-6 backdrop-blur-xl shadow-xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 flex items-center justify-center">
-                <Cpu className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-mono font-black text-sm text-white">MULTI-AGENT AI NEURAL MATRIX</h3>
-                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                    32 AGENT NODES
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 font-mono">
-                  Event-Driven Architecture: Sinkronisasi otomatis antar cabang, mutasi kasir &amp; otorisasi keuangan.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <span className="text-[10px] font-mono text-slate-500 block uppercase">Beban Neural</span>
-                <span className="text-xs font-mono font-bold text-emerald-400">{neuralLoad}%</span>
-              </div>
-              <div className="w-24 h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all duration-300"
-                  style={{ width: `${neuralLoad}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-2">
-              Trigger Simulasi Event:
-            </span>
-            <button
-              onClick={() => handleSimulateEvent('Tambah Pekerja Baru')}
-              className={`px-2.5 py-1.5 rounded-xl text-[10px] font-mono transition border ${
-                activeSimulation === 'Tambah Pekerja Baru' 
-                  ? 'bg-emerald-500 text-black border-emerald-400 font-bold' 
-                  : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border-slate-700'
-              }`}
-            >
-              + Tambah Staf Baru
-            </button>
-            <button
-              onClick={() => handleSimulateEvent('Tukang Ajukan Kasbon')}
-              className={`px-2.5 py-1.5 rounded-xl text-[10px] font-mono transition border ${
-                activeSimulation === 'Tukang Ajukan Kasbon' 
-                  ? 'bg-amber-500 text-black border-amber-400 font-bold' 
-                  : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border-slate-700'
-              }`}
-            >
-              + Kasir Ajukan Belanja
-            </button>
-            <button
-              onClick={() => handleSimulateEvent('Upload Nota Belanja')}
-              className={`px-2.5 py-1.5 rounded-xl text-[10px] font-mono transition border ${
-                activeSimulation === 'Upload Nota Belanja' 
-                  ? 'bg-purple-500 text-white border-purple-400 font-bold' 
-                  : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border-slate-700'
-              }`}
-            >
-              + Upload Bukti Transfer WA
-            </button>
-            <button
-              onClick={() => handleSimulateEvent('Kasir Buka Shift')}
-              className={`px-2.5 py-1.5 rounded-xl text-[10px] font-mono transition border ${
-                activeSimulation === 'Kasir Buka Shift' 
-                  ? 'bg-cyan-500 text-black border-cyan-400 font-bold' 
-                  : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border-slate-700'
-              }`}
-            >
-              + Buka Shift Kasir Cabang
-            </button>
-          </div>
-        </div>
-
-        {/* 4. KELOLA NAMA & SANDI DASBOR PUSAT (FITUR UTAMA YANG DIMINTA USER) */}
+        {/* 3. KELOLA NAMA & SANDI DASBOR PUSAT (FITUR UTAMA YANG DIMINTA USER) */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-7 backdrop-blur-xl shadow-2xl space-y-6">
           <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
