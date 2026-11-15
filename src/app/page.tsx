@@ -26,22 +26,31 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Auto-Fill Kredensial Tersimpan & Auto-Restore Sesi jika belum logout
+  // Auto-Fill Kredensial Tersimpan Khusus Dashboard Owner & Auto-Restore Sesi jika belum logout
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // 1. Muat kredensial login tersimpan di perangkat ini (Ingat Saya)
+      // 1. Muat kredensial login tersimpan KHUSUS akun Dashboard Pusat / Owner
       const savedRemember = localStorage.getItem('pakagan_remember_login');
       const savedUsername = localStorage.getItem('pakagan_saved_username');
       const savedPassword = localStorage.getItem('pakagan_saved_password');
       const savedName = localStorage.getItem('pakagan_saved_name');
+      const savedRole = localStorage.getItem('pakagan_saved_role');
 
-      if (savedRemember !== 'false') {
+      // KEAMANAN KETAT: Hanya akun Dashboard Owner yang di-auto-fill!
+      const isOwnerAccount = savedRole === 'owner' || savedUsername?.toLowerCase() === 'pakagan';
+      if (savedRemember !== 'false' && isOwnerAccount && savedUsername) {
         setRememberMe(true);
-        if (savedUsername) setIdentifier(savedUsername);
+        setIdentifier(savedUsername);
         if (savedPassword) setPin(savedPassword);
         if (savedName) setSavedAccountName(savedName);
       } else {
-        setRememberMe(false);
+        // Jika bukan akun owner, bersihkan agar kredensial kasir tetap ketat & tidak tersimpan
+        if (savedRole && savedRole !== 'owner') {
+          localStorage.removeItem('pakagan_saved_username');
+          localStorage.removeItem('pakagan_saved_password');
+          localStorage.removeItem('pakagan_saved_name');
+          localStorage.removeItem('pakagan_saved_role');
+        }
       }
 
       // 2. Auto-Restore Sesi jika pengguna membuka kembali tab / aplikasi yang aktif
@@ -99,22 +108,7 @@ export default function LoginPage() {
       const user = res.user;
       const cleanId = targetIdentifier.toLowerCase();
 
-      // SIMPAN KREDENSIAL DI PERANGKAT (INGAT SAYA AGAR TIDAK PERLU KETIK ULANG)
-      if (typeof window !== 'undefined') {
-        if (rememberMe) {
-          localStorage.setItem('pakagan_remember_login', 'true');
-          localStorage.setItem('pakagan_saved_username', targetIdentifier);
-          localStorage.setItem('pakagan_saved_password', targetPassword);
-          localStorage.setItem('pakagan_saved_name', user.nama || targetIdentifier);
-        } else {
-          localStorage.setItem('pakagan_remember_login', 'false');
-          localStorage.removeItem('pakagan_saved_username');
-          localStorage.removeItem('pakagan_saved_password');
-          localStorage.removeItem('pakagan_saved_name');
-        }
-      }
-
-      // 1. Tablet Kasir Toko Cabang -> Otomatis diarahkan ke Layar POS Kasir Cabang
+      // 1. Tablet Kasir Toko Cabang (KEAMANAN KETAT: Kredensial kasir TIDAK disimpan agar laci aman dari salah klik)
       if (user.id.startsWith('kasir-') || user.role === 'kasir') {
         const targetCabangId = user.cabang_id;
         if (typeof window !== 'undefined') {
@@ -128,9 +122,22 @@ export default function LoginPage() {
         return;
       }
 
-      // 2. Admin Pusat (Owner Pak Agan) -> Otomatis diarahkan ke Executive Backoffice
+      // 2. Admin Pusat (Owner Pak Agan) -> Khusus Dashboard Pusat yang disimpan kredensialnya
       if (user.role === 'owner' || cleanId === 'pakagan') {
         if (typeof window !== 'undefined') {
+          if (rememberMe) {
+            localStorage.setItem('pakagan_remember_login', 'true');
+            localStorage.setItem('pakagan_saved_username', targetIdentifier);
+            localStorage.setItem('pakagan_saved_password', targetPassword);
+            localStorage.setItem('pakagan_saved_name', user.nama || 'Pak Agan (Owner Pusat)');
+            localStorage.setItem('pakagan_saved_role', 'owner');
+          } else {
+            localStorage.setItem('pakagan_remember_login', 'false');
+            localStorage.removeItem('pakagan_saved_username');
+            localStorage.removeItem('pakagan_saved_password');
+            localStorage.removeItem('pakagan_saved_name');
+            localStorage.removeItem('pakagan_saved_role');
+          }
           sessionStorage.setItem('pakagan_user', JSON.stringify(user));
           sessionStorage.setItem('pakagan_owner_authenticated', 'true');
         }
@@ -275,40 +282,46 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* CHECKBOX INGAT SAYA (SIMPAN KREDENSIAL DI PERANGKAT INI) */}
-            <div className="flex items-center justify-between text-xs pt-0.5 px-1">
-              <label className="flex items-center space-x-2 font-bold text-slate-700 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 accent-emerald-600 cursor-pointer"
-                />
-                <span className="text-[11px] text-slate-700 font-extrabold">
-                  Ingat Akun di Perangkat Ini
-                </span>
-              </label>
+            {/* CHECKBOX INGAT SAYA (SIMPAN KREDENSIAL KHUSUS DASHBOARD PUSAT) */}
+            <div className="space-y-1 pt-0.5 px-1">
+              <div className="flex items-center justify-between text-xs">
+                <label className="flex items-center space-x-2 font-bold text-slate-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 accent-emerald-600 cursor-pointer"
+                  />
+                  <span className="text-[11px] text-slate-700 font-extrabold">
+                    Ingat Login Dashboard Pusat di Perangkat Ini
+                  </span>
+                </label>
 
-              {(identifier || pin) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIdentifier('');
-                    setPin('');
-                    setSavedAccountName(null);
-                    if (typeof window !== 'undefined') {
-                      localStorage.removeItem('pakagan_saved_username');
-                      localStorage.removeItem('pakagan_saved_password');
-                      localStorage.removeItem('pakagan_saved_name');
-                      localStorage.setItem('pakagan_remember_login', 'false');
-                    }
-                  }}
-                  className="text-[10.5px] text-slate-400 hover:text-rose-600 font-extrabold transition cursor-pointer"
-                  title="Hapus username & password tersimpan"
-                >
-                  Ganti Akun
-                </button>
-              )}
+                {(identifier || pin) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdentifier('');
+                      setPin('');
+                      setSavedAccountName(null);
+                      if (typeof window !== 'undefined') {
+                        localStorage.removeItem('pakagan_saved_username');
+                        localStorage.removeItem('pakagan_saved_password');
+                        localStorage.removeItem('pakagan_saved_name');
+                        localStorage.removeItem('pakagan_saved_role');
+                        localStorage.setItem('pakagan_remember_login', 'false');
+                      }
+                    }}
+                    className="text-[10.5px] text-slate-400 hover:text-rose-600 font-extrabold transition cursor-pointer"
+                    title="Kosongkan form username & password"
+                  >
+                    Ganti Akun
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium pl-6 leading-tight">
+                *Akses kasir cabang tetap ketat &amp; wajib ketik manual demi keamanan laci kasir.
+              </p>
             </div>
 
             {/* SUBMIT BUTTON (TEBAL & TAKTIL HIJAU EMERALD) */}
