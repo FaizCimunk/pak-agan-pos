@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Cabang } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatNominal, parseNominal } from '@/lib/utils';
+import { formatNominal, parseNominal, formatRupiah } from '@/lib/utils';
 
 interface CreateKaryawanModalProps {
   cabangList: Cabang[];
@@ -35,8 +35,7 @@ export default function CreateKaryawanModal({
   const [bankNama, setBankNama] = useState<string>('');
   const [noRekening, setNoRekening] = useState<string>('');
   const [atasNamaRek, setAtasNamaRek] = useState<string>('');
-  const [gajiHarianDisplay, setGajiHarianDisplay] = useState<string>('100.000');
-  const [plafonKasbonDisplay, setPlafonKasbonDisplay] = useState<string>('500.000');
+  const [gajiHarian, setGajiHarian] = useState<number>(100000);
   const [saving, setSaving] = useState<boolean>(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,8 +45,7 @@ export default function CreateKaryawanModal({
       return;
     }
 
-    const uHarian = parseNominal(gajiHarianDisplay) || 100000;
-    const plafon = parseNominal(plafonKasbonDisplay) || 500000;
+    const uHarian = gajiHarian || 100000;
     const cleanPhone =
       telepon.trim() ||
       (bankNama.toLowerCase().includes('dana') && noRekening.trim() ? noRekening.trim() : '0812-0000-0000');
@@ -64,7 +62,7 @@ export default function CreateKaryawanModal({
         tipe_gaji: 'harian',
         gaji_harian: uHarian,
         gaji_pokok: uHarian * 6,
-        plafon_kasbon: plafon,
+        plafon_kasbon: 0,
         tabungan_rutin_mingguan: 0,
         bank_nama: bankNama.trim() || 'DANA',
         no_rekening: noRekening.trim(),
@@ -245,57 +243,73 @@ export default function CreateKaryawanModal({
             </div>
           </div>
 
-          {/* Gaji Harian & Plafon Kasbon */}
+          {/* Skema Upah Harian Kehadiran */}
           <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-200 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold text-emerald-950">
-                Skema Gaji Murni Mingguan &amp; Kasbon:
+                Skema Upah Kehadiran Harian:
               </span>
               <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                100% Mingguan (÷ 6 Hari)
+                100% Sesuai Hari Hadir (÷ 6 Hari Kerja)
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  Upah Harian per Kehadiran:
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 font-bold text-slate-400">Rp</span>
-                  <input
-                    type="text"
-                    value={gajiHarianDisplay}
-                    onChange={(e) => setGajiHarianDisplay(formatNominal(e.target.value))}
-                    required
-                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-                <div className="text-[10px] text-slate-600 mt-1.5 bg-white p-2 rounded-xl border border-emerald-200/60">
-                  <div className="flex justify-between font-extrabold text-emerald-800">
-                    <span>Total Gaji 1 Minggu (6 Hari):</span>
-                    <span className="font-mono">Rp {formatNominal(((parseNominal(gajiHarianDisplay) || 100000) * 6).toString())}</span>
-                  </div>
-                </div>
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                Upah Harian per Kehadiran:
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 font-bold text-slate-400">Rp</span>
+                <input
+                  type="text"
+                  value={gajiHarian === 0 ? '' : formatNominal(gajiHarian)}
+                  onChange={(e) => setGajiHarian(parseNominal(e.target.value))}
+                  placeholder="Contoh: 90.000"
+                  required
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono font-black text-sm text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                />
               </div>
 
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  Plafon Maksimal Kasbon:
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 font-bold text-slate-400">Rp</span>
-                  <input
-                    type="text"
-                    value={plafonKasbonDisplay}
-                    onChange={(e) => setPlafonKasbonDisplay(formatNominal(e.target.value))}
-                    required
-                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
-                  />
+              {/* Pil Cepat Tarif Upah Harian */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                <span className="text-[10px] font-bold text-slate-500">Pilihan Cepat:</span>
+                {[
+                  { label: '90rb', val: 90000 },
+                  { label: '95rb', val: 95000 },
+                  { label: '100rb', val: 100000 },
+                  { label: '110rb', val: 110000 },
+                  { label: '120rb', val: 120000 },
+                  { label: '125rb', val: 125000 },
+                  { label: '150rb', val: 150000 },
+                ].map((p) => (
+                  <button
+                    key={p.val}
+                    type="button"
+                    onClick={() => setGajiHarian(p.val)}
+                    className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer ${
+                      gajiHarian === p.val
+                        ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <div className="p-2 bg-white rounded-xl border border-emerald-200/70 text-[10.5px]">
+                  <span className="text-slate-500 block">Total 1 Minggu (6 Hari Kerja):</span>
+                  <span className="font-mono font-black text-emerald-800 text-xs">
+                    {formatRupiah((gajiHarian || 0) * 6)}
+                  </span>
                 </div>
-                <span className="text-[9px] text-slate-500 mt-1 block">
-                  Batas pinjaman kasbon staf
-                </span>
+                <div className="p-2 bg-white rounded-xl border border-emerald-200/70 text-[10.5px]">
+                  <span className="text-slate-500 block">Bila Hadir 7 Hari Penuh:</span>
+                  <span className="font-mono font-black text-emerald-800 text-xs">
+                    {formatRupiah((gajiHarian || 0) * 7)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

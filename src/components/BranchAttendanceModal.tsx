@@ -161,7 +161,7 @@ export default function BranchAttendanceModal({
         gaji_harian: Number(newUpah) || 100000,
         gaji_pokok: (Number(newUpah) || 100000) * 6,
         tunjangan: 0,
-        plafon_kasbon: 300000,
+        plafon_kasbon: 0,
       });
       if (created?.id) resolvedId = created.id;
     } catch (e) {

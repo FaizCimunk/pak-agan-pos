@@ -5,10 +5,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Parse string with dots or formatting ("1.000.000") to pure integer (1000000)
+export function parseNominal(str: string | number | null | undefined): number {
+  if (typeof str === 'number') return isNaN(str) ? 0 : str;
+  const isNegative = String(str || '').trim().startsWith('-');
+  const digits = String(str || '').replace(/[^0-9]/g, '');
+  const val = parseInt(digits, 10) || 0;
+  return isNegative ? -val : val;
+}
+
 // Format number to Rupiah string: "Rp 125.000"
 export function formatRupiah(amount: number | string | null | undefined): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
-  if (isNaN(num)) return 'Rp 0';
+  const num = typeof amount === 'number'
+    ? (isNaN(amount) ? 0 : amount)
+    : parseNominal(amount);
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
@@ -19,16 +29,10 @@ export function formatRupiah(amount: number | string | null | undefined): string
 
 // Format pure number with dots: "125.000"
 export function formatNominal(amount: number | string | null | undefined): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
-  if (isNaN(num)) return '0';
+  const num = typeof amount === 'number'
+    ? (isNaN(amount) ? 0 : amount)
+    : parseNominal(amount);
   return new Intl.NumberFormat('id-ID').format(num);
-}
-
-// Parse string with dots or formatting ("1.000.000") to pure integer (1000000)
-export function parseNominal(str: string | number | null | undefined): number {
-  if (typeof str === 'number') return isNaN(str) ? 0 : str;
-  const digits = String(str || '').replace(/[^0-9]/g, '');
-  return parseInt(digits, 10) || 0;
 }
 
 // Format number with dots as user types ("1000000" -> "1.000.000")

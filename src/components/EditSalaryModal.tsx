@@ -19,7 +19,6 @@ export default function EditSalaryModal({
 }: EditSalaryModalProps) {
   const [gajiHarian, setGajiHarian] = useState<number>(karyawan.gaji_harian || 100000);
   const [gajiMingguan, setGajiMingguan] = useState<number>((karyawan.gaji_harian || 100000) * 6);
-  const [plafonKasbon, setPlafonKasbon] = useState<number>(karyawan.plafon_kasbon || 500000);
   const [bankNama, setBankNama] = useState<string>(karyawan.bank_nama || '');
   const [noRekening, setNoRekening] = useState<string>(karyawan.no_rekening || '');
   const [atasNamaRek, setAtasNamaRek] = useState<string>(karyawan.atas_nama_rekening || karyawan.nama || '');
@@ -40,7 +39,7 @@ export default function EditSalaryModal({
         tabungan_rutin_mingguan: 0,
         tunjangan_harian: 0,
         tunjangan: 0,
-        plafon_kasbon: plafonKasbon,
+        plafon_kasbon: 0,
         bank_nama: bankNama.trim(),
         no_rekening: noRekening.trim(),
         atas_nama_rekening: atasNamaRek.trim() || karyawan.nama,
@@ -193,22 +192,6 @@ export default function EditSalaryModal({
             </div>
           </div>
 
-          {/* Plafon Kasbon */}
-          <div>
-            <label className="font-bold text-slate-700 block mb-1 flex items-center justify-between">
-              <span>Batas Plafon Kasbon Maksimal (Rp):</span>
-              <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                Mencegah Over-Bon
-              </span>
-            </label>
-            <input
-              type="text"
-              value={plafonKasbon === 0 ? '' : formatNominal(plafonKasbon)}
-              onChange={(e) => setPlafonKasbon(parseNominal(e.target.value))}
-              placeholder="Contoh: 500.000"
-              className="w-full px-3 py-2 bg-slate-50 rounded-xl border border-slate-300 font-mono font-bold text-xs text-slate-900 focus:outline-none focus:border-emerald-600 focus:bg-white"
-            />
-          </div>
 
           {/* Rekening Bank / DANA & WhatsApp */}
           <div className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-200 space-y-2.5">

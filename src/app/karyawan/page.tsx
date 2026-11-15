@@ -535,15 +535,15 @@ export default function KaryawanPortalPage() {
         {activeTab === 'kasbon' && (
           <div className="space-y-4">
             
-            {/* HERO KARTU PLAFON */}
+            {/* HERO KARTU KASBON BERJALAN */}
             <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200/90 shadow-soft-sm space-y-3">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-                    Batas Plafon Pinjaman Kasbon
+                    Total Kasbon Berjalan (Belum Lunas)
                   </span>
-                  <div className="text-xl sm:text-2xl font-mono font-black text-amber-900 mt-0.5">
-                    {formatRupiah(currentUser.plafon_kasbon || 500000)}
+                  <div className="text-xl sm:text-2xl font-mono font-black text-rose-600 mt-0.5">
+                    {formatRupiah(utangNominal)}
                   </div>
                 </div>
                 <button
@@ -557,19 +557,11 @@ export default function KaryawanPortalPage() {
               </div>
 
               {/* Rincian Status Kasbon */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200">
-                  <span className="text-[10px] text-slate-500 font-bold block">Kasbon Berjalan (Belum Lunas):</span>
-                  <span className="font-mono font-extrabold text-rose-600 text-sm">
-                    {formatRupiah(utangNominal)}
-                  </span>
-                </div>
-                <div className="p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200">
-                  <span className="text-[10px] text-emerald-700 font-bold block">Sisa Kuota Kasbon:</span>
-                  <span className="font-mono font-extrabold text-emerald-800 text-sm">
-                    {formatRupiah(Math.max(0, (currentUser.plafon_kasbon || 500000) - utangNominal))}
-                  </span>
-                </div>
+              <div className="p-2.5 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs">
+                <span className="text-[10px] text-amber-800 font-bold block">Sistem Pemotongan Otomatis:</span>
+                <span className="text-slate-600 text-[11px] font-medium leading-relaxed mt-0.5 block">
+                  Kasbon yang disetujui Owner otomatis memotong hak upah saat tutup buku mingguan. Bila kasbon melebihi hak gaji, saldo dompet menjadi minus dan akan terpotong pada minggu berikutnya.
+                </span>
               </div>
 
               {/* Banner SOP Keamanan Kasbon */}
@@ -829,11 +821,6 @@ export default function KaryawanPortalPage() {
                   alert('Nominal kasbon harus lebih dari Rp 0!');
                   return;
                 }
-                const maxAvailable = Math.max(0, (currentUser.plafon_kasbon || 500000) - utangNominal);
-                if (kasbonNominal > maxAvailable) {
-                  alert(`Nominal kasbon (${formatRupiah(kasbonNominal)}) melebihi sisa kuota plafon Anda (${formatRupiah(maxAvailable)})!`);
-                  return;
-                }
                 if (!kasbonKeperluan.trim()) {
                   alert('Tuliskan rincian alasan / keperluan kasbon!');
                   return;
@@ -883,11 +870,8 @@ export default function KaryawanPortalPage() {
               }}
               className="p-5 space-y-4 overflow-y-auto text-xs"
             >
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px]">
-                <span>Sisa Kuota Plafon Anda: </span>
-                <strong className="font-mono text-amber-950 font-bold">
-                  {formatRupiah(Math.max(0, (currentUser.plafon_kasbon || 500000) - utangNominal))}
-                </strong>
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] leading-relaxed">
+                <span>💡 <strong>Catatan:</strong> Pengajuan kasbon yang disetujui Owner akan otomatis memotong hak upah pada perhitungan gaji mingguan (jika melebihi hak gaji, saldo dompet menjadi minus).</span>
               </div>
 
               <div>
