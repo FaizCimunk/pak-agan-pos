@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   ShieldCheck, 
   ShieldAlert, 
@@ -25,6 +26,7 @@ import { db } from '@/lib/db';
 import { Karyawan } from '@/lib/types';
 
 export default function MasterGatePage() {
+  const router = useRouter();
   const [phone, setPhone] = useState<string>('');
   const [pin, setPin] = useState<string>('');
   const [showPin, setShowPin] = useState<boolean>(false);
@@ -81,10 +83,10 @@ export default function MasterGatePage() {
       const isAuth = sessionStorage.getItem('pakagan_master_root_authenticated') === 'true';
       if (isAuth) {
         setIsMasterAuthenticated(true);
-        loadCurrentOwnerData();
+        router.push('/master-dashboard');
       }
     }
-  }, []);
+  }, [router]);
 
   const loadCurrentOwnerData = async () => {
     try {
@@ -140,6 +142,7 @@ export default function MasterGatePage() {
     await loadCurrentOwnerData();
     setIsMasterAuthenticated(true);
     setLoading(false);
+    router.push('/master-dashboard');
   };
 
   const handleSaveOwnerCredentials = async (e: React.FormEvent) => {

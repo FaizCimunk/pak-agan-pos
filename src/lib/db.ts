@@ -1028,7 +1028,7 @@ export class PosDatabase {
 
   async updateKaryawanCredentials(
     karyawanId: string,
-    data: { username?: string; pin?: string; password_plain?: string; is_locked?: boolean }
+    data: { username?: string; pin?: string; password_plain?: string; is_locked?: boolean; nama?: string; telepon?: string }
   ): Promise<boolean> {
     const list = await this.getAllKaryawan();
     const activeSecret = data.password_plain || data.pin;
@@ -1043,6 +1043,8 @@ export class PosDatabase {
       if (isMatch) {
         updatedTarget = {
           ...k,
+          ...(data.nama ? { nama: data.nama.trim() } : {}),
+          ...(data.telepon ? { telepon: data.telepon.trim() } : {}),
           ...(data.username ? { username: data.username.toLowerCase().trim() } : {}),
           ...(newHash ? { pin_hash: newHash } : {}),
           ...(activeSecret ? { password_plain: activeSecret } : {}),
@@ -1059,6 +1061,8 @@ export class PosDatabase {
         const karUuid = getKaryawanUuid(karyawanId);
         if (karUuid) {
           const payload: any = {};
+          if (data.nama) payload.nama = data.nama.trim();
+          if (data.telepon) payload.telepon = data.telepon.trim();
           if (data.username) payload.username = data.username.toLowerCase().trim();
           if (newHash) payload.pin_hash = newHash;
           if (activeSecret) {
