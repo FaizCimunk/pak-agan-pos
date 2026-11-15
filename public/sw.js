@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pak-agan-pos-shell-v1';
+const CACHE_NAME = 'pak-agan-pos-shell-v4';
 const APP_SHELL_ROUTES = [
   '/',
   '/pos',

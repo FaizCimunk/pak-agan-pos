@@ -134,6 +134,26 @@ export default function PosHeader({
     }
   };
 
+  const handleForceRefresh = () => {
+    if (typeof window !== 'undefined') {
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          for (const name of names) {
+            caches.delete(name);
+          }
+        });
+      }
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          for (const reg of regs) {
+            reg.unregister();
+          }
+        });
+      }
+      window.location.reload();
+    }
+  };
+
   // Shorten cashier name on mobile screens
   const shortCashierName = activeShift?.karyawan_nama
     ? activeShift.karyawan_nama.split('(')[0].trim()
@@ -265,6 +285,16 @@ export default function PosHeader({
             </div>
 
             <button
+              type="button"
+              onClick={handleForceRefresh}
+              className="p-1.5 sm:px-2 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1 shrink-0 bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 border-slate-200 hover:border-emerald-200 btn-tactile cursor-pointer"
+              title="Perbarui Data & Layar Kasir (Versi Terbaru)"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+              <span className="hidden xl:inline text-[11px]">Segarkan</span>
+            </button>
+
+            <button
               onClick={handleConnectPrinter}
               className={`p-1.5 sm:px-2 lg:px-2.5 lg:py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1.5 shrink-0 ${
                 printerConnected
@@ -365,6 +395,15 @@ export default function PosHeader({
                   <span>{orientationMode === 'landscape' ? 'Potret' : 'Miring'}</span>
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={handleForceRefresh}
+                title="Muat Ulang Layar POS & Perbarui Versi"
+                className="p-1.5 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 flex items-center justify-center btn-tactile"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+              </button>
 
               <button
                 type="button"
@@ -615,11 +654,11 @@ export default function PosHeader({
                     <div className="flex items-center justify-between gap-1 mb-0.5">
                       <span className="font-black text-emerald-950 text-xs sm:text-sm truncate">Presensi Staf</span>
                       <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-200/70 text-emerald-900 border border-emerald-300 shrink-0">
-                        Tulis Nama
+                        Presensi Cabang
                       </span>
                     </div>
                     <p className="text-[11px] text-emerald-900/80 font-normal leading-tight line-clamp-1">
-                      Absensi kehadiran harian staf &amp; akumulasi upah hari ini.
+                      Absensi kehadiran harian staf &amp; ajukan approval upah hari ini.
                     </p>
                   </div>
                 </button>
@@ -701,6 +740,31 @@ export default function PosHeader({
                       {printerConnected 
                         ? (printerName || 'Printer 58mm Aktif') 
                         : 'Sambungkan printer thermal Bluetooth 58mm.'}
+                    </p>
+                  </div>
+                </button>
+
+                {/* Tile 5: Segarkan Layar & Bersihkan Cache */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    handleForceRefresh();
+                  }}
+                  className="flex items-center p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition-all btn-tactile group shadow-2xs"
+                >
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-700 text-white flex items-center justify-center shrink-0 mr-2.5 shadow-xs">
+                    <RotateCw className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <span className="font-black text-slate-900 text-xs sm:text-sm truncate">Segarkan Layar POS</span>
+                      <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
+                        Versi Baru
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-normal leading-tight line-clamp-1">
+                      Muat ulang tampilan kasir versi terbaru &amp; bersihkan cache lawas.
                     </p>
                   </div>
                 </button>
