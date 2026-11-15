@@ -22,43 +22,18 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState<string>('');
   const [pin, setPin] = useState<string>('');
   const [showPin, setShowPin] = useState<boolean>(false);
-  const [rememberMe, setRememberMe] = useState<boolean>(true);
-  const [savedAccountName, setSavedAccountName] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Auto-Fill Kredensial Tersimpan Khusus Dashboard Owner & Auto-Restore Sesi jika belum logout
+  // Bersihkan kredensial lama di perangkat & Auto-Restore Sesi jika tab masih aktif
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // 1. Muat kredensial login tersimpan KHUSUS akun Dashboard Pusat / Owner
-      const savedRemember = localStorage.getItem('pakagan_remember_login');
-      const savedUsername = localStorage.getItem('pakagan_saved_username');
-      const savedPassword = localStorage.getItem('pakagan_saved_password');
-      const savedName = localStorage.getItem('pakagan_saved_name');
-      const savedRole = localStorage.getItem('pakagan_saved_role');
-
-      // Akun Dashboard Owner / Master di-auto-fill agar praktis & siap masuk
-      const isOwnerAccount = savedRole === 'owner' || savedUsername?.toLowerCase() === 'pakagan' || savedUsername?.toLowerCase() === 'master' || savedUsername?.toLowerCase() === 'faizcimunk12@gmail.com' || savedUsername === '088221511946' || savedUsername === '089999';
-      if (savedRemember !== 'false' && isOwnerAccount && savedUsername) {
-        setRememberMe(true);
-        setIdentifier(savedUsername);
-        if (savedPassword) setPin(savedPassword);
-        if (savedName) setSavedAccountName(savedName);
-      } else if (!savedUsername && savedRemember !== 'false') {
-        // Default awal praktis ala Abdi Membangun: Akun Dashboard Pusat siap masuk
-        setRememberMe(true);
-        setIdentifier('pakagan');
-        setPin('1234');
-        setSavedAccountName('Pak Agan (Owner Pusat)');
-      } else {
-        // Jika bukan akun owner, bersihkan agar kredensial kasir tetap ketik manual
-        if (savedRole && savedRole !== 'owner') {
-          localStorage.removeItem('pakagan_saved_username');
-          localStorage.removeItem('pakagan_saved_password');
-          localStorage.removeItem('pakagan_saved_name');
-          localStorage.removeItem('pakagan_saved_role');
-        }
-      }
+      // Pastikan tidak ada data sandi tersimpan di localstorage aplikasi
+      localStorage.removeItem('pakagan_saved_username');
+      localStorage.removeItem('pakagan_saved_password');
+      localStorage.removeItem('pakagan_saved_name');
+      localStorage.removeItem('pakagan_saved_role');
+      localStorage.removeItem('pakagan_remember_login');
 
       // 2. Auto-Restore Sesi jika pengguna membuka kembali tab / aplikasi yang aktif
       const userStr = localStorage.getItem('pakagan_user') || sessionStorage.getItem('pakagan_user');
@@ -125,30 +100,7 @@ export default function LoginPage() {
         return;
       }
 
-      // 2. Admin Pusat (Owner Pak Agan) -> Khusus Dashboard Pusat yang disimpan kredensialnya
-      if (user.role === 'owner' || cleanId === 'pakagan') {
-        if (typeof window !== 'undefined') {
-          if (rememberMe) {
-            localStorage.setItem('pakagan_remember_login', 'true');
-            localStorage.setItem('pakagan_saved_username', targetIdentifier);
-            localStorage.setItem('pakagan_saved_password', targetPassword);
-            localStorage.setItem('pakagan_saved_name', user.nama || 'Pak Agan (Owner Pusat)');
-            localStorage.setItem('pakagan_saved_role', 'owner');
-          } else {
-            localStorage.setItem('pakagan_remember_login', 'false');
-            localStorage.removeItem('pakagan_saved_username');
-            localStorage.removeItem('pakagan_saved_password');
-            localStorage.removeItem('pakagan_saved_name');
-            localStorage.removeItem('pakagan_saved_role');
-          }
-          sessionStorage.setItem('pakagan_user', JSON.stringify(user));
-          sessionStorage.setItem('pakagan_owner_authenticated', 'true');
-        }
-        router.push('/admin');
-        return;
-      }
-
-      // Default: Direct ke Admin Dashboard
+      // 2. Admin Pusat (Owner Pak Agan) & Role Lainnya
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('pakagan_user', JSON.stringify(user));
         sessionStorage.setItem('pakagan_owner_authenticated', 'true');
@@ -217,21 +169,6 @@ export default function LoginPage() {
           {/* MAIN SECURE UNIFIED LOGIN FORM */}
           <form onSubmit={handleLogin} className="space-y-4 relative z-10">
             
-            {/* BADGE AKUN TERSIMPAN */}
-            {savedAccountName && identifier && (
-              <div className="flex items-center justify-between bg-emerald-50/90 border border-emerald-200/80 px-3.5 py-2 rounded-2xl text-xs font-bold text-emerald-950 shadow-2xs">
-                <div className="flex items-center space-x-2 truncate">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                  <span className="text-[11px] truncate">
-                    Akun Tersimpan: <strong>{savedAccountName}</strong>
-                  </span>
-                </div>
-                <span className="text-[10px] text-emerald-800 bg-emerald-100 font-extrabold px-2 py-0.5 rounded-full shrink-0">
-                  Siap Masuk
-                </span>
-              </div>
-            )}
-
             {/* INPUT USERNAME */}
             <div>
               <label className="block text-xs font-extrabold text-slate-800 mb-1.5">
@@ -240,6 +177,7 @@ export default function LoginPage() {
               <div className="relative">
                 <input
                   type="text"
+                  name="username"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="Masukkan Username"
@@ -273,6 +211,7 @@ export default function LoginPage() {
               <div className="relative">
                 <input
                   type={showPin ? 'text' : 'password'}
+                  name="password"
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   placeholder="Masukkan Password"
@@ -284,48 +223,6 @@ export default function LoginPage() {
                   <KeyRound className="w-4 h-4 text-emerald-700" />
                 </div>
               </div>
-            </div>
-
-            {/* CHECKBOX INGAT SAYA (SIMPAN KREDENSIAL KHUSUS DASHBOARD PUSAT) */}
-            <div className="space-y-1 pt-0.5 px-1">
-              <div className="flex items-center justify-between text-xs">
-                <label className="flex items-center space-x-2 font-bold text-slate-700 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 accent-emerald-600 cursor-pointer"
-                  />
-                  <span className="text-[11px] text-slate-700 font-extrabold">
-                    Ingat Login Dashboard Pusat di Perangkat Ini
-                  </span>
-                </label>
-
-                {(identifier || pin) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIdentifier('');
-                      setPin('');
-                      setSavedAccountName(null);
-                      if (typeof window !== 'undefined') {
-                        localStorage.removeItem('pakagan_saved_username');
-                        localStorage.removeItem('pakagan_saved_password');
-                        localStorage.removeItem('pakagan_saved_name');
-                        localStorage.removeItem('pakagan_saved_role');
-                        localStorage.setItem('pakagan_remember_login', 'false');
-                      }
-                    }}
-                    className="text-[10.5px] text-slate-400 hover:text-rose-600 font-extrabold transition cursor-pointer"
-                    title="Kosongkan form username & password"
-                  >
-                    Ganti Akun
-                  </button>
-                )}
-              </div>
-              <p className="text-[10px] text-slate-400 font-medium pl-6 leading-tight">
-                *Akses kasir cabang tetap ketat &amp; wajib ketik manual demi keamanan laci kasir.
-              </p>
             </div>
 
             {/* SUBMIT BUTTON (TEBAL & TAKTIL HIJAU EMERALD) */}

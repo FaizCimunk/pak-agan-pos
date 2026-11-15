@@ -727,13 +727,13 @@ export default function ProfilTokoManager({
               {/* FOOTER PROMOSI PATEN PERMANEN IVOKGRUP (SELURUH CABANG) */}
               <div className="mt-3 pt-2.5 border-t border-dashed border-slate-300 text-center space-y-1">
                 <div className="text-[9px] font-black uppercase tracking-wider text-slate-900 leading-snug">
-                  Digitalisasi Operasional Multi-Cabang, POS &amp; Keuangan Terintegrasi.
+                  Punya usaha tapi ribet urus sistem &amp; promosi?
                 </div>
                 <div className="text-[8px] text-slate-600 font-medium">
-                  Dipercaya oleh 1.000+ Pengusaha Berkembang.
+                  Kami siapkan aplikasi kasir, keuangan, karyawan, website hingga konten medsos!
                 </div>
                 <div className="text-[8px] text-emerald-800 font-mono font-bold tracking-tight">
-                  Solusi Bisnis Cerdas bersama ivokgrup.com
+                  www.ivokgrup.com
                 </div>
               </div>
 

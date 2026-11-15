@@ -79,9 +79,9 @@ export default function ReceiptModal({
       `_Terima kasih telah berkunjung ke Serabi Bawel & Wedang Geprek!_`,
       `_Khasiat Alami, Tubuh Sehat_`,
       `-----------------------------------------`,
-      `*Digitalisasi Operasional Multi-Cabang, POS & Keuangan Terintegrasi.*`,
-      `*Dipercaya oleh 1.000+ Pengusaha Berkembang.*`,
-      `*Solusi Bisnis Cerdas bersama ivokgrup.com*`
+      `*Punya usaha tapi ribet urus sistem & promosi?*`,
+      `*Kami siapkan aplikasi kasir, keuangan, karyawan, website hingga konten medsos!*`,
+      `*www.ivokgrup.com*`
     ].join('\n');
 
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -367,13 +367,13 @@ export default function ReceiptModal({
                     {/* Footer Promosi Paten Permanen ivokgrup (Seluruh Cabang) */}
                     <div className="mt-2 pt-1.5 border-t border-dashed border-slate-300 text-center space-y-0.5">
                       <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-800 leading-snug">
-                        Digitalisasi Operasional Multi-Cabang, POS &amp; Keuangan Terintegrasi.
+                        Punya usaha tapi ribet urus sistem &amp; promosi?
                       </div>
                       <div className="text-[8px] text-slate-600 font-medium">
-                        Dipercaya oleh 1.000+ Pengusaha Berkembang.
+                        Kami siapkan aplikasi kasir, keuangan, karyawan, website hingga konten medsos!
                       </div>
                       <div className="text-[8px] text-emerald-800 font-bold">
-                        Solusi Bisnis Cerdas bersama ivokgrup.com
+                        www.ivokgrup.com
                       </div>
                     </div>
                   </div>
@@ -464,13 +464,13 @@ export default function ReceiptModal({
         {/* Footer Promosi Paten Permanen ivokgrup Print */}
         <div className="mt-2 pt-1 border-t border-dashed border-black text-center space-y-0.5">
           <div className="text-[8px] font-black uppercase tracking-wider leading-snug">
-            Digitalisasi Operasional Multi-Cabang, POS &amp; Keuangan Terintegrasi.
+            Punya usaha tapi ribet urus sistem &amp; promosi?
           </div>
           <div className="text-[7.5px] font-medium">
-            Dipercaya oleh 1.000+ Pengusaha Berkembang.
+            Kami siapkan aplikasi kasir, keuangan, karyawan, website hingga konten medsos!
           </div>
           <div className="text-[7.5px] font-bold">
-            Solusi Bisnis Cerdas bersama ivokgrup.com
+            www.ivokgrup.com
           </div>
         </div>
       </div>

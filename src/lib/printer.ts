@@ -426,21 +426,19 @@ class BluetoothPrinterService {
     builder.line('-', 32);
     builder.alignCenter();
     builder.bold(true);
-    builder.text('Digitalisasi Operasional');
+    builder.text('Punya usaha tapi ribet');
     builder.newLine();
-    builder.text('Multi-Cabang, POS & Keuangan');
-    builder.newLine();
-    builder.text('Terintegrasi.');
+    builder.text('urus sistem & promosi?');
     builder.newLine();
     builder.bold(false);
-    builder.text('Dipercaya oleh 1.000+');
+    builder.text('Kami siapkan aplikasi kasir,');
     builder.newLine();
-    builder.text('Pengusaha Berkembang.');
+    builder.text('keuangan, karyawan, website');
+    builder.newLine();
+    builder.text('hingga konten medsos!');
     builder.newLine();
     builder.bold(true);
-    builder.text('Solusi Bisnis Cerdas bersama');
-    builder.newLine();
-    builder.text('ivokgrup.com');
+    builder.text('www.ivokgrup.com');
     builder.newLine();
     builder.bold(false);
 
