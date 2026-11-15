@@ -219,7 +219,7 @@ export default function ReceiptModal({
                   type="button"
                   onClick={() => setShowKitchenModal(true)}
                   className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[11px] transition-colors btn-tactile flex items-center space-x-1"
-                  title="Cetak Tiket Pesanan ke Ruang Wedang, Serabi & Makanan"
+                  title="Cetak 1 Tiket Pesanan Dapur Terpadu (Serabi, Wedang & Makanan)"
                 >
                   <UtensilsCrossed className="w-3 h-3 text-white" />
                   <span>Tiket Dapur</span>

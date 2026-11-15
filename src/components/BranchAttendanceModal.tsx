@@ -7,15 +7,11 @@ import {
   Clock, 
   Calendar, 
   Save,
-  UserPlus,
-  Trash2,
-  DollarSign,
-  CheckCircle2,
-  AlertCircle,
-  Users
+  Users,
+  ShieldCheck
 } from 'lucide-react';
 import { Cabang, Karyawan, Absensi, Shift } from '@/lib/types';
-import { db, isBranchMatch } from '@/lib/db';
+import { db, isBranchMatch, isKaryawanMarkedDeleted } from '@/lib/db';
 import { formatRupiah, getTodayDateString, toWibDateString, toWibBusinessDateString } from '@/lib/utils';
 
 interface BranchAttendanceModalProps {
@@ -55,12 +51,6 @@ export default function BranchAttendanceModal({
   const [saving, setSaving] = useState<boolean>(false);
   const isSubmittingRef = useRef<boolean>(false);
 
-  // Form Tulis Nama Staf Baru / Tambahan Hari Ini (Simpel & Cepat)
-  const [isAddingNewName, setIsAddingNewName] = useState<boolean>(false);
-  const [newNama, setNewNama] = useState<string>('');
-  const [newRole, setNewRole] = useState<string>('Kitchen Serabi');
-  const [newUpah] = useState<number>(100000);
-
   const defaultStoreOpenTime = activeShift?.waktu_buka
     ? new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Asia/Jakarta',
@@ -71,21 +61,32 @@ export default function BranchAttendanceModal({
     : '08:00';
 
   const buildWorkersList = (allStaff: any[], existingRecords: any[]): WorkerAttendanceState[] => {
-    const branchStaff = allStaff.filter(k => isBranchMatch(k.cabang_id, cabang.id) && k.role !== 'owner');
+    // Hanya ambil staf aktif yang di-ploting ke cabang ini oleh Pusat (bukan owner & belum dihapus)
+    const branchStaff = allStaff.filter(k => 
+      isBranchMatch(k.cabang_id, cabang.id) && 
+      k.role !== 'owner' && 
+      k.is_active !== false && 
+      !isKaryawanMarkedDeleted(k)
+    );
     const list: WorkerAttendanceState[] = [];
 
-    // 1. Masukkan staf yang sudah punya catatan absensi di tanggal ini
+    // 1. Masukkan catatan absensi hari ini HANYA untuk staf aktif cabang ini
     existingRecords.forEach(rec => {
-      const staffObj = allStaff.find(s => s.id === rec.karyawan_id);
+      const staffObj = branchStaff.find(s => 
+        s.id === rec.karyawan_id || 
+        (s.nama && rec.karyawan_nama && s.nama.toLowerCase().trim() === rec.karyawan_nama.toLowerCase().trim())
+      );
+      if (!staffObj) return; // Abaikan staf yang sudah dihapus/dipindah oleh Pusat
+
       const jamMasuk = rec.jam_masuk || defaultStoreOpenTime;
       const jamPulang = rec.jam_pulang || '22:00';
       const status = rec.status || 'hadir';
       list.push({
-        karyawan_id: rec.karyawan_id,
-        karyawan_nama: rec.karyawan_nama || staffObj?.nama || 'Staf Harian',
-        role: staffObj?.role || 'helper',
-        tipe_gaji: 'harian',
-        gaji_harian: rec.upah_harian_terhitung || staffObj?.gaji_harian || 100000,
+        karyawan_id: staffObj.id,
+        karyawan_nama: staffObj.nama,
+        role: staffObj.role || 'helper',
+        tipe_gaji: staffObj.tipe_gaji || 'harian',
+        gaji_harian: rec.upah_harian_terhitung || staffObj.gaji_harian || (staffObj.gaji_pokok ? Math.round(staffObj.gaji_pokok / 6) : 100000),
         status,
         jam_masuk: jamMasuk,
         jam_pulang: jamPulang,
@@ -96,14 +97,14 @@ export default function BranchAttendanceModal({
       });
     });
 
-    // 2. Tambahkan staf cabang reguler yang belum masuk ke absensi hari ini
+    // 2. Tambahkan staf cabang reguler yang belum tercatat absensi hari ini
     branchStaff.forEach(st => {
       if (!list.some(item => item.karyawan_id === st.id)) {
         list.push({
           karyawan_id: st.id,
           karyawan_nama: st.nama,
           role: st.role,
-          tipe_gaji: 'harian',
+          tipe_gaji: st.tipe_gaji || 'harian',
           gaji_harian: st.gaji_harian || (st.gaji_pokok ? Math.round(st.gaji_pokok / 6) : 100000),
           status: 'hadir',
           jam_masuk: defaultStoreOpenTime,
@@ -142,49 +143,6 @@ export default function BranchAttendanceModal({
     loadBranchData();
   }, [cabang.id, selectedDate]);
 
-  // Tambah Nama Staf Baru / Tambahan Hari Ini (Tulis Nama Simpel)
-  const handleAddNewWorker = async () => {
-    if (!newNama.trim()) {
-      alert('Silakan tulis nama staf terlebih dahulu!');
-      return;
-    }
-
-    let resolvedId = 'staf-' + Date.now();
-    // Buat juga master profil karyawan baru agar tercatat permanen di sistem & payroll mingguan
-    try {
-      const created = await db.createKaryawan({
-        cabang_id: cabang.id,
-        nama: newNama.trim(),
-        role: (newRole.toLowerCase().includes('kasir') ? 'kasir' : newRole.toLowerCase().includes('dapur') || newRole.toLowerCase().includes('serabi') ? 'kitchen' : 'helper') as any,
-        telepon: '0812-0000-0000',
-        tipe_gaji: 'harian',
-        gaji_harian: Number(newUpah) || 100000,
-        gaji_pokok: (Number(newUpah) || 100000) * 6,
-        tunjangan: 0,
-        plafon_kasbon: 0,
-      });
-      if (created?.id) resolvedId = created.id;
-    } catch (e) {
-      console.warn('Simpan master staf:', e);
-    }
-
-    const newWorkerEntry: WorkerAttendanceState = {
-      karyawan_id: resolvedId,
-      karyawan_nama: newNama.trim(),
-      role: newRole,
-      tipe_gaji: 'harian',
-      gaji_harian: Number(newUpah) || 100000,
-      status: 'hadir',
-      jam_masuk: defaultStoreOpenTime,
-      jam_pulang: '22:00',
-      catatan: 'Buka - Tutup Toko',
-    };
-
-    setWorkersList(prev => [...prev, newWorkerEntry]);
-    setNewNama('');
-    setIsAddingNewName(false);
-  };
-
   const updateWorkerStatus = (karyawanId: string, status: 'hadir' | 'setengah_hari' | 'izin' | 'sakit' | 'alpa') => {
     setWorkersList(prev => prev.map(w => {
       if (w.karyawan_id !== karyawanId) return w;
@@ -195,12 +153,6 @@ export default function BranchAttendanceModal({
         jam_pulang: status === 'hadir' ? (w.jam_pulang || '22:00') : status === 'setengah_hari' ? '15:00' : '',
       };
     }));
-  };
-
-  const handleRemoveWorker = (karyawanId: string, nama: string) => {
-    if (confirm(`Hapus ${nama} dari daftar absensi hari ini?`)) {
-      setWorkersList(prev => prev.filter(w => w.karyawan_id !== karyawanId));
-    }
   };
 
   const handleSaveAttendance = async () => {
@@ -280,7 +232,7 @@ export default function BranchAttendanceModal({
           </button>
         </div>
 
-        {/* Date Selector & Tombol Tulis Nama Staf */}
+        {/* Date Selector & Status Ploting Pusat */}
         <div className="px-4 py-1.5 sm:px-5 sm:py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2 text-xs shrink-0">
           <div className="flex items-center space-x-1.5">
             <Calendar className="w-3.5 h-3.5 text-brand-primary shrink-0" />
@@ -293,75 +245,12 @@ export default function BranchAttendanceModal({
             />
           </div>
 
-          {/* Tombol Simpel Tulis Nama Staf */}
-          <button
-            type="button"
-            onClick={() => setIsAddingNewName(!isAddingNewName)}
-            className="inline-flex items-center space-x-1 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-[11px] sm:text-xs shadow-sm transition-all btn-tactile shrink-0"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>{isAddingNewName ? 'Tutup Input' : '+ Tulis Nama'}</span>
-          </button>
-        </div>
-
-        {/* Form Cepat: Tulis Nama Staf Baru / Bantuan */}
-        {isAddingNewName && (
-          <div className="px-4 py-2.5 sm:px-5 sm:py-3 bg-emerald-50/60 border-b border-emerald-200/60 animate-fadeIn shrink-0">
-            <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-soft-sm space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
-                  <UserPlus className="w-3.5 h-3.5 text-emerald-700" />
-                  Tulis Nama Karyawan / Staf Hadir Hari Ini:
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  Langsung tersimpan tanpa ploting rumit
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
-                    Nama Lengkap Karyawan *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Contoh: Mas Joko / Mbak Rini"
-                    value={newNama}
-                    onChange={(e) => setNewNama(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg font-bold text-xs text-slate-800 outline-none focus:border-brand-primary focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
-                    Tugas / Posisi
-                  </label>
-                  <select
-                    value={newRole}
-                    onChange={(e) => setNewRole(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg font-bold text-xs text-slate-800 outline-none focus:border-brand-primary"
-                  >
-                    <option value="Kitchen Serabi">Dapur / Tukang Bakar Serabi</option>
-                    <option value="Wedang Barista">Barista Wedang Geprek</option>
-                    <option value="Kasir Toko">Kasir Toko</option>
-                    <option value="Helper & Cuci">Helper &amp; Cuci Piring</option>
-                    <option value="Staf Serabutan">Staf Serabutan / Bantuan</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-0.5">
-                <button
-                  type="button"
-                  onClick={handleAddNewWorker}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all btn-tactile"
-                >
-                  + Tambahkan ke Daftar Absensi
-                </button>
-              </div>
-            </div>
+          {/* Badge Terpusat (Ploting staf hanya dari Dashboard Pusat) */}
+          <div className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-emerald-100/80 border border-emerald-300 text-emerald-900 font-bold text-[10px] sm:text-[11px] shrink-0">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <span>Ploting Staf Terpusat (Owner/Pusat)</span>
           </div>
-        )}
+        </div>
 
         {/* Daftar Karyawan Hadir Hari Ini */}
         <div className="p-3 sm:p-4 overflow-y-auto space-y-2 flex-1 min-h-0">
@@ -370,22 +259,14 @@ export default function BranchAttendanceModal({
               Memuat data absensi staf...
             </div>
           ) : workersList.length === 0 ? (
-            <div className="text-center py-6 text-slate-500 text-xs bg-slate-50 rounded-2xl p-4 space-y-2 border border-dashed border-slate-200">
-              <Users className="w-7 h-7 text-slate-300 mx-auto" />
-              <p className="font-bold text-slate-700">
-                Belum ada staf yang dicatat untuk tanggal ini.
+            <div className="text-center py-8 text-slate-500 text-xs bg-slate-50 rounded-2xl p-6 space-y-2.5 border border-dashed border-slate-200">
+              <Users className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="font-extrabold text-slate-800 text-sm">
+                Belum ada staf yang di-ploting ke outlet ini oleh Pusat.
               </p>
-              <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
-                Klik tombol <strong>&quot;+ Tulis Nama&quot;</strong> di atas untuk langsung menulis nama karyawan atau tenaga bantuan yang hadir hari ini.
+              <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
+                Penambahan staf baru dan penempatan cabang hanya dapat diatur oleh Owner/Admin melalui <strong>Dashboard Pusat (/admin)</strong> demi standarisasi &amp; keamanan data gaji.
               </p>
-              <button
-                type="button"
-                onClick={() => setIsAddingNewName(true)}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm inline-flex items-center space-x-1.5"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>+ Tulis Nama Staf Sekarang</span>
-              </button>
             </div>
           ) : (
             workersList.map((worker) => {
@@ -464,15 +345,6 @@ export default function BranchAttendanceModal({
                         );
                       })}
 
-                      {/* Tombol Hapus */}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveWorker(worker.karyawan_id, worker.karyawan_nama)}
-                        className="p-1 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-auto sm:ml-1 shrink-0"
-                        title="Hapus dari daftar hari ini"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
                     </div>
                   </div>
                 </div>

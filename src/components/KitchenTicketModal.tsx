@@ -58,8 +58,9 @@ export default function KitchenTicketModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/75 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[94vh]">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/75 backdrop-blur-sm animate-fadeIn print:hidden">
+        <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[94vh]">
         
         {/* Modal Header */}
         <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-900 via-emerald-800 to-slate-900 text-white shrink-0">
@@ -216,5 +217,68 @@ export default function KitchenTicketModal({
 
       </div>
     </div>
+
+    {/* Dedicated Printable 58mm Thermal Kitchen Ticket (Single Ticket) */}
+    <div 
+      id="printable-kitchen-ticket"
+      className="hidden print:block"
+    >
+      <div className="text-center font-bold text-xs tracking-tight uppercase">
+        [ TIKET DAPUR ]
+      </div>
+      <div className="text-center font-bold text-xs">
+        SERABI BAWEL &amp; WEDANG GEPREK
+      </div>
+      <div className="text-center text-[10px]">Serabi Tungku &amp; Rempah Alami</div>
+      <div className="text-center text-[10px] font-bold">{cabang.nama}</div>
+      <div className="border-t border-dashed border-black my-1" />
+      <div className="flex justify-between text-[10px]">
+        <span>No: {transaksi.invoice_no}</span>
+        <span>{formatWaktu(transaksi.waktu)}</span>
+      </div>
+      <div className="flex justify-between text-[10px]">
+        <span>Kasir: {(transaksi.karyawan_nama || 'Kasir').split('(')[0].trim()}</span>
+      </div>
+      <div className="flex justify-between font-bold text-[10px]">
+        <span>Layanan:</span>
+        <span>{isBungkus ? 'BUNGKUS (TAKE AWAY)' : 'MAKAN DI SINI'}</span>
+      </div>
+      {penandaStr && (
+        <div className="flex justify-between text-[10px]">
+          <span>Penanda:</span>
+          <span className="font-bold">{penandaStr}</span>
+        </div>
+      )}
+      {transaksi.nama_pelanggan && transaksi.nama_pelanggan !== penandaStr && (
+        <div className="flex justify-between text-[10px]">
+          <span>Pelanggan:</span>
+          <span>{transaksi.nama_pelanggan}</span>
+        </div>
+      )}
+      <div className="border-t border-dashed border-black my-1" />
+      {transaksi.items.map((it, idx) => {
+        const tempTag = it.temperature === 'dingin' ? ' (ES)' : it.temperature === 'panas' ? ' (PANAS)' : '';
+        const varTag = it.varian_nama ? ` (${it.varian_nama})` : '';
+        return (
+          <div key={idx} className="my-0.5">
+            <div className="font-bold text-[10px]">{it.nama_menu}{varTag}{tempTag}</div>
+            {it.catatan && (
+              <div className="text-[9px] font-bold">
+                * CATATAN: {it.catatan.toUpperCase()}
+              </div>
+            )}
+            <div className="pl-2 font-bold text-[10px]">
+              {it.qty}x
+            </div>
+          </div>
+        );
+      })}
+      <div className="border-t border-dashed border-black my-1" />
+      <div className="flex justify-between font-bold text-[11px]">
+        <span>TOTAL:</span>
+        <span>{totalPorsi} PORSI</span>
+      </div>
+    </div>
+  </>
   );
 }

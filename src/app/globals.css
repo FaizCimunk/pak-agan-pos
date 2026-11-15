@@ -129,7 +129,7 @@ body {
   }
 
   /* Thermal Receipt Mode: STRICT 58mm Thermal Roll Single-Page Output */
-  body:has(#printable-receipt) {
+  body:has(#printable-kitchen-ticket) {
     width: 58mm !important;
     max-width: 58mm !important;
     margin: 0 !important;
@@ -137,16 +137,34 @@ body {
     background: white !important;
   }
 
-  body:has(#printable-receipt) * {
+  body:has(#printable-kitchen-ticket) * {
     visibility: hidden;
   }
 
-  body:has(#printable-receipt) #printable-receipt,
-  body:has(#printable-receipt) #printable-receipt * {
+  body:has(#printable-kitchen-ticket) #printable-kitchen-ticket,
+  body:has(#printable-kitchen-ticket) #printable-kitchen-ticket * {
     visibility: visible !important;
   }
 
-  #printable-receipt {
+  body:has(#printable-receipt):not(:has(#printable-kitchen-ticket)) {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  body:has(#printable-receipt):not(:has(#printable-kitchen-ticket)) * {
+    visibility: hidden;
+  }
+
+  body:has(#printable-receipt):not(:has(#printable-kitchen-ticket)) #printable-receipt,
+  body:has(#printable-receipt):not(:has(#printable-kitchen-ticket)) #printable-receipt * {
+    visibility: visible !important;
+  }
+
+  #printable-receipt,
+  #printable-kitchen-ticket {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
