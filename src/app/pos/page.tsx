@@ -615,7 +615,7 @@ export default function PosPage() {
     setCustomerName('Pelanggan Walk-in');
     setPenanda('No. 01');
 
-    // Buka otomatis tiket dapur untuk 3 ruangan masak (Wedang, Serabi, Makanan)
+    // Buka otomatis tiket dapur terpadu (1 struk lengkap: Serabi, Wedang, Makanan)
     setKitchenTicketTrx(openTrx);
     setIsKitchenModalOpen(true);
   };

@@ -1,7 +1,7 @@
 // ESC/POS Bluetooth Thermal Printer Driver for Minuman Herbal Pak Agan
 // Supports Web Bluetooth API for Android/Chrome tablet offline printing & browser print simulation.
 
-import { Transaksi, Shift, Cabang, KitchenStation } from './types';
+import { Transaksi, TransaksiItem, Shift, Cabang, KitchenStation } from './types';
 import { formatRupiah, formatWaktu } from './utils';
 
 // Helper untuk mengklasifikasi item ke salah satu dari 3 Ruangan Masak:
@@ -555,10 +555,10 @@ class BluetoothPrinterService {
       serabi: 'DAPUR SERABI',
       wedang: 'BAR WEDANG',
       makanan: 'DAPUR MAKANAN',
-      semua: 'PESANAN SEMUA DAPUR'
+      semua: 'TIKET PESANAN DAPUR'
     };
 
-    const stationTitle = stationTitles[station] || 'TIKET DAPUR';
+    const stationTitle = stationTitles[station] || 'TIKET PESANAN DAPUR';
 
     // Header Besar Ruangan Masak
     builder.alignCenter();
@@ -611,22 +611,61 @@ class BluetoothPrinterService {
     builder.row('Status:', transaksi.status === 'pending_payment' ? 'BELUM BAYAR (BAYAR NANTI)' : 'LUNAS DI AWAL');
     builder.line('-', 32);
 
-    // Daftar Pesanan Ruangan Ini
+    // Daftar Pesanan (Dikelompokkan rapi dalam 1 struk cetak tunggal)
     let totalPorsi = 0;
-    for (const item of stationItems) {
-      totalPorsi += item.qty;
-      builder.bold(true).size(false, true); // Double height agar jelas
-      const tempTag = item.temperature === 'dingin' ? ' [ES]' : item.temperature === 'panas' ? ' [PANAS]' : '';
-      const varianTag = item.varian_nama ? ` [${item.varian_nama.toUpperCase()}]` : '';
-      const itemTitle = `${item.nama_menu}${varianTag}${tempTag}`;
-      builder.text(`${item.qty}x  ${itemTitle}`);
-      builder.newLine();
-      builder.size(false, false).bold(false);
-      if (item.catatan) {
-        builder.bold(true);
-        builder.text(`    >>> ${item.catatan.toUpperCase()} <<<`);
+    if (station === 'semua') {
+      const serabi = stationItems.filter(it => getItemKitchenStation(it) === 'serabi');
+      const wedang = stationItems.filter(it => getItemKitchenStation(it) === 'wedang');
+      const makanan = stationItems.filter(it => getItemKitchenStation(it) === 'makanan');
+
+      const sections: { title: string; items: TransaksiItem[] }[] = [];
+      if (serabi.length > 0) sections.push({ title: '--- SERABI BAWEL ---', items: serabi });
+      if (wedang.length > 0) sections.push({ title: '--- WEDANG & MINUMAN ---', items: wedang });
+      if (makanan.length > 0) sections.push({ title: '--- MAKANAN & CEMILAN ---', items: makanan });
+
+      for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+        const sec = sections[sIdx];
+        builder.alignCenter().bold(true);
+        builder.text(sec.title);
         builder.newLine();
-        builder.bold(false);
+        builder.alignLeft().bold(false);
+
+        for (const item of sec.items) {
+          totalPorsi += item.qty;
+          builder.bold(true).size(false, true); // Double height agar jelas dibaca staf dapur
+          const tempTag = item.temperature === 'dingin' ? ' [ES]' : item.temperature === 'panas' ? ' [PANAS]' : '';
+          const varianTag = item.varian_nama ? ` [${item.varian_nama.toUpperCase()}]` : '';
+          const itemTitle = `${item.nama_menu}${varianTag}${tempTag}`;
+          builder.text(`${item.qty}x  ${itemTitle}`);
+          builder.newLine();
+          builder.size(false, false).bold(false);
+          if (item.catatan) {
+            builder.bold(true);
+            builder.text(`    >>> ${item.catatan.toUpperCase()} <<<`);
+            builder.newLine();
+            builder.bold(false);
+          }
+        }
+        if (sIdx < sections.length - 1) {
+          builder.line('-', 32);
+        }
+      }
+    } else {
+      for (const item of stationItems) {
+        totalPorsi += item.qty;
+        builder.bold(true).size(false, true);
+        const tempTag = item.temperature === 'dingin' ? ' [ES]' : item.temperature === 'panas' ? ' [PANAS]' : '';
+        const varianTag = item.varian_nama ? ` [${item.varian_nama.toUpperCase()}]` : '';
+        const itemTitle = `${item.nama_menu}${varianTag}${tempTag}`;
+        builder.text(`${item.qty}x  ${itemTitle}`);
+        builder.newLine();
+        builder.size(false, false).bold(false);
+        if (item.catatan) {
+          builder.bold(true);
+          builder.text(`    >>> ${item.catatan.toUpperCase()} <<<`);
+          builder.newLine();
+          builder.bold(false);
+        }
       }
     }
 

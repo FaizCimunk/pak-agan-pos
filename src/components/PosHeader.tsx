@@ -569,7 +569,7 @@ export default function PosHeader({
                       </span>
                     </div>
                     <p className="text-[11px] text-amber-900/80 font-normal leading-tight line-clamp-1">
-                      Kelola pesanan belum lunas, cetak tiket dapur 3 ruangan &amp; pelunasan.
+                      Kelola pesanan belum lunas, cetak tiket dapur &amp; pelunasan.
                     </p>
                   </div>
                 </button>
