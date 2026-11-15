@@ -172,11 +172,7 @@ export default function AdminDashboardPage() {
 
   // Payroll Period (Rentang Tanggal Langsung: Dari -> Sampai) & Branch Filters
   const [payrollBranchFilter, setPayrollBranchFilter] = useState<string>('all');
-  const [payrollStartDate, setPayrollStartDate] = useState<string>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 6);
-    return getTodayDateString(d);
-  });
+  const [payrollStartDate, setPayrollStartDate] = useState<string>('');
   const [payrollEndDate, setPayrollEndDate] = useState<string>(getTodayDateString());
   const [payrollMonth] = useState<number>(new Date().getMonth() + 1);
   const [payrollYear] = useState<number>(new Date().getFullYear());
@@ -467,10 +463,13 @@ export default function AdminDashboardPage() {
 
   // Label Periode Tanggal untuk PDF & Header (Rentang Dari -> Sampai)
   const payrollDateLabel = useMemo(() => {
+    const d2 = new Date(payrollEndDate || getTodayDateString());
+    const s2 = isNaN(d2.getTime()) ? (payrollEndDate || getTodayDateString()) : d2.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!payrollStartDate) {
+      return `Akumulasi Berjalan (s.d. ${s2})`;
+    }
     const d1 = new Date(payrollStartDate);
-    const d2 = new Date(payrollEndDate);
     const s1 = isNaN(d1.getTime()) ? payrollStartDate : d1.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-    const s2 = isNaN(d2.getTime()) ? payrollEndDate : d2.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
     return s1 === s2 ? s1 : `${s1} s.d. ${s2}`;
   }, [payrollStartDate, payrollEndDate]);
 
@@ -491,13 +490,28 @@ export default function AdminDashboardPage() {
         });
         const totalKasbon = unsettled.reduce((sum, e) => sum + e.nominal, 0);
 
-        // Kehadiran Staf pada Rentang Tanggal Terpilih (Hanya Yang Sudah Di-ACC Owner)
+        // Cari riwayat pencairan gaji terakhir staf ini (jika ada)
+        const lastPaid = payrollList
+          .filter(p => p.karyawan_id === kar.id && p.status === 'paid' && p.tanggal_kunci)
+          .sort((a, b) => (b.tanggal_kunci || '').localeCompare(a.tanggal_kunci || ''))[0];
+        const lastPaidDate = lastPaid?.tanggal_kunci ? lastPaid.tanggal_kunci.slice(0, 10) : '';
+
+        // Kehadiran Staf (Hanya Yang Sudah Di-ACC Owner)
         const match = absensiList.filter(a => {
           const isMatchId = a.karyawan_id === kar.id || 
                             (a.karyawan_nama && a.karyawan_nama.toLowerCase() === kar.nama.toLowerCase());
           if (!isMatchId) return false;
           if (!isAbsensiApproved(a)) return false;
-          return (!startBound || a.tanggal >= startBound) && (!endBound || a.tanggal <= endBound);
+
+          // Jika user memfilter tanggal 'Dari' manual, ikuti tanggal manual
+          if (startBound) {
+            if (a.tanggal < startBound) return false;
+          } else if (lastPaidDate) {
+            // Mode default akumulasi berjalan: hitung kehadiran setelah pencairan gaji terakhir
+            if (a.tanggal <= lastPaidDate) return false;
+          }
+
+          return !endBound || a.tanggal <= endBound;
         });
 
         let totalDays = 0;
@@ -527,7 +541,7 @@ export default function AdminDashboardPage() {
           karyawan_atas_nama_rekening: kar.atas_nama_rekening,
           cabang_id: kar.cabang_id,
           cabang_nama: branch?.nama || 'Cabang',
-          slip_no: `SLIP/PAY-${(startBound || '').replace(/-/g, '')}/${kar.nama.split(' ')[0]?.toUpperCase() || 'STF'}`,
+          slip_no: `SLIP/PAY-${(startBound || 'AKUM').replace(/-/g, '')}/${kar.nama.split(' ')[0]?.toUpperCase() || 'STF'}`,
           periode_tanggal: payrollDateLabel,
           periode_bulan: payrollMonth,
           periode_tahun: payrollYear,
@@ -3528,9 +3542,16 @@ export default function AdminDashboardPage() {
                       className="bg-white px-2 py-1 rounded-lg border border-emerald-200 font-mono text-xs font-bold text-slate-800 outline-none cursor-pointer focus:border-emerald-600"
                     />
                   </div>
-                  <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-white text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
-                    {payrollDateLabel}
-                  </span>
+                  {payrollStartDate && (
+                    <button
+                      type="button"
+                      onClick={() => setPayrollStartDate('')}
+                      className="px-2 py-0.5 rounded-lg bg-white text-emerald-800 hover:bg-emerald-100 border border-emerald-300 text-[10px] font-extrabold transition cursor-pointer"
+                      title="Kembalikan ke mode Akumulasi Berjalan (Semua Kehadiran)"
+                    >
+                      ✕ Semua Kehadiran
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
