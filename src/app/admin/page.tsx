@@ -190,6 +190,8 @@ export default function AdminDashboardPage() {
   const handleLogoutOwner = () => {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(OWNER_AUTH_KEY);
+      sessionStorage.removeItem('pakagan_user');
+      localStorage.removeItem('pakagan_user');
       window.location.href = '/';
     }
   };

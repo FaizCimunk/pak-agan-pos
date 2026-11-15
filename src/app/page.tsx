@@ -17,16 +17,34 @@ import AiBadgeFooter from '@/components/AiBadgeFooter';
 export default function LoginPage() {
   const router = useRouter();
 
-  // Unified Single-Door Login State (Clean & Neutral, Zero Pre-filled Sensitive Data)
+  // Unified Single-Door Login State
   const [identifier, setIdentifier] = useState<string>('');
   const [pin, setPin] = useState<string>('');
   const [showPin, setShowPin] = useState<boolean>(false);
+  const [rememberMe, setRememberMe] = useState<boolean>(true);
+  const [savedAccountName, setSavedAccountName] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Auto-Restore Sesi Kasir jika aplikasi dibuka kembali setelah buka YouTube / switch app
+  // Auto-Fill Kredensial Tersimpan & Auto-Restore Sesi jika belum logout
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // 1. Muat kredensial login tersimpan di perangkat ini (Ingat Saya)
+      const savedRemember = localStorage.getItem('pakagan_remember_login');
+      const savedUsername = localStorage.getItem('pakagan_saved_username');
+      const savedPassword = localStorage.getItem('pakagan_saved_password');
+      const savedName = localStorage.getItem('pakagan_saved_name');
+
+      if (savedRemember !== 'false') {
+        setRememberMe(true);
+        if (savedUsername) setIdentifier(savedUsername);
+        if (savedPassword) setPin(savedPassword);
+        if (savedName) setSavedAccountName(savedName);
+      } else {
+        setRememberMe(false);
+      }
+
+      // 2. Auto-Restore Sesi jika pengguna membuka kembali tab / aplikasi yang aktif
       const userStr = localStorage.getItem('pakagan_user') || sessionStorage.getItem('pakagan_user');
       const kasirSession = localStorage.getItem('pakagan_kasir_session') || sessionStorage.getItem('pakagan_kasir_session');
       const lockedCabangId = localStorage.getItem('pakagan_device_cabang_id');
@@ -80,6 +98,21 @@ export default function LoginPage() {
 
       const user = res.user;
       const cleanId = targetIdentifier.toLowerCase();
+
+      // SIMPAN KREDENSIAL DI PERANGKAT (INGAT SAYA AGAR TIDAK PERLU KETIK ULANG)
+      if (typeof window !== 'undefined') {
+        if (rememberMe) {
+          localStorage.setItem('pakagan_remember_login', 'true');
+          localStorage.setItem('pakagan_saved_username', targetIdentifier);
+          localStorage.setItem('pakagan_saved_password', targetPassword);
+          localStorage.setItem('pakagan_saved_name', user.nama || targetIdentifier);
+        } else {
+          localStorage.setItem('pakagan_remember_login', 'false');
+          localStorage.removeItem('pakagan_saved_username');
+          localStorage.removeItem('pakagan_saved_password');
+          localStorage.removeItem('pakagan_saved_name');
+        }
+      }
 
       // 1. Tablet Kasir Toko Cabang -> Otomatis diarahkan ke Layar POS Kasir Cabang
       if (user.id.startsWith('kasir-') || user.role === 'kasir') {
@@ -173,6 +206,21 @@ export default function LoginPage() {
           {/* MAIN SECURE UNIFIED LOGIN FORM */}
           <form onSubmit={handleLogin} className="space-y-4 relative z-10">
             
+            {/* BADGE AKUN TERSIMPAN */}
+            {savedAccountName && identifier && (
+              <div className="flex items-center justify-between bg-emerald-50/90 border border-emerald-200/80 px-3.5 py-2 rounded-2xl text-xs font-bold text-emerald-950 shadow-2xs">
+                <div className="flex items-center space-x-2 truncate">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                  <span className="text-[11px] truncate">
+                    Akun Tersimpan: <strong>{savedAccountName}</strong>
+                  </span>
+                </div>
+                <span className="text-[10px] text-emerald-800 bg-emerald-100 font-extrabold px-2 py-0.5 rounded-full shrink-0">
+                  Siap Masuk
+                </span>
+              </div>
+            )}
+
             {/* INPUT USERNAME */}
             <div>
               <label className="block text-xs font-extrabold text-slate-800 mb-1.5">
@@ -225,6 +273,42 @@ export default function LoginPage() {
                   <KeyRound className="w-4 h-4 text-emerald-700" />
                 </div>
               </div>
+            </div>
+
+            {/* CHECKBOX INGAT SAYA (SIMPAN KREDENSIAL DI PERANGKAT INI) */}
+            <div className="flex items-center justify-between text-xs pt-0.5 px-1">
+              <label className="flex items-center space-x-2 font-bold text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 accent-emerald-600 cursor-pointer"
+                />
+                <span className="text-[11px] text-slate-700 font-extrabold">
+                  Ingat Akun di Perangkat Ini
+                </span>
+              </label>
+
+              {(identifier || pin) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIdentifier('');
+                    setPin('');
+                    setSavedAccountName(null);
+                    if (typeof window !== 'undefined') {
+                      localStorage.removeItem('pakagan_saved_username');
+                      localStorage.removeItem('pakagan_saved_password');
+                      localStorage.removeItem('pakagan_saved_name');
+                      localStorage.setItem('pakagan_remember_login', 'false');
+                    }
+                  }}
+                  className="text-[10.5px] text-slate-400 hover:text-rose-600 font-extrabold transition cursor-pointer"
+                  title="Hapus username & password tersimpan"
+                >
+                  Ganti Akun
+                </button>
+              )}
             </div>
 
             {/* SUBMIT BUTTON (TEBAL & TAKTIL HIJAU EMERALD) */}
