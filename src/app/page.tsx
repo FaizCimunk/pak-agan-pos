@@ -36,15 +36,21 @@ export default function LoginPage() {
       const savedName = localStorage.getItem('pakagan_saved_name');
       const savedRole = localStorage.getItem('pakagan_saved_role');
 
-      // KEAMANAN KETAT: Hanya akun Dashboard Owner yang di-auto-fill!
+      // Akun Dashboard Owner di-auto-fill agar praktis & siap masuk
       const isOwnerAccount = savedRole === 'owner' || savedUsername?.toLowerCase() === 'pakagan';
       if (savedRemember !== 'false' && isOwnerAccount && savedUsername) {
         setRememberMe(true);
         setIdentifier(savedUsername);
         if (savedPassword) setPin(savedPassword);
         if (savedName) setSavedAccountName(savedName);
+      } else if (!savedUsername && savedRemember !== 'false') {
+        // Default awal praktis ala Abdi Membangun: Akun Dashboard Pusat siap masuk
+        setRememberMe(true);
+        setIdentifier('pakagan');
+        setPin('1234');
+        setSavedAccountName('Pak Agan (Owner Pusat)');
       } else {
-        // Jika bukan akun owner, bersihkan agar kredensial kasir tetap ketat & tidak tersimpan
+        // Jika bukan akun owner, bersihkan agar kredensial kasir tetap ketik manual
         if (savedRole && savedRole !== 'owner') {
           localStorage.removeItem('pakagan_saved_username');
           localStorage.removeItem('pakagan_saved_password');

@@ -124,9 +124,9 @@ export default function AdminSidebar({
     },
     {
       id: 'keamanan',
-      label: 'Pusat Keamanan & Sandi',
-      sub: 'Ubah sandi Owner, 10 kasir & gembok darurat',
-      icon: ShieldAlert,
+      label: 'Kelola Akun & Sandi',
+      sub: 'Ubah username & sandi Owner, 10 kasir & staf',
+      icon: KeyRound,
     },
   ];
 

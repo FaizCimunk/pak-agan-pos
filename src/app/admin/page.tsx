@@ -946,7 +946,7 @@ export default function AdminDashboardPage() {
                  activeTab === 'fixedcost' ? 'Menu Setting • Fix Cost' :
                  activeTab === 'profiltoko' ? 'Menu Setting • Identitas Toko' :
                  activeTab === 'menu' ? 'Menu Setting • Menu Kasir Cabang' :
-                 activeTab === 'keamanan' ? 'Menu Setting • Pusat Keamanan & Sandi' :
+                 activeTab === 'keamanan' ? 'Menu Setting • Kelola Akun & Sandi' :
                  'Ringkasan 10 Cabang'}
               </span>
             </div>
