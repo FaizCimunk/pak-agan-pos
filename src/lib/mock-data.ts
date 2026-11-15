@@ -760,20 +760,20 @@ export const DEMO_WEEK_KARYAWAN: Karyawan[] = [
     is_active: true,
   },
   {
-    id: 'kar-1',
+    id: 'e5123ba3-9fd6-44c2-aadd-a85fa26fdb82',
     cabang_id: 'cbg-1',
-    username: 'siti',
-    nama: 'Siti Rahmawati',
-    role: 'karyawan',
-    telepon: '0812-3456-7890',
+    username: 'temon10',
+    nama: 'Temon',
+    role: 'kasir',
+    telepon: '0813-9843-1313',
     pin_hash: DEFAULT_PIN_HASH,
-    password_plain: 'Siti@Bawel123',
+    password_plain: '1234',
     is_locked: false,
     tipe_gaji: 'harian',
-    gaji_harian: 100000,
-    tabungan_rutin_mingguan: 200000,
-    total_tabungan: 600000,
-    gaji_pokok: 2200000,
+    gaji_harian: 55000,
+    tabungan_rutin_mingguan: 0,
+    total_tabungan: 0,
+    gaji_pokok: 330000,
     tunjangan: 0,
     plafon_kasbon: 500000,
     is_active: true,
@@ -837,7 +837,7 @@ export const DEMO_WEEK_KARYAWAN: Karyawan[] = [
   },
   {
     id: 'kar-5',
-    cabang_id: 'cbg-1',
+    cabang_id: 'cbg-5',
     username: 'rian',
     nama: 'Rian Hidayat',
     role: 'karyawan',
@@ -876,13 +876,7 @@ export const DEMO_WEEK_KARYAWAN: Karyawan[] = [
 ];
 
 export const DEMO_WEEK_ABSENSI: Absensi[] = [
-  // Siti Rahmawati (Cabang 1 - Malioboro): 6 Hari Hadir (Shift Sore - Malam: 16:00 - 23:30)
-  { id: 'abs-siti-19', karyawan_id: 'kar-1', karyawan_nama: 'Siti Rahmawati', cabang_id: 'cbg-1', cabang_nama: 'Cabang 01 - Malioboro Pusat', tanggal: '2026-10-19', jam_masuk: '16:00', jam_pulang: '23:30', status: 'hadir', upah_harian_terhitung: 100000, catatan: 'Shift Sore-Malam', recorded_by: 'Owner' },
-  { id: 'abs-siti-20', karyawan_id: 'kar-1', karyawan_nama: 'Siti Rahmawati', cabang_id: 'cbg-1', cabang_nama: 'Cabang 01 - Malioboro Pusat', tanggal: '2026-10-20', jam_masuk: '16:05', jam_pulang: '23:30', status: 'hadir', upah_harian_terhitung: 100000, catatan: 'Shift Sore-Malam', recorded_by: 'Owner' },
-  { id: 'abs-siti-21', karyawan_id: 'kar-1', karyawan_nama: 'Siti Rahmawati', cabang_id: 'cbg-1', cabang_nama: 'Cabang 01 - Malioboro Pusat', tanggal: '2026-10-21', jam_masuk: '15:55', jam_pulang: '23:30', status: 'hadir', upah_harian_terhitung: 100000, catatan: 'Shift Sore-Malam', recorded_by: 'Owner' },
-  { id: 'abs-siti-22', karyawan_id: 'kar-1', karyawan_nama: 'Siti Rahmawati', cabang_id: 'cbg-1', cabang_nama: 'Cabang 01 - Malioboro Pusat', tanggal: '2026-10-22', jam_masuk: '16:00', jam_pulang: '23:45', status: 'hadir', upah_harian_terhitung: 100000, catatan: 'Shift Sore-Malam', recorded_by: 'Owner' },
-  { id: 'abs-siti-23', karyawan_id: 'kar-1', karyawan_nama: 'Siti Rahmawati', cabang_id: 'cbg-1', cabang_nama: 'Cabang 01 - Malioboro Pusat', tanggal: '2026-10-23', jam_masuk: '16:00', jam_pulang: '23:30', status: 'hadir', upah_harian_terhitung: 100000, catatan: 'Shift Sore-Malam', recorded_by: 'Owner' },
-  { id: 'abs-siti-25', karyawan_id: 'kar-1', karyawan_nama: 'Siti Rahmawati', cabang_id: 'cbg-1', cabang_nama: 'Cabang 01 - Malioboro Pusat', tanggal: '2026-10-25', jam_masuk: '16:00', jam_pulang: '23:30', status: 'hadir', upah_harian_terhitung: 100000, catatan: 'Shift Sore-Malam Weekend', recorded_by: 'Owner' },
+
 
   // Budi Santoso (Cabang 2 - Seturan): 6 Hari Hadir (Shift Sore - Malam: 16:00 - 23:30)
   { id: 'abs-budi-19', karyawan_id: 'kar-2', karyawan_nama: 'Budi Santoso', cabang_id: 'cbg-2', cabang_nama: 'Cabang 02 - Seturan Premium', tanggal: '2026-10-19', jam_masuk: '16:00', jam_pulang: '23:30', status: 'hadir', upah_harian_terhitung: 95000, catatan: 'Shift Sore-Malam', recorded_by: 'Owner' },
@@ -912,24 +906,7 @@ export const DEMO_WEEK_ABSENSI: Absensi[] = [
 ];
 
 export const DEMO_WEEK_EXPENSES: PengeluaranKasbon[] = [
-  // 1. Kasbon Siti Rahmawati (Cabang 1) - APPROVED (Auto Potong Gaji di Payroll!)
-  {
-    id: 'exp-bon-siti-01',
-    cabang_id: 'cbg-1',
-    cabang_nama: 'Cabang 01 - Malioboro Pusat',
-    karyawan_id: 'kar-1',
-    pemohon_nama: 'Siti Rahmawati',
-    pemohon_telepon: '0812-3456-7890',
-    jenis: 'kasbon',
-    keperluan: 'Kasbon darurat berobat anak demam ke klinik Pratama',
-    nominal: 150000,
-    status: 'approved',
-    metode_pencairan: 'laci',
-    is_settled: false,
-    tanggal: '2026-10-21T10:15:00.000Z',
-    approved_by: 'Pak Agan (Owner Pusat)',
-    approved_at: '2026-10-21T10:30:00.000Z',
-  },
+
   // 2. Kasbon Budi Santoso (Cabang 2) - APPROVED (Auto Potong Gaji di Payroll!)
   {
     id: 'exp-bon-budi-01',

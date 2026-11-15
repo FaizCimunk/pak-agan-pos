@@ -78,6 +78,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
   Eye
 } from 'lucide-react';
 
@@ -3386,6 +3387,27 @@ export default function AdminDashboardPage() {
                     ))}
                   </select>
                 </div>
+
+                {/* Tombol Reset Data Cabang untuk Setting Ulang dari Awal */}
+                {payrollBranchFilter !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const selectedBranch = cabangList.find(c => c.id === payrollBranchFilter);
+                      const branchName = selectedBranch?.nama || 'Cabang Ini';
+                      if (confirm(`PERINGATAN: Apakah Anda yakin ingin me-reset data ${branchName} untuk mulai dari awal?\n\nSemua riwayat transaksi, shift, dan presensi lama di cabang ini akan dibersihkan agar siap di-setting ulang dari awal (staf resmi tetap aman).`)) {
+                        await db.resetCabangData(payrollBranchFilter);
+                        await refreshAllData();
+                        alert(`Data ${branchName} berhasil di-reset untuk setting ulang dari awal.`);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition flex items-center space-x-1 cursor-pointer shadow-2xs"
+                    title="Bersihkan data transaksi & shift cabang ini untuk setting ulang dari awal"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset Cabang</span>
+                  </button>
+                )}
 
                 {/* Pilihan Langsung Dari Tanggal s.d. Sampai Tanggal */}
                 <div className="flex flex-wrap items-center gap-2 bg-emerald-50/70 px-3 py-1.5 rounded-xl border border-emerald-200 text-xs font-bold">

@@ -1285,32 +1285,24 @@ export class PosDatabase {
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
 
     // 3. Update & Delete di Supabase:
-    // Gunakan update { is_active: false } terlebih dahulu agar soft-delete PASTI tembus
-    // sekalipun ada relasi foreign key RESTRICT di tabel shift / transaksi kasir.
     if (isSupabaseConfigured && supabase) {
       const idToTarget = targetKarUuid || (isValidUuid(karyawanId) ? karyawanId : null);
       if (idToTarget) {
         try {
-          const { error: softErr } = await supabase
-            .from('karyawan')
-            .update({ is_active: false })
-            .eq('id', idToTarget);
-          if (softErr) {
-            console.warn('Supabase soft-delete karyawan info:', softErr.message);
-          }
+          // Bersihkan seluruh dependensi sebelum menghapus karyawan
+          try { await supabase.from('tabungan_karyawan_log').delete().eq('karyawan_id', idToTarget); } catch (_) {}
+          try { await supabase.from('payroll').delete().eq('karyawan_id', idToTarget); } catch (_) {}
+          try { await supabase.from('absensi').delete().eq('karyawan_id', idToTarget); } catch (_) {}
+          try { await supabase.from('pengeluaran_kasbon').delete().eq('karyawan_id', idToTarget); } catch (_) {}
+          try { await supabase.from('shift').delete().eq('karyawan_id', idToTarget); } catch (_) {}
 
-          // Coba bersihkan relasi tabungan_karyawan_log & payroll jika ada
-          try {
-            await supabase.from('tabungan_karyawan_log').delete().eq('karyawan_id', idToTarget);
-          } catch (_) {}
-          try {
-            await supabase.from('payroll').delete().eq('karyawan_id', idToTarget);
-          } catch (_) {}
+          // Soft delete is_active: false terlebih dahulu
+          await supabase.from('karyawan').update({ is_active: false }).eq('id', idToTarget);
 
-          // Coba hard delete jika tidak terhalang shift / transaksi
+          // Hard delete
           const { error: delErr } = await supabase.from('karyawan').delete().eq('id', idToTarget);
           if (delErr) {
-            console.log('Supabase hard delete prevented by shift/transaksi FK constraint, employee successfully soft-deleted (is_active=false):', delErr.message);
+            console.log('Supabase hard delete fallback soft delete (is_active=false):', delErr.message);
           }
         } catch (e) {
           console.warn('Supabase deleteKaryawan network error:', e);
@@ -1318,20 +1310,122 @@ export class PosDatabase {
       }
     }
 
-    // 4. Bersihkan absensi pending staf ini agar tidak tertahan di ACC
+    // 4. Bersihkan absensi karyawan ini dari localStorage
     try {
       const localAbs = loadLocal<any[]>(STORAGE_KEYS.ABSENSI, []);
       const updatedAbs = localAbs.filter(a => {
         const matchesId = a.karyawan_id === karyawanId || (targetKarUuid && a.karyawan_id === targetKarUuid);
         const matchesName = resolvedNama && a.karyawan_nama && a.karyawan_nama.toLowerCase() === resolvedNama.toLowerCase();
         if (matchesId || matchesName) {
-          return a.approval_status === 'approved';
+          return false; // Hapus tuntas!
         }
         return true;
       });
-      if (updatedAbs.length !== localAbs.length) {
-        saveLocal(STORAGE_KEYS.ABSENSI, updatedAbs);
+      saveLocal(STORAGE_KEYS.ABSENSI, updatedAbs);
+    } catch (_) {}
+
+    // 5. Bersihkan kasbon karyawan ini dari localStorage
+    try {
+      const localExp = loadLocal<any[]>(STORAGE_KEYS.EXPENSES, []);
+      const updatedExp = localExp.filter(e => {
+        const matchesId = e.karyawan_id === karyawanId || (targetKarUuid && e.karyawan_id === targetKarUuid);
+        const matchesName = resolvedNama && e.pemohon_nama && e.pemohon_nama.toLowerCase() === resolvedNama.toLowerCase();
+        if (matchesId || matchesName) {
+          return false;
+        }
+        return true;
+      });
+      saveLocal(STORAGE_KEYS.EXPENSES, updatedExp);
+    } catch (_) {}
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+    return true;
+  }
+
+  // Reset & Bersihkan Seluruh Data Transaksi, Kasbon, Shift, & Karyawan Cabang untuk Mulai dari Awal
+  async resetCabangData(cabangId: string): Promise<boolean> {
+    const branchUuid = getBranchUuid(cabangId);
+    
+    // 1. Supabase cleaning
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const targetUuid = branchUuid || CABANG_MAP_INFO[0].uuid;
+
+        // a. Hapus transaksi & transaksi_item cabang ini
+        const { data: txList } = await supabase.from('transaksi').select('id').eq('cabang_id', targetUuid);
+        if (Array.isArray(txList) && txList.length > 0) {
+          const txIds = txList.map(t => t.id);
+          for (let i = 0; i < txIds.length; i += 20) {
+            const chunk = txIds.slice(i, i + 20);
+            await supabase.from('transaksi_item').delete().in('transaksi_id', chunk);
+          }
+          await supabase.from('transaksi').delete().eq('cabang_id', targetUuid);
+        }
+
+        // b. Hapus pengeluaran & kasbon cabang ini
+        await supabase.from('pengeluaran_kasbon').delete().eq('cabang_id', targetUuid);
+
+        // c. Hapus tabungan log & payroll cabang ini
+        await supabase.from('tabungan_karyawan_log').delete().eq('cabang_id', targetUuid);
+        await supabase.from('payroll').delete().eq('cabang_id', targetUuid);
+
+        // d. Hapus absensi cabang ini
+        await supabase.from('absensi').delete().eq('cabang_id', targetUuid);
+
+        // e. Hapus shift cabang ini
+        await supabase.from('shift').delete().eq('cabang_id', targetUuid);
+
+        // f. Hapus staf karyawan non-owner di cabang ini
+        const { data: staffList } = await supabase.from('karyawan').select('id, nama, role').eq('cabang_id', targetUuid);
+        if (Array.isArray(staffList)) {
+          for (const s of staffList) {
+            if (s.role !== 'owner') {
+              recordKaryawanDeleted(s.id, s.nama);
+              await supabase.from('karyawan').delete().eq('id', s.id);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Supabase resetCabangData error:', e);
       }
+    }
+
+    // 2. LocalStorage cleaning
+    try {
+      // Hapus karyawan cabang ini (kecuali owner)
+      const localKar = loadLocal<Karyawan[]>(STORAGE_KEYS.KARYAWAN, INITIAL_KARYAWAN);
+      const remainingKar = localKar.filter(k => {
+        if (k.role === 'owner') return true;
+        if (isBranchMatch(k.cabang_id, cabangId)) {
+          recordKaryawanDeleted(k.id, k.nama);
+          return false;
+        }
+        return true;
+      });
+      saveLocal(STORAGE_KEYS.KARYAWAN, remainingKar);
+
+      // Hapus absensi cabang ini
+      const localAbs = loadLocal<any[]>(STORAGE_KEYS.ABSENSI, []);
+      const remainingAbs = localAbs.filter(a => !isBranchMatch(a.cabang_id, cabangId));
+      saveLocal(STORAGE_KEYS.ABSENSI, remainingAbs);
+
+      // Hapus pengeluaran/kasbon cabang ini
+      const localExp = loadLocal<any[]>(STORAGE_KEYS.EXPENSES, []);
+      const remainingExp = localExp.filter(e => !isBranchMatch(e.cabang_id, cabangId));
+      saveLocal(STORAGE_KEYS.EXPENSES, remainingExp);
+
+      // Hapus transaksi cabang ini
+      const localTx = loadLocal<any[]>(STORAGE_KEYS.TRANSAKSI, []);
+      const remainingTx = localTx.filter(t => !isBranchMatch(t.cabang_id, cabangId));
+      saveLocal(STORAGE_KEYS.TRANSAKSI, remainingTx);
+
+      // Hapus shift cabang ini
+      const localShift = loadLocal<any[]>(STORAGE_KEYS.SHIFTS, []);
+      const remainingShift = localShift.filter(s => !isBranchMatch(s.cabang_id, cabangId));
+      saveLocal(STORAGE_KEYS.SHIFTS, remainingShift);
+      saveLocal(STORAGE_KEYS.ACTIVE_SHIFT_PREFIX + cabangId, null);
     } catch (_) {}
 
     if (typeof window !== 'undefined') {
