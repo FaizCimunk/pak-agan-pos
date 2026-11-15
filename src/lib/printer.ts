@@ -533,152 +533,82 @@ class BluetoothPrinterService {
     return builder.getBytes();
   }
 
-  // Generate binary ESC/POS for Kitchen Station Ticket (3 Ruangan Masak: Wedang, Serabi, Makanan)
+  // Generate binary ESC/POS for Kitchen Ticket (Format identik struk pembeli, tanpa bagian bawah harga/finansial)
   buildKitchenStationTicket(
     transaksi: Transaksi,
     cabang: Cabang,
-    station: KitchenStation = 'semua'
+    _station: KitchenStation = 'semua'
   ): Uint8Array {
     const builder = new EscPosBuilder();
     builder.init();
 
-    // Filter items matching the station
-    const stationItems = station === 'semua' 
-      ? transaksi.items 
-      : transaksi.items.filter(it => getItemKitchenStation(it) === station);
-
-    if (stationItems.length === 0) {
+    if (transaksi.items.length === 0) {
       return new Uint8Array();
     }
 
-    const stationTitles: Record<KitchenStation, string> = {
-      serabi: 'DAPUR SERABI',
-      wedang: 'BAR WEDANG',
-      makanan: 'DAPUR MAKANAN',
-      semua: 'TIKET PESANAN DAPUR'
-    };
-
-    const stationTitle = stationTitles[station] || 'TIKET PESANAN DAPUR';
-
-    // Header Besar Ruangan Masak
+    // Header identik dengan struk pembeli
     builder.alignCenter();
-    builder.bold(true).size(true, true);
-    builder.text(`[ ${stationTitle} ]`);
+    builder.bold(true);
+    builder.text('TIKET DAPUR');
     builder.newLine();
-    builder.size(false, false);
+    builder.text('SERABI BAWEL');
+    builder.newLine();
+    builder.text('& WEDANG GEPREK');
+    builder.newLine();
     builder.bold(false);
-    builder.text('SERABI BAWEL & WEDANG GEPREK');
+    builder.text('Serabi Tungku & Rempah Alami');
     builder.newLine();
     builder.text(cabang.nama);
     builder.newLine();
     builder.line('=', 32);
 
-    // Identitas Penanda & Tipe Layanan (Bungkus vs Campur vs Makan Di Sini)
+    // Meta identik dengan struk pembeli
     builder.alignLeft();
-    builder.bold(true).size(true, true);
-    const penandaDisplay = (transaksi as any).penanda || (transaksi as any).meja || (transaksi.nama_pelanggan.toLowerCase().includes('meja') ? transaksi.nama_pelanggan : `Pesanan: ${transaksi.nama_pelanggan}`);
-    const serviceMode = getOrderServiceMode(penandaDisplay, stationItems);
-
-    builder.text(penandaDisplay.toUpperCase());
-    builder.newLine();
-    builder.size(false, false);
-    builder.bold(true);
-    if (serviceMode === 'bungkus') {
-      builder.text('>> BUNGKUS / TAKE AWAY <<');
-      builder.newLine();
-      builder.bold(false);
-      builder.text('*(Kemas Pakai Dus / Cup / Plastik)*');
-    } else if (serviceMode === 'mixed') {
-      builder.text('>> CAMPUR: BUNGKUS & MAKAN SINI <<');
-      builder.newLine();
-      builder.bold(false);
-      builder.text('*(Cek catatan BUNGKUS/MAKAN SINI tiap item)*');
-    } else {
-      builder.text('>> MAKAN DI SINI (DINE IN) <<');
-      builder.newLine();
-      builder.bold(false);
-      builder.text('*(Sajikan di Piring / Cangkir Saji)*');
+    builder.row('No:', transaksi.invoice_no);
+    builder.row('Tgl:', formatWaktu(transaksi.waktu));
+    builder.row('Kasir:', (transaksi.karyawan_nama || 'Kasir Cabang').split('(')[0].trim());
+    const penandaReceipt = (transaksi as any).penanda || (transaksi as any).meja;
+    const isBungkusReceipt = (penandaReceipt || transaksi.nama_pelanggan || '').toLowerCase().includes('bungkus') ||
+                            (penandaReceipt || transaksi.nama_pelanggan || '').toLowerCase().includes('take away') ||
+                            (penandaReceipt || transaksi.nama_pelanggan || '').toLowerCase().includes('bawa');
+    builder.row('Layanan:', isBungkusReceipt ? 'BUNGKUS (TAKE AWAY)' : 'MAKAN DI SINI');
+    if (penandaReceipt) {
+      builder.row('Penanda:', String(penandaReceipt));
     }
-    builder.newLine();
-    builder.bold(false);
-
-    builder.row('No. Nota:', transaksi.invoice_no);
-    builder.row('Waktu:', formatWaktu(transaksi.waktu));
-    builder.row('Kasir:', (transaksi.karyawan_nama || 'Kasir').split('(')[0].trim());
-    if (transaksi.nama_pelanggan && transaksi.nama_pelanggan !== penandaDisplay) {
+    if (transaksi.nama_pelanggan && transaksi.nama_pelanggan !== penandaReceipt) {
       builder.row('Pelanggan:', transaksi.nama_pelanggan);
     }
-    builder.row('Status:', transaksi.status === 'pending_payment' ? 'BELUM BAYAR (BAYAR NANTI)' : 'LUNAS DI AWAL');
     builder.line('-', 32);
 
-    // Daftar Pesanan (Dikelompokkan rapi dalam 1 struk cetak tunggal)
+    // Items identik dengan struk pembeli (tanpa harga/subtotal)
     let totalPorsi = 0;
-    if (station === 'semua') {
-      const serabi = stationItems.filter(it => getItemKitchenStation(it) === 'serabi');
-      const wedang = stationItems.filter(it => getItemKitchenStation(it) === 'wedang');
-      const makanan = stationItems.filter(it => getItemKitchenStation(it) === 'makanan');
-
-      const sections: { title: string; items: TransaksiItem[] }[] = [];
-      if (serabi.length > 0) sections.push({ title: '--- SERABI BAWEL ---', items: serabi });
-      if (wedang.length > 0) sections.push({ title: '--- WEDANG & MINUMAN ---', items: wedang });
-      if (makanan.length > 0) sections.push({ title: '--- MAKANAN & CEMILAN ---', items: makanan });
-
-      for (let sIdx = 0; sIdx < sections.length; sIdx++) {
-        const sec = sections[sIdx];
-        builder.alignCenter().bold(true);
-        builder.text(sec.title);
+    for (const item of transaksi.items) {
+      totalPorsi += item.qty;
+      builder.bold(true);
+      const tempTag = item.temperature === 'dingin' ? ' (ES)' : item.temperature === 'panas' ? ' (PANAS)' : '';
+      const varTag = item.varian_nama ? ` (${item.varian_nama})` : '';
+      const itemTitle = `${item.nama_menu}${varTag}${tempTag}`;
+      builder.text(itemTitle);
+      builder.newLine();
+      builder.bold(false);
+      if (item.catatan) {
+        builder.bold(true);
+        builder.text(`  * CATATAN: ${item.catatan.toUpperCase()}`);
         builder.newLine();
-        builder.alignLeft().bold(false);
-
-        for (const item of sec.items) {
-          totalPorsi += item.qty;
-          builder.bold(true).size(false, true); // Double height agar jelas dibaca staf dapur
-          const tempTag = item.temperature === 'dingin' ? ' [ES]' : item.temperature === 'panas' ? ' [PANAS]' : '';
-          const varianTag = item.varian_nama ? ` [${item.varian_nama.toUpperCase()}]` : '';
-          const itemTitle = `${item.nama_menu}${varianTag}${tempTag}`;
-          builder.text(`${item.qty}x  ${itemTitle}`);
-          builder.newLine();
-          builder.size(false, false).bold(false);
-          if (item.catatan) {
-            builder.bold(true);
-            builder.text(`    >>> ${item.catatan.toUpperCase()} <<<`);
-            builder.newLine();
-            builder.bold(false);
-          }
-        }
-        if (sIdx < sections.length - 1) {
-          builder.line('-', 32);
-        }
+        builder.bold(false);
       }
-    } else {
-      for (const item of stationItems) {
-        totalPorsi += item.qty;
-        builder.bold(true).size(false, true);
-        const tempTag = item.temperature === 'dingin' ? ' [ES]' : item.temperature === 'panas' ? ' [PANAS]' : '';
-        const varianTag = item.varian_nama ? ` [${item.varian_nama.toUpperCase()}]` : '';
-        const itemTitle = `${item.nama_menu}${varianTag}${tempTag}`;
-        builder.text(`${item.qty}x  ${itemTitle}`);
-        builder.newLine();
-        builder.size(false, false).bold(false);
-        if (item.catatan) {
-          builder.bold(true);
-          builder.text(`    >>> ${item.catatan.toUpperCase()} <<<`);
-          builder.newLine();
-          builder.bold(false);
-        }
-      }
+      builder.text(`  ${item.qty}x`);
+      builder.newLine();
     }
 
     builder.line('=', 32);
 
-    // Footer Tiket Dapur
+    // Bawah khusus dapur (hanya total porsi, tanpa harga / diskon / bayar / kembali / promo / footer)
     builder.alignCenter();
     builder.bold(true);
     builder.text(`TOTAL: ${totalPorsi} PORSI`);
     builder.newLine();
     builder.bold(false);
-    builder.text('*** MOHON SEGERA DIMASAK ***');
-    builder.newLine();
     builder.cut();
 
     return builder.getBytes();

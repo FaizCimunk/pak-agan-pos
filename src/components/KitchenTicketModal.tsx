@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Printer, CheckCircle2, UtensilsCrossed, Flame, Coffee, Check } from 'lucide-react';
-import { Transaksi, Cabang, TransaksiItem } from '@/lib/types';
-import { printerService, getItemKitchenStation, getOrderServiceMode } from '@/lib/printer';
+import { X, Printer, CheckCircle2, UtensilsCrossed, Check } from 'lucide-react';
+import { Transaksi, Cabang } from '@/lib/types';
+import { printerService } from '@/lib/printer';
 import { formatWaktu } from '@/lib/utils';
 
 interface KitchenTicketModalProps {
@@ -20,16 +20,16 @@ export default function KitchenTicketModal({
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [isPrinted, setIsPrinted] = useState<boolean>(false);
 
-  // Kelompokkan item untuk display visual di 1 struk terpadu
-  const serabiItems = transaksi.items.filter(it => getItemKitchenStation(it) === 'serabi');
-  const wedangItems = transaksi.items.filter(it => getItemKitchenStation(it) === 'wedang');
-  const makananItems = transaksi.items.filter(it => getItemKitchenStation(it) === 'makanan');
   const totalPorsi = transaksi.items.reduce((s, it) => s + it.qty, 0);
+  const penandaStr = (transaksi as any).penanda || (transaksi as any).meja;
+  const isBungkus = (penandaStr || transaksi.nama_pelanggan || '').toLowerCase().includes('bungkus') ||
+                    (penandaStr || transaksi.nama_pelanggan || '').toLowerCase().includes('take away') ||
+                    (penandaStr || transaksi.nama_pelanggan || '').toLowerCase().includes('bawa');
 
   const handlePrintTicket = async () => {
     setIsPrinting(true);
     try {
-      // Cetak seluruh menu (Serabi, Wedang & Makanan) dalam 1 struk tunggal
+      // Cetak tiket dapur (format identik struk pembeli, tanpa bagian bawah finansial)
       const bytes = printerService.buildKitchenStationTicket(transaksi, cabang, 'semua');
       if (bytes.length === 0) {
         alert('Tidak ada menu pada pesanan ini.');
@@ -50,77 +50,9 @@ export default function KitchenTicketModal({
     }
   };
 
-  const penandaRaw = (transaksi as any).penanda || (transaksi as any).meja || transaksi.nama_pelanggan || 'Pesanan';
-  const penandaDisplay = penandaRaw.toUpperCase();
-  const serviceMode = getOrderServiceMode(penandaRaw, transaksi.items);
-
-  const serviceBadgeMap = {
-    bungkus: {
-      container: 'bg-amber-50/90 border-amber-200',
-      pill: 'bg-amber-600',
-      icon: '🛍️',
-      badgeClass: 'bg-amber-200 text-amber-950 font-mono',
-      badgeText: '🛍️ BUNGKUS (KEMAS DUS/CUP)',
-    },
-    mixed: {
-      container: 'bg-sky-50/90 border-sky-200',
-      pill: 'bg-sky-700',
-      icon: '🔀',
-      badgeClass: 'bg-sky-200 text-sky-950 font-mono',
-      badgeText: '🔀 CAMPUR (CEK CATATAN ITEM)',
-    },
-    makan_sini: {
-      container: 'bg-emerald-50/80 border-emerald-200',
-      pill: 'bg-emerald-700',
-      icon: '🏷️',
-      badgeClass: 'bg-emerald-200 text-emerald-950 font-mono',
-      badgeText: '🍽️ MAKAN DI SINI (DINE IN)',
-    },
-  }[serviceMode];
-
-  const renderItemList = (
-    items: TransaksiItem[],
-    qtyColorClass: string,
-    noteBadgeClass: string
-  ) => {
-    return items.map((it, idx) => (
-      <div key={idx} className="flex items-start justify-between text-xs py-1.5 border-b border-dashed border-slate-200 last:border-b-0">
-        <div className="space-y-0.5">
-          <div className="flex items-center flex-wrap gap-1.5">
-            <span className={`font-black font-mono text-sm ${qtyColorClass}`}>
-              {it.qty}x
-            </span>
-            <span className="font-extrabold text-slate-900 text-xs sm:text-sm">{it.nama_menu}</span>
-            {it.varian_nama && (
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-purple-100 text-purple-900 border border-purple-200">
-                {it.varian_nama}
-              </span>
-            )}
-            {it.temperature && (
-              <span
-                className={`px-1.5 py-0.2 rounded text-[9px] font-black ${
-                  it.temperature === 'dingin'
-                    ? 'bg-sky-100 text-sky-900 border border-sky-200'
-                    : 'bg-amber-100 text-amber-900 border border-amber-200'
-                }`}
-              >
-                {it.temperature === 'dingin' ? '🧊 ES' : '🔥 PANAS'}
-              </span>
-            )}
-          </div>
-          {it.catatan && (
-            <div className={`ml-6 px-2 py-0.5 rounded-md text-[11px] font-black uppercase tracking-tight border inline-block font-mono ${noteBadgeClass}`}>
-              👉 CATATAN: {it.catatan}
-            </div>
-          )}
-        </div>
-      </div>
-    ));
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/75 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[94vh]">
+      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[94vh]">
         
         {/* Modal Header */}
         <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-900 via-emerald-800 to-slate-900 text-white shrink-0">
@@ -131,14 +63,14 @@ export default function KitchenTicketModal({
             <div className="min-w-0">
               <div className="flex items-center space-x-2 flex-wrap gap-y-0.5">
                 <h3 className="font-extrabold text-sm sm:text-base leading-tight">
-                  Tiket Pesanan Dapur
+                  Tiket Dapur
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-mono font-bold bg-white/20 text-white shrink-0">
-                  1 Struk 58mm
+                  Format Struk 58mm
                 </span>
               </div>
               <p className="text-[10px] sm:text-[11px] text-emerald-200 font-medium truncate">
-                Serabi, Wedang &amp; Makanan • 1 Struk Dapur Terpadu
+                Serabi Bawel &amp; Wedang Geprek
               </p>
             </div>
           </div>
@@ -151,135 +83,94 @@ export default function KitchenTicketModal({
           </button>
         </div>
 
-        {/* Info Penanda Pesanan & Layanan (Makan Di Sini vs Campur vs Bungkus) */}
-        <div className={`px-3.5 py-2.5 sm:p-4 border-b flex items-center justify-between gap-2 shrink-0 ${serviceBadgeMap.container}`}>
-          <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
-            <div className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-white font-mono font-black text-xs sm:text-sm shadow-xs flex items-center space-x-1 shrink-0 ${serviceBadgeMap.pill}`}>
-              <span>{serviceBadgeMap.icon}</span>
-              <span>{penandaDisplay}</span>
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center flex-wrap gap-1.5">
-                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${serviceBadgeMap.badgeClass}`}>
-                  {serviceBadgeMap.badgeText}
-                </span>
-                {transaksi.nama_pelanggan && transaksi.nama_pelanggan !== penandaRaw && (
-                  <span className="text-xs font-bold text-slate-800 truncate">
-                    {transaksi.nama_pelanggan}
-                  </span>
-                )}
-              </div>
-              <div className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
-                {transaksi.invoice_no} • {formatWaktu(transaksi.waktu)}
-              </div>
-            </div>
-          </div>
-
-          <div className="text-right shrink-0">
-            <span className={`inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-extrabold uppercase ${
-              transaksi.status === 'pending_payment'
-                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-            }`}>
-              {transaksi.status === 'pending_payment' ? '⏳ Bayar Nanti' : '✓ Lunas'}
-            </span>
-          </div>
-        </div>
-
-        {/* Pratinjau 1 Lembar Struk Dapur Tunggal */}
-        <div className="p-3 sm:p-5 overflow-y-auto flex-1 bg-slate-100/60">
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft-sm p-4 sm:p-5 space-y-4">
+        {/* Content Body: Tampilan Pratinjau Persis Seperti Struk Pembeli (Tanpa Bagian Bawah Harga) */}
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 bg-slate-100/70">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 font-mono text-[11px] space-y-1.5 text-slate-900 shadow-sm max-w-sm mx-auto">
             
-            {/* Header Pratinjau Struk */}
-            <div className="text-center pb-3 border-b border-dashed border-slate-300">
-              <span className="font-mono font-black text-xs tracking-wider text-slate-900 block">
-                [ TIKET PESANAN DAPUR ]
-              </span>
-              <span className="text-[11px] font-bold text-slate-700 block">
-                SERABI BAWEL &amp; WEDANG GEPREK
-              </span>
-              <span className="text-[10px] text-slate-500 block">
-                {cabang.nama}
-              </span>
+            {/* Header Struk */}
+            <div className="text-center font-bold text-xs uppercase tracking-tight text-emerald-800">
+              [ TIKET DAPUR ]
+            </div>
+            <div className="text-center font-black text-xs text-slate-900">
+              SERABI BAWEL &amp; WEDANG GEPREK
+            </div>
+            <div className="text-center text-[9px] text-slate-500">
+              Serabi Tungku &amp; Rempah Alami
+            </div>
+            <div className="text-center text-[9px] font-bold text-slate-700">
+              {cabang.nama}
             </div>
 
-            {/* Bagian 1: Tungku Serabi (Jika Ada) */}
-            {serabiItems.length > 0 && (
-              <div className="space-y-1.5">
-                <div className="flex items-center space-x-1.5 pb-1 border-b border-amber-200 text-amber-900">
-                  <Flame className="w-3.5 h-3.5 text-amber-600" />
-                  <span className="font-extrabold text-[11px] uppercase tracking-wide">
-                    Tungku Serabi ({serabiItems.reduce((s, it) => s + it.qty, 0)} Porsi)
-                  </span>
-                </div>
-                <div className="pl-1">
-                  {renderItemList(
-                    serabiItems,
-                    'text-amber-700',
-                    'bg-amber-100 text-amber-950 border-amber-300'
-                  )}
-                </div>
-              </div>
-            )}
+            <div className="border-t border-dashed border-slate-300 my-2" />
 
-            {/* Bagian 2: Bar Wedang Geprek & Minuman (Jika Ada) */}
-            {wedangItems.length > 0 && (
-              <div className="space-y-1.5">
-                <div className="flex items-center space-x-1.5 pb-1 border-b border-emerald-200 text-emerald-900">
-                  <Coffee className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="font-extrabold text-[11px] uppercase tracking-wide">
-                    Bar Wedang &amp; Minuman ({wedangItems.reduce((s, it) => s + it.qty, 0)} Porsi)
-                  </span>
-                </div>
-                <div className="pl-1">
-                  {renderItemList(
-                    wedangItems,
-                    'text-emerald-700',
-                    'bg-emerald-100 text-emerald-950 border-emerald-300'
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Bagian 3: Dapur Makanan & Cemilan (Jika Ada) */}
-            {makananItems.length > 0 && (
-              <div className="space-y-1.5">
-                <div className="flex items-center space-x-1.5 pb-1 border-b border-blue-200 text-blue-900">
-                  <UtensilsCrossed className="w-3.5 h-3.5 text-blue-600" />
-                  <span className="font-extrabold text-[11px] uppercase tracking-wide">
-                    Dapur Makanan &amp; Cemilan ({makananItems.reduce((s, it) => s + it.qty, 0)} Porsi)
-                  </span>
-                </div>
-                <div className="pl-1">
-                  {renderItemList(
-                    makananItems,
-                    'text-blue-700',
-                    'bg-blue-100 text-blue-950 border-blue-300'
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Total Porsi Keseluruhan */}
-            <div className="pt-3 border-t-2 border-slate-900/80 flex items-center justify-between text-xs font-mono font-black text-slate-900">
-              <span>TOTAL SELURUH PESANAN:</span>
-              <span className="text-sm bg-slate-900 text-white px-2.5 py-0.5 rounded-lg">
-                {totalPorsi} PORSI
+            {/* Metadata Pesanan */}
+            <div className="flex justify-between text-[10px]">
+              <span>No: {transaksi.invoice_no}</span>
+              <span>{formatWaktu(transaksi.waktu)}</span>
+            </div>
+            <div className="flex justify-between text-[10px]">
+              <span>Kasir: {(transaksi.karyawan_nama || 'Kasir').split('(')[0].trim()}</span>
+            </div>
+            <div className="flex justify-between font-bold text-[10.5px]">
+              <span>Layanan:</span>
+              <span className={isBungkus ? 'text-amber-800' : 'text-emerald-800'}>
+                {isBungkus ? 'BUNGKUS (TAKE AWAY)' : 'MAKAN DI SINI'}
               </span>
             </div>
+            {penandaStr && (
+              <div className="flex justify-between text-[10.5px]">
+                <span>Penanda:</span>
+                <span className="font-bold text-slate-900">{penandaStr}</span>
+              </div>
+            )}
+            {transaksi.nama_pelanggan && transaksi.nama_pelanggan !== penandaStr && (
+              <div className="flex justify-between text-[10px]">
+                <span>Pelanggan:</span>
+                <span className="font-medium text-slate-800">{transaksi.nama_pelanggan}</span>
+              </div>
+            )}
 
-            <div className="text-center text-[10px] text-slate-400 font-bold tracking-wider pt-1">
-              *** MOHON SEGERA DIMASAK ***
+            <div className="border-t border-dashed border-slate-300 my-2" />
+
+            {/* Daftar Menu (Sama seperti struk pembeli, tanpa harga) */}
+            <div className="space-y-2 py-0.5">
+              {transaksi.items.map((it, idx) => {
+                const tempTag = it.temperature === 'dingin' ? ' (ES)' : it.temperature === 'panas' ? ' (PANAS)' : '';
+                const varTag = it.varian_nama ? ` (${it.varian_nama})` : '';
+                return (
+                  <div key={idx} className="space-y-0.5">
+                    <div className="font-bold text-slate-900">
+                      {it.nama_menu}{varTag}{tempTag}
+                    </div>
+                    {it.catatan && (
+                      <div className="text-[10px] font-black text-amber-950 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300 inline-block">
+                        * CATATAN: {it.catatan.toUpperCase()}
+                      </div>
+                    )}
+                    <div className="pl-2 font-bold text-slate-700">
+                      {it.qty}x
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-dashed border-slate-300 my-2" />
+
+            {/* Bagian Bawah Khusus Dapur: Hanya Total Porsi */}
+            <div className="flex justify-between font-black text-xs pt-1 text-slate-900">
+              <span>TOTAL:</span>
+              <span className="font-mono">{totalPorsi} PORSI</span>
             </div>
 
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 bg-white flex flex-col sm:flex-row gap-2.5 items-center justify-between">
-          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+        <div className="p-4 border-t border-slate-100 bg-white flex flex-col sm:flex-row gap-2.5 items-center justify-between shrink-0">
+          <div className="text-[10.5px] text-slate-500 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>Format khusus printer thermal 58mm tidak memuat harga</span>
+            <span>Format struk khusus dapur tanpa rincian harga</span>
           </div>
 
           <div className="flex items-center space-x-2 w-full sm:w-auto">
@@ -296,12 +187,12 @@ export default function KitchenTicketModal({
               {isPrinted ? (
                 <>
                   <Check className="w-4 h-4 text-emerald-300" />
-                  <span>Cetak Ulang Tiket Dapur (1 Struk)</span>
+                  <span>Cetak Ulang Tiket</span>
                 </>
               ) : (
                 <>
                   <Printer className="w-4 h-4 text-accent-gold" />
-                  <span>{isPrinting ? 'Mencetak...' : 'Cetak Tiket Dapur (1 Struk)'}</span>
+                  <span>{isPrinting ? 'Mencetak...' : 'Cetak Tiket Dapur'}</span>
                 </>
               )}
             </button>
@@ -311,7 +202,7 @@ export default function KitchenTicketModal({
               onClick={onClose}
               className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
             >
-              Selesai &amp; Tutup
+              Tutup
             </button>
           </div>
         </div>
