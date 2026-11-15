@@ -250,7 +250,7 @@ export default function CreateKaryawanModal({
                 Skema Upah Kehadiran Harian:
               </span>
               <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                100% Sesuai Hari Hadir (÷ 6 Hari Kerja)
+                100% Sesuai Hari Masuk Riil
               </span>
             </div>
 
@@ -299,15 +299,15 @@ export default function CreateKaryawanModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                 <div className="p-2 bg-white rounded-xl border border-emerald-200/70 text-[10.5px]">
-                  <span className="text-slate-500 block">Total 1 Minggu (6 Hari Kerja):</span>
+                  <span className="text-slate-500 block font-medium">Bila Hadir 7 Hari Penuh (Seminggu):</span>
                   <span className="font-mono font-black text-emerald-800 text-xs">
-                    {formatRupiah((gajiHarian || 0) * 6)}
+                    {formatRupiah((gajiHarian || 0) * 7)}
                   </span>
                 </div>
                 <div className="p-2 bg-white rounded-xl border border-emerald-200/70 text-[10.5px]">
-                  <span className="text-slate-500 block">Bila Hadir 7 Hari Penuh:</span>
+                  <span className="text-slate-500 block font-medium">Bila Ambil Libur 1 Hari (6 Hari Masuk):</span>
                   <span className="font-mono font-black text-emerald-800 text-xs">
-                    {formatRupiah((gajiHarian || 0) * 7)}
+                    {formatRupiah((gajiHarian || 0) * 6)}
                   </span>
                 </div>
               </div>

@@ -98,33 +98,13 @@ export default function EditSalaryModal({
           </div>
 
           <div className="space-y-3">
-            {/* Dual Input: Standar 6 Hari Kerja vs Upah Harian (Bagi 6 Otomatis) */}
+            {/* Dual Input: Standar Upah Mingguan vs Upah Harian */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
               <div>
-                <label className="font-extrabold text-slate-800 block mb-1">
-                  <span>Patokan Upah 6 Hari Kerja:</span>
-                </label>
-                <input
-                  type="text"
-                  value={gajiMingguan === 0 ? '' : formatNominal(gajiMingguan)}
-                  onChange={(e) => {
-                    const val = parseNominal(e.target.value);
-                    setGajiMingguan(val);
-                    setGajiHarian(Math.round(val / 6));
-                  }}
-                  placeholder="Contoh: 570.000"
-                  className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
-                />
-                <span className="text-[10px] text-slate-500 mt-1 block">
-                  Acuan standar 6 hari kerja (÷ 6)
-                </span>
-              </div>
-
-              <div>
                 <label className="font-extrabold text-emerald-900 block mb-1 flex items-center justify-between">
-                  <span>Upah Harian (Otomatis ÷ 6):</span>
+                  <span>Upah Harian (Rp / Hari):</span>
                   <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
-                    Beban Toko /Hari
+                    Beban Riil Per 1x Hadir
                   </span>
                 </label>
                 <input
@@ -133,13 +113,33 @@ export default function EditSalaryModal({
                   onChange={(e) => {
                     const val = parseNominal(e.target.value);
                     setGajiHarian(val);
-                    setGajiMingguan(val * 6);
+                    setGajiMingguan(val * 7);
                   }}
-                  placeholder="Contoh: 95.000"
+                  placeholder="Contoh: 100.000"
                   className="w-full px-3 py-2 bg-white rounded-xl border border-emerald-400 font-mono font-black text-sm text-emerald-900 focus:outline-none focus:border-emerald-600 ring-2 ring-emerald-500/20"
                 />
                 <span className="text-[10px] text-emerald-700 font-semibold mt-1 block">
-                  = Masuk ke upah per 1x hadir
+                  = Akumulasi otomatis tiap staf masuk kerja
+                </span>
+              </div>
+
+              <div>
+                <label className="font-extrabold text-slate-800 block mb-1">
+                  <span>Estimasi 1 Minggu (7 Hari Penuh):</span>
+                </label>
+                <input
+                  type="text"
+                  value={gajiMingguan === 0 ? '' : formatNominal(gajiMingguan)}
+                  onChange={(e) => {
+                    const val = parseNominal(e.target.value);
+                    setGajiMingguan(val);
+                    setGajiHarian(Math.round(val / 7));
+                  }}
+                  placeholder="Contoh: 700.000"
+                  className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-mono font-bold text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Jika hadir full 7 hari dalam 1 minggu
                 </span>
               </div>
             </div>
@@ -148,21 +148,24 @@ export default function EditSalaryModal({
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[10.5px] font-bold text-slate-600">Pilihan Cepat:</span>
               {[
-                { label: '95rb/hr (570rb/6hr)', w: 570000, d: 95000 },
-                { label: '100rb/hr (600rb/6hr)', w: 600000, d: 100000 },
-                { label: '120rb/hr (720rb/6hr)', w: 720000, d: 120000 },
-                { label: '125rb/hr (750rb/6hr)', w: 750000, d: 125000 },
-                { label: '150rb/hr (900rb/6hr)', w: 900000, d: 150000 },
+                { label: '55rb/hr', d: 55000, w: 385000 },
+                { label: '85rb/hr', d: 85000, w: 595000 },
+                { label: '90rb/hr', d: 90000, w: 630000 },
+                { label: '95rb/hr', d: 95000, w: 665000 },
+                { label: '100rb/hr', d: 100000, w: 700000 },
+                { label: '120rb/hr', d: 120000, w: 840000 },
+                { label: '125rb/hr', d: 125000, w: 875000 },
+                { label: '150rb/hr', d: 150000, w: 1050000 },
               ].map((preset) => (
                 <button
-                  key={preset.w}
+                  key={preset.d}
                   type="button"
                   onClick={() => {
                     setGajiMingguan(preset.w);
                     setGajiHarian(preset.d);
                   }}
                   className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer ${
-                    gajiMingguan === preset.w
+                    gajiHarian === preset.d
                       ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
@@ -177,16 +180,16 @@ export default function EditSalaryModal({
               <div className="flex items-center justify-between font-bold text-emerald-950">
                 <span className="flex items-center space-x-1.5">
                   <Calendar className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Simulasi 6 Hari Hadir:</span>
+                  <span>Simulasi Bila Hadir 7 Hari Penuh (1 Minggu):</span>
                 </span>
                 <span className="font-mono font-black text-emerald-800">
-                  {formatRupiah(estimasiKotor6Hari)}
+                  {formatRupiah((gajiHarian || 0) * 7)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-600 text-[10.5px]">
-                <span>• Bila Masuk 7 Hari Penuh:</span>
+                <span>• Bila Ambil 1 Hari Libur (6 Hari Masuk):</span>
                 <span className="font-mono font-bold text-slate-800">
-                  {formatRupiah(estimasiKotor7Hari)}
+                  {formatRupiah((gajiHarian || 0) * 6)}
                 </span>
               </div>
             </div>
