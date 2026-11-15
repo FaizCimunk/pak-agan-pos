@@ -200,10 +200,10 @@ class EscPosBuilder {
   }
 
   cut() {
-    // PENTING: Printer Bluetooth portable 58mm tidak memiliki motor pisau otomatis (hanya gerigi sobekan manual).
-    // Perintah GS V (0x1D 0x56) menyebabkan firmware printer berputar tanpa henti (infinite paper feed).
-    // Beri 3 baris kosong agar tulisan melewati gerigi pemotong manual, lalu berhenti dengan rapi.
-    this.newLine(3);
+    // Beri 2 baris kosong agar tulisan melewati gerigi pemotong manual
+    this.newLine(2);
+    // ESC @ (0x1B, 0x40): Reset hardware printer ke mode standar dan hentikan putaran motor
+    this.buffer.push(0x1B, 0x40);
     return this;
   }
 
@@ -279,42 +279,62 @@ class BluetoothPrinterService {
     }
   }
 
+  private isPrintingBusy: boolean = false;
+
+  isPrinterConnected(): boolean {
+    return Boolean(this.characteristic || this.isNativeApp());
+  }
+
   async printRaw(bytes: Uint8Array): Promise<boolean> {
-    // 1. Jika berjalan di Android APK Native Shell (Ivok Laundry Bridge)
-    if (this.isNativeApp()) {
-      try {
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]);
+    if (this.isPrintingBusy) {
+      console.warn('Printer sedang memproses antrean sebelumnya.');
+      return false;
+    }
+    this.isPrintingBusy = true;
+
+    try {
+      // 1. Jika berjalan di Android APK Native Shell (Ivok Laundry Bridge)
+      if (this.isNativeApp()) {
+        try {
+          let binary = '';
+          for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'BT_PRINT_RECEIPT',
+            rawBytes: Array.from(bytes),
+            text: binary,
+            openDrawer: true,
+          }));
+          return true;
+        } catch (e) {
+          console.warn('Native WebView bridge print error:', e);
+          return false;
         }
-        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'BT_PRINT_RECEIPT',
-          rawBytes: Array.from(bytes),
-          text: binary,
-          openDrawer: true,
-        }));
+      }
+
+      // 2. Web Bluetooth BLE Characteristic (Aman untuk RPP02N & Printer Portable 58mm)
+      if (!this.characteristic) return false;
+      try {
+        // Gunakan paket kecil (40 bytes) dengan jeda 25ms agar buffer mikrokontroler RPP02N tidak overflow/macet
+        const CHUNK_SIZE = 40;
+        for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+          const chunk = bytes.slice(i, i + CHUNK_SIZE);
+          if (this.characteristic.writeValueWithResponse) {
+            await this.characteristic.writeValueWithResponse(chunk);
+          } else {
+            await this.characteristic.writeValueWithoutResponse(chunk);
+          }
+          // Jeda singkat antar-paket BLE agar printer tidak ngelag atau feed kertas terus-menerus
+          await new Promise(resolve => setTimeout(resolve, 25));
+        }
         return true;
       } catch (e) {
-        console.warn('Native WebView bridge print error:', e);
+        console.error('Error writing bytes to printer:', e);
+        return false;
       }
-    }
-
-    // 2. Web Bluetooth BLE Characteristic
-    if (!this.characteristic) return false;
-    try {
-      const CHUNK_SIZE = 512;
-      for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-        const chunk = bytes.slice(i, i + CHUNK_SIZE);
-        if (this.characteristic.writeValueWithResponse) {
-          await this.characteristic.writeValueWithResponse(chunk);
-        } else {
-          await this.characteristic.writeValueWithoutResponse(chunk);
-        }
-      }
-      return true;
-    } catch (e) {
-      console.error('Error writing bytes to printer:', e);
-      return false;
+    } finally {
+      this.isPrintingBusy = false;
     }
   }
 

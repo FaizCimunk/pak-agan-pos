@@ -27,24 +27,31 @@ export default function KitchenTicketModal({
                     (penandaStr || transaksi.nama_pelanggan || '').toLowerCase().includes('bawa');
 
   const handlePrintTicket = async () => {
+    if (isPrinting) return;
     setIsPrinting(true);
     try {
       // Cetak tiket dapur (format identik struk pembeli, tanpa bagian bawah finansial)
       const bytes = printerService.buildKitchenStationTicket(transaksi, cabang, 'semua');
       if (bytes.length === 0) {
         alert('Tidak ada menu pada pesanan ini.');
-        setIsPrinting(false);
         return;
       }
 
-      const success = await printerService.printRaw(bytes);
-      if (!success) {
+      const isBtConnected = printerService.isPrinterConnected();
+      if (isBtConnected) {
+        const success = await printerService.printRaw(bytes);
+        if (success) {
+          setIsPrinted(true);
+        } else {
+          alert('Printer sedang memproses atau belum siap. Silakan coba sesaat lagi.');
+        }
+      } else {
+        // Fallback dialog cetak browser hanya jika Bluetooth belum terhubung
         window.print();
+        setIsPrinted(true);
       }
-      setIsPrinted(true);
     } catch (e) {
       console.warn('Gagal cetak tiket dapur:', e);
-      window.print();
     } finally {
       setIsPrinting(false);
     }

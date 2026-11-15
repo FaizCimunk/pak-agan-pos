@@ -40,18 +40,22 @@ export default function ReceiptModal({
   const handlePrintManual = async () => {
     try {
       const bytes = printerService.buildReceiptCommands(transaksi, cabang);
-      const success = await printerService.printRaw(bytes);
-      if (success) {
-        setPrinted(true);
-        setIsBluetoothReady(true);
+      const isBtConnected = printerService.isPrinterConnected();
+      if (isBtConnected) {
+        const success = await printerService.printRaw(bytes);
+        if (success) {
+          setPrinted(true);
+          setIsBluetoothReady(true);
+        } else {
+          alert('Printer sedang memproses atau belum siap. Silakan coba sesaat lagi.');
+        }
       } else {
-        // Trigger 58mm browser print
+        // Trigger 58mm browser print hanya jika belum connect Bluetooth
         window.print();
         setPrinted(true);
       }
     } catch (err) {
       console.warn('Print failed:', err);
-      window.print();
     }
   };
 
