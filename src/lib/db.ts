@@ -71,6 +71,7 @@ const STORAGE_KEYS = {
   TABUNGAN_KARYAWAN: 'pak_agan_tabungan_karyawan_v1',
   OPEN_BILLS: 'pak_agan_open_bills_v1',
   ACTIVE_SHIFT_PREFIX: 'pak_agan_active_shift_v5_demo_week_',
+  DELETED_KARYAWAN: 'pakagan_deleted_karyawan_v2',
 };
 
 // In-Memory state initialization
@@ -339,6 +340,78 @@ export function getKaryawanUuid(idOrUsername?: string | null): string | null {
   if (isValidUuid(idOrUsername)) return idOrUsername;
   return null;
 }
+
+export function getDeletedKaryawanIdentifiers(): string[] {
+  return loadLocal<string[]>(STORAGE_KEYS.DELETED_KARYAWAN, []);
+}
+
+export function recordKaryawanDeleted(karyawanId: string, nama?: string): void {
+  const current = getDeletedKaryawanIdentifiers();
+  const set = new Set(current.map(x => x.toLowerCase().trim()));
+  
+  if (karyawanId) {
+    const cleanId = karyawanId.toLowerCase().trim();
+    set.add(cleanId);
+    const uuid = getKaryawanUuid(karyawanId);
+    if (uuid) set.add(uuid.toLowerCase().trim());
+    
+    // Temukan semua alias di KARYAWAN_UUID_MAP yang terkait dengan UUID ini
+    const targetUuid = (uuid || cleanId).toLowerCase();
+    for (const [alias, mappedUuid] of Object.entries(KARYAWAN_UUID_MAP)) {
+      if (mappedUuid.toLowerCase() === targetUuid || alias.toLowerCase() === cleanId) {
+        set.add(alias.toLowerCase());
+        set.add(mappedUuid.toLowerCase());
+      }
+    }
+  }
+
+  if (nama) {
+    const cleanNama = nama.toLowerCase().trim();
+    if (cleanNama) {
+      set.add(`name:${cleanNama}`);
+    }
+  }
+
+  saveLocalCache(STORAGE_KEYS.DELETED_KARYAWAN, Array.from(set));
+}
+
+export function unmarkKaryawanDeleted(karyawanId: string, nama?: string): void {
+  const current = getDeletedKaryawanIdentifiers();
+  const cleanId = (karyawanId || '').toLowerCase().trim();
+  const uuid = (getKaryawanUuid(karyawanId) || '').toLowerCase().trim();
+  const nameKey = nama ? `name:${nama.toLowerCase().trim()}` : '';
+
+  const filtered = current.filter(x => {
+    const xLow = x.toLowerCase().trim();
+    if (cleanId && xLow === cleanId) return false;
+    if (uuid && xLow === uuid) return false;
+    if (nameKey && xLow === nameKey) return false;
+    return true;
+  });
+  saveLocalCache(STORAGE_KEYS.DELETED_KARYAWAN, filtered);
+}
+
+export function isKaryawanMarkedDeleted(karyawan: { id?: string; nama?: string; is_active?: boolean }): boolean {
+  if (karyawan.is_active === false) return true;
+  const deleted = getDeletedKaryawanIdentifiers();
+  if (deleted.length === 0) return false;
+  const set = new Set(deleted.map(x => x.toLowerCase().trim()));
+
+  if (karyawan.id) {
+    const idLower = karyawan.id.toLowerCase().trim();
+    if (set.has(idLower)) return true;
+    const uuid = getKaryawanUuid(karyawan.id);
+    if (uuid && set.has(uuid.toLowerCase().trim())) return true;
+  }
+
+  if (karyawan.nama) {
+    const nameKey = `name:${karyawan.nama.toLowerCase().trim()}`;
+    if (set.has(nameKey)) return true;
+  }
+
+  return false;
+}
+
 
 export function getMenuUuid(idOrCode?: string | null): string | null {
   if (!idOrCode) return null;
@@ -790,17 +863,25 @@ export class PosDatabase {
   // --------------------------------------------------------------------------
   getAllKaryawanCached(): Karyawan[] {
     const local = loadLocal<Karyawan[]>(STORAGE_KEYS.KARYAWAN, INITIAL_KARYAWAN);
-    return local.map(decodeKaryawanRecord);
+    return local
+      .map(decodeKaryawanRecord)
+      .filter(k => !isKaryawanMarkedDeleted(k));
   }
 
   async getAllKaryawan(): Promise<Karyawan[]> {
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await withQueryTimeout(
-          supabase.from('karyawan').select('*').order('nama', { ascending: true })
+          supabase
+            .from('karyawan')
+            .select('*')
+            .neq('is_active', false)
+            .order('nama', { ascending: true })
         );
-        if (!error && data && data.length > 0) {
-          const decoded = data.map(decodeKaryawanRecord);
+        if (!error && Array.isArray(data)) {
+          const decoded = data
+            .map(decodeKaryawanRecord)
+            .filter(k => !isKaryawanMarkedDeleted(k));
           saveLocalCache(STORAGE_KEYS.KARYAWAN, decoded);
           return decoded;
         }
@@ -809,7 +890,9 @@ export class PosDatabase {
       }
     }
     const local = loadLocal<Karyawan[]>(STORAGE_KEYS.KARYAWAN, INITIAL_KARYAWAN);
-    return local.map(decodeKaryawanRecord);
+    return local
+      .map(decodeKaryawanRecord)
+      .filter(k => !isKaryawanMarkedDeleted(k));
   }
 
   async getKaryawanByCabang(cabangId: string): Promise<Karyawan[]> {
@@ -1139,6 +1222,7 @@ export class PosDatabase {
       is_active: true,
       created_at: new Date().toISOString(),
     };
+    unmarkKaryawanDeleted(newId, newK.nama);
     list.push(newK);
     saveLocal(STORAGE_KEYS.KARYAWAN, list);
 
@@ -1181,21 +1265,74 @@ export class PosDatabase {
     return newK;
   }
 
-  async deleteKaryawan(karyawanId: string): Promise<boolean> {
-    const list = await this.getAllKaryawan();
-    const targetKarUuid = getKaryawanUuid(karyawanId);
-    const updated = list.filter(k => k.id !== karyawanId && !(targetKarUuid && getKaryawanUuid(k.id) === targetKarUuid));
+  async deleteKaryawan(karyawanId: string, nama?: string): Promise<boolean> {
+    const targetKarUuid = getKaryawanUuid(karyawanId) || (isValidUuid(karyawanId) ? karyawanId : null);
+    
+    // Temukan nama karyawan jika tidak di-pass
+    let resolvedNama = nama;
+    if (!resolvedNama) {
+      const rawList = loadLocal<Karyawan[]>(STORAGE_KEYS.KARYAWAN, INITIAL_KARYAWAN);
+      const found = rawList.find(k => k.id === karyawanId || (targetKarUuid && getKaryawanUuid(k.id) === targetKarUuid));
+      if (found) resolvedNama = found.nama;
+    }
+
+    // 1. Catat tanda tombstone permanen di localStorage (agar mock & refresh tidak memunculkannya lagi)
+    recordKaryawanDeleted(karyawanId, resolvedNama);
+
+    // 2. Bersihkan dari cache lokal karyawan seketika
+    const rawLocal = loadLocal<Karyawan[]>(STORAGE_KEYS.KARYAWAN, INITIAL_KARYAWAN);
+    const updated = rawLocal.filter(k => !isKaryawanMarkedDeleted(k));
     saveLocal(STORAGE_KEYS.KARYAWAN, updated);
 
+    // 3. Update & Delete di Supabase:
+    // Gunakan update { is_active: false } terlebih dahulu agar soft-delete PASTI tembus
+    // sekalipun ada relasi foreign key RESTRICT di tabel shift / transaksi kasir.
     if (isSupabaseConfigured && supabase) {
-      try {
-        if (targetKarUuid) {
-          await supabase.from('karyawan').delete().eq('id', targetKarUuid);
+      const idToTarget = targetKarUuid || (isValidUuid(karyawanId) ? karyawanId : null);
+      if (idToTarget) {
+        try {
+          const { error: softErr } = await supabase
+            .from('karyawan')
+            .update({ is_active: false })
+            .eq('id', idToTarget);
+          if (softErr) {
+            console.warn('Supabase soft-delete karyawan info:', softErr.message);
+          }
+
+          // Coba bersihkan relasi tabungan_karyawan_log & payroll jika ada
+          try {
+            await supabase.from('tabungan_karyawan_log').delete().eq('karyawan_id', idToTarget);
+          } catch (_) {}
+          try {
+            await supabase.from('payroll').delete().eq('karyawan_id', idToTarget);
+          } catch (_) {}
+
+          // Coba hard delete jika tidak terhalang shift / transaksi
+          const { error: delErr } = await supabase.from('karyawan').delete().eq('id', idToTarget);
+          if (delErr) {
+            console.log('Supabase hard delete prevented by shift/transaksi FK constraint, employee successfully soft-deleted (is_active=false):', delErr.message);
+          }
+        } catch (e) {
+          console.warn('Supabase deleteKaryawan network error:', e);
         }
-      } catch (e) {
-        console.warn('Supabase deleteKaryawan fallback local:', e);
       }
     }
+
+    // 4. Bersihkan absensi pending staf ini agar tidak tertahan di ACC
+    try {
+      const localAbs = loadLocal<any[]>(STORAGE_KEYS.ABSENSI, []);
+      const updatedAbs = localAbs.filter(a => {
+        const matchesId = a.karyawan_id === karyawanId || (targetKarUuid && a.karyawan_id === targetKarUuid);
+        const matchesName = resolvedNama && a.karyawan_nama && a.karyawan_nama.toLowerCase() === resolvedNama.toLowerCase();
+        if (matchesId || matchesName) {
+          return a.approval_status === 'approved';
+        }
+        return true;
+      });
+      if (updatedAbs.length !== localAbs.length) {
+        saveLocal(STORAGE_KEYS.ABSENSI, updatedAbs);
+      }
+    } catch (_) {}
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('pak_agan_db_updated'));

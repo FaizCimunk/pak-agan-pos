@@ -152,11 +152,21 @@ export default function AdminDashboardPage() {
   const [isAddingGeneralLoan, setIsAddingGeneralLoan] = useState<boolean>(false);
 
   const handleDeleteKaryawan = async (karyawanId: string, nama: string) => {
-    const confirmDelete = confirm(`Apakah Anda yakin ingin menghapus akun karyawan "${nama}"?`);
+    const confirmDelete = confirm(`Apakah Anda yakin ingin menghapus akun karyawan "${nama}"?\n\nKaryawan akan dihapus secara permanen dari sistem rekap gaji dan daftar staf.`);
     if (!confirmDelete) return;
-    await db.deleteKaryawan(karyawanId);
-    await refreshAllData();
-    alert(`Karyawan "${nama}" berhasil dihapus.`);
+
+    // Optimistic UI state update: langsung hilangkan dari daftar agar tampilan instan & bersih
+    setKaryawanList(prev => prev.filter(k => k.id !== karyawanId && k.nama !== nama));
+
+    try {
+      await db.deleteKaryawan(karyawanId, nama);
+      await refreshAllData();
+      alert(`Karyawan "${nama}" berhasil dihapus permanen dari sistem.`);
+    } catch (err) {
+      console.error('Gagal menghapus karyawan:', err);
+      await refreshAllData();
+      alert(`Terjadi kendala saat menghapus karyawan "${nama}". Silakan coba lagi.`);
+    }
   };
 
   // Payroll Period (Rentang Tanggal Langsung: Dari -> Sampai) & Branch Filters
@@ -453,7 +463,7 @@ export default function AdminDashboardPage() {
     const endBound = payrollStartDate && payrollEndDate && payrollStartDate > payrollEndDate ? payrollStartDate : payrollEndDate;
 
     return karyawanList
-      .filter(k => k.role !== 'owner')
+      .filter(k => k.role !== 'owner' && k.is_active !== false)
       .filter(k => payrollBranchFilter === 'all' || isBranchMatch(k.cabang_id, payrollBranchFilter))
       .map(kar => {
         const branch = cabangList.find(c => isBranchMatch(c.id, kar.cabang_id));
@@ -587,7 +597,7 @@ export default function AdminDashboardPage() {
       const stafHadirCount = branchAbsensi.filter(a => a.status === 'hadir' || a.status === 'setengah_hari').length;
 
       // b. Beban Standar Harian Toko (Staf terdaftar & aktif di cabang ini, Gaji Mingguan dibagi 6)
-      const branchWorkers = karyawanList.filter(k => isBranchMatch(k.cabang_id, cabang.id) && k.role !== 'owner' && !k.is_locked);
+      const branchWorkers = karyawanList.filter(k => isBranchMatch(k.cabang_id, cabang.id) && k.role !== 'owner' && !k.is_locked && k.is_active !== false);
       const standardDailyWage = branchWorkers.reduce((sum, k) => {
         if (k.gaji_harian && k.gaji_harian > 0) return sum + k.gaji_harian;
         if (k.gaji_pokok && k.gaji_pokok > 0) return sum + Math.round(k.gaji_pokok / 6);
