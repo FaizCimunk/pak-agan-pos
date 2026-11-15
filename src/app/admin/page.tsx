@@ -21,6 +21,7 @@ import MutasiPenjualanStatement from '@/components/MutasiPenjualanStatement';
 import FixedCostPaymentManager from '@/components/FixedCostPaymentManager';
 import BukuTabunganModal from '@/components/BukuTabunganModal';
 import ShiftMutasiModal, { getShiftAuditSummary } from '@/components/ShiftMutasiModal';
+import KeamananSiberManager from '@/components/KeamananSiberManager';
 
 import { 
   Cabang, 
@@ -945,6 +946,7 @@ export default function AdminDashboardPage() {
                  activeTab === 'fixedcost' ? 'Menu Setting • Fix Cost' :
                  activeTab === 'profiltoko' ? 'Menu Setting • Identitas Toko' :
                  activeTab === 'menu' ? 'Menu Setting • Menu Kasir Cabang' :
+                 activeTab === 'keamanan' ? 'Menu Setting • Pusat Keamanan & Sandi' :
                  'Ringkasan 10 Cabang'}
               </span>
             </div>
@@ -3711,6 +3713,14 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'keamanan' && (
+          <KeamananSiberManager
+            cabangList={cabangList}
+            karyawanList={karyawanList}
+            onRefreshData={refreshAllData}
+          />
         )}
 
       </main>

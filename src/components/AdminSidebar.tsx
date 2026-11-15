@@ -14,6 +14,8 @@ import {
   Coins,
   Building2,
   Store,
+  ShieldAlert,
+  KeyRound,
   X
 } from 'lucide-react';
 
@@ -26,7 +28,8 @@ export type AdminTabId =
   | 'payroll'
   | 'fixedcost'
   | 'profiltoko'
-  | 'menu';
+  | 'menu'
+  | 'keamanan';
 
 interface AdminSidebarProps {
   activeTab: AdminTabId;
@@ -118,6 +121,12 @@ export default function AdminSidebar({
       label: 'Identitas Toko & Struk',
       sub: 'Nama toko, password kasir, PJ/WA & struk',
       icon: Store,
+    },
+    {
+      id: 'keamanan',
+      label: 'Pusat Keamanan & Sandi',
+      sub: 'Ubah sandi Owner, 10 kasir & gembok darurat',
+      icon: ShieldAlert,
     },
   ];
 

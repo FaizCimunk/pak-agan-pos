@@ -549,6 +549,28 @@ export class PosDatabase {
     return updatedCabang;
   }
 
+  async setAllCabangKasirLock(locked: boolean): Promise<boolean> {
+    const list = await this.getCabangList();
+    const updated = list.map(c => ({
+      ...c,
+      is_kasir_locked: locked
+    }));
+    saveLocal(STORAGE_KEYS.CABANG, updated);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('cabang').update({ is_kasir_locked: locked }).neq('id', 'placeholder-none');
+      } catch (e) {
+        console.warn('Supabase setAllCabangKasirLock fallback local:', e);
+      }
+    }
+
+    return true;
+  }
+
   async createCabang(newCabang: Partial<Cabang>): Promise<Cabang> {
     const list = await this.getCabangList();
     const nextNomor = list.length > 0 ? Math.max(...list.map(c => c.nomor || 0)) + 1 : 1;
