@@ -750,7 +750,7 @@ export const DEMO_WEEK_KARYAWAN: Karyawan[] = [
     role: 'owner',
     telepon: '0813-9843-1313',
     pin_hash: DEFAULT_PIN_HASH,
-    password_plain: 'Owner#Serabi2026!',
+    password_plain: '1234',
     is_locked: false,
     tipe_gaji: 'bulanan',
     gaji_pokok: 0,

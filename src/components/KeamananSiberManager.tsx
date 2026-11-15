@@ -13,7 +13,6 @@ import {
   RefreshCw, 
   Search, 
   Store, 
-  Users, 
   MessageCircle, 
   Copy, 
   Lock, 
@@ -23,7 +22,6 @@ import {
 } from 'lucide-react';
 import { Cabang, Karyawan } from '@/lib/types';
 import { db } from '@/lib/db';
-import { formatKaryawanRole } from '@/lib/utils';
 
 interface KeamananSiberManagerProps {
   cabangList: Cabang[];
@@ -36,12 +34,17 @@ export default function KeamananSiberManager({
   karyawanList,
   onRefreshData,
 }: KeamananSiberManagerProps) {
-  // Navigation Sub-tab
-  const [subTab, setSubTab] = useState<'owner' | 'kasir' | 'karyawan'>('owner');
+  // Hanya 2 Tab: Akun Dashboard Pusat & Akun Kasir 10 Cabang (Menu Staf Karyawan ditiadakan)
+  const [subTab, setSubTab] = useState<'owner' | 'kasir'>('owner');
 
   // Owner State
   const ownerUser = useMemo(() => {
-    return karyawanList.find(k => k.role === 'owner' || k.username === 'pakagan') || {
+    const found = karyawanList.find(k => k.role === 'owner' || k.username === 'pakagan');
+    if (found) {
+      const pass = found.password_plain && found.password_plain !== 'Owner#Serabi2026!' ? found.password_plain : '1234';
+      return { ...found, password_plain: pass };
+    }
+    return {
       id: 'kar-0',
       cabang_id: 'pusat',
       username: 'pakagan',
@@ -82,24 +85,10 @@ export default function KeamananSiberManager({
   const [kasirModalError, setKasirModalError] = useState<string>('');
   const [kasirActionSuccess, setKasirActionSuccess] = useState<string>('');
 
-  // Karyawan State
-  const [searchKaryawan, setSearchKaryawan] = useState<string>('');
-  const [filterKaryawanRole, setFilterKaryawanRole] = useState<string>('all');
-  const [filterKaryawanCabang, setFilterKaryawanCabang] = useState<string>('all');
-  const [editingKaryawan, setEditingKaryawan] = useState<Karyawan | null>(null);
-  const [editKaryawanUsername, setEditKaryawanUsername] = useState<string>('');
-  const [editKaryawanPassword, setEditKaryawanPassword] = useState<string>('');
-  const [editKaryawanLocked, setEditKaryawanLocked] = useState<boolean>(false);
-  const [showEditKaryawanPassword, setShowEditKaryawanPassword] = useState<boolean>(false);
-  const [savingKaryawan, setSavingKaryawan] = useState<boolean>(false);
-  const [karyawanModalError, setKaryawanModalError] = useState<string>('');
-  const [karyawanActionSuccess, setKaryawanActionSuccess] = useState<string>('');
-
-  // Telemetry Calculations
+  // Calculations
   const totalCabang = cabangList.length;
   const lockedCabangCount = cabangList.filter(c => c.is_kasir_locked).length;
   const unlockedCabangCount = totalCabang - lockedCabangCount;
-  const totalKaryawan = karyawanList.filter(k => k.role !== 'owner').length;
 
   // Optional Random Password Helper
   const handleRandomPassword = () => {
@@ -108,7 +97,7 @@ export default function KeamananSiberManager({
     setShowOwnerPassword(true);
   };
 
-  // Handle Save Owner Credentials (FLEKSIBEL - TIDAK TERLALU KETAT)
+  // Handle Save Owner Credentials (SIMPEL & PRAKTIS)
   const handleSaveOwner = async (e: React.FormEvent) => {
     e.preventDefault();
     setOwnerSuccessMsg('');
@@ -153,10 +142,10 @@ export default function KeamananSiberManager({
       }
 
       await onRefreshData();
-      setOwnerSuccessMsg('Username & Password Dashboard Pusat berhasil diperbarui!');
+      setOwnerSuccessMsg('Username & Password Dashboard Pusat berhasil disimpan!');
       setTimeout(() => setOwnerSuccessMsg(''), 4000);
     } catch (err: any) {
-      setOwnerErrorMsg(err.message || 'Gagal menyimpan kredensial.');
+      setOwnerErrorMsg(err.message || 'Gagal menyimpan.');
     } finally {
       setSavingOwner(false);
     }
@@ -166,8 +155,8 @@ export default function KeamananSiberManager({
   const handleToggleLockCabang = async (cabang: Cabang) => {
     const newLockState = !cabang.is_kasir_locked;
     const confirmText = newLockState
-      ? `Gembok akses login kasir untuk cabang "${cabang.nama}"?`
-      : `Buka kembali gembok akses kasir "${cabang.nama}"?`;
+      ? `Gembok akses kasir cabang "${cabang.nama}"? Tablet kasir cabang tidak bisa login sementara.`
+      : `Buka kembali gembok akses kasir cabang "${cabang.nama}"?`;
 
     if (!window.confirm(confirmText)) return;
 
@@ -178,8 +167,8 @@ export default function KeamananSiberManager({
       await onRefreshData();
       setKasirActionSuccess(
         newLockState 
-          ? `Gembok kasir ${cabang.nama} diaktifkan.` 
-          : `Gembok kasir ${cabang.nama} dibuka.`
+          ? `Gembok kasir ${cabang.nama} berhasil DIAKTIFKAN.` 
+          : `Gembok kasir ${cabang.nama} berhasil DIBUKA.`
       );
       setTimeout(() => setKasirActionSuccess(''), 4000);
     } catch (err: any) {
@@ -197,7 +186,7 @@ export default function KeamananSiberManager({
     setKasirModalError('');
   };
 
-  // Save Edit Kasir Modal (FLEKSIBEL)
+  // Save Edit Kasir Modal (DARI PUSAT)
   const handleSaveKasirModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingKasir) return;
@@ -224,7 +213,7 @@ export default function KeamananSiberManager({
       });
 
       await onRefreshData();
-      setKasirActionSuccess(`Kredensial kasir ${editingKasir.nama} berhasil disimpan!`);
+      setKasirActionSuccess(`Kredensial kasir ${editingKasir.nama} berhasil diperbarui dari Pusat!`);
       setEditingKasir(null);
       setTimeout(() => setKasirActionSuccess(''), 4000);
     } catch (err: any) {
@@ -253,60 +242,13 @@ export default function KeamananSiberManager({
       `*KREDENSIAL LOGIN KASIR CABANG*\n` +
       `------------------------------------\n` +
       `Halo Bapak/Ibu *${cbg.pj_nama || 'PJ Cabang'}*,\n\n` +
-      `Berikut kredensial login tablet kasir untuk:\n` +
+      `Berikut kredensial login tablet kasir resmi untuk:\n` +
       `• *Cabang:* ${cbg.nama} (${cbg.kode})\n` +
-      `• *Username:* \`${user}\`\n` +
+      `• *Username Kasir:* \`${user}\`\n` +
       `• *Password / PIN:* \`${pass}\`\n\n` +
-      `_Pusat Manajemen Akun • Serabi Bawel Grup_`;
+      `_Pusat Manajemen Akun • Serabi Bawel & Wedang Geprek_`;
 
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
-  };
-
-  // Open Edit Karyawan Modal
-  const handleOpenEditKaryawan = (kar: Karyawan) => {
-    setEditingKaryawan(kar);
-    setEditKaryawanUsername(kar.username || kar.nama.toLowerCase().replace(/\s+/g, ''));
-    setEditKaryawanPassword(kar.password_plain || '1234');
-    setEditKaryawanLocked(!!kar.is_locked);
-    setShowEditKaryawanPassword(false);
-    setKaryawanModalError('');
-  };
-
-  // Save Edit Karyawan Modal
-  const handleSaveKaryawanModal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingKaryawan) return;
-
-    const cleanUser = editKaryawanUsername.trim().toLowerCase();
-    const cleanPass = editKaryawanPassword.trim();
-
-    if (!cleanUser) {
-      setKaryawanModalError('Username staf tidak boleh kosong.');
-      return;
-    }
-    if (!cleanPass) {
-      setKaryawanModalError('Password staf tidak boleh kosong.');
-      return;
-    }
-
-    setSavingKaryawan(true);
-    setKaryawanModalError('');
-    try {
-      await db.updateKaryawanCredentials(editingKaryawan.id, {
-        username: cleanUser,
-        password_plain: cleanPass,
-        is_locked: editKaryawanLocked,
-      });
-
-      await onRefreshData();
-      setKaryawanActionSuccess(`Sandi untuk staf ${editingKaryawan.nama} berhasil diperbarui!`);
-      setEditingKaryawan(null);
-      setTimeout(() => setKaryawanActionSuccess(''), 4000);
-    } catch (err: any) {
-      setKaryawanModalError(err.message || 'Gagal menyimpan.');
-    } finally {
-      setSavingKaryawan(false);
-    }
   };
 
   // Filtered Kasir Cabang
@@ -328,28 +270,11 @@ export default function KeamananSiberManager({
     });
   }, [cabangList, searchKasir, filterKasirStatus]);
 
-  // Filtered Karyawan
-  const filteredKaryawan = useMemo(() => {
-    return karyawanList.filter(k => {
-      if (k.role === 'owner') return false;
-
-      const matchSearch = 
-        k.nama.toLowerCase().includes(searchKaryawan.toLowerCase()) ||
-        (k.username || '').toLowerCase().includes(searchKaryawan.toLowerCase()) ||
-        (k.telepon || '').includes(searchKaryawan);
-
-      const matchRole = filterKaryawanRole === 'all' || k.role === filterKaryawanRole;
-      const matchCabang = filterKaryawanCabang === 'all' || k.cabang_id === filterKaryawanCabang;
-
-      return matchSearch && matchRole && matchCabang;
-    });
-  }, [karyawanList, searchKaryawan, filterKaryawanRole, filterKaryawanCabang]);
-
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
 
       {/* =========================================================================
-          FRIENDLY HEADER BANNER (EMERALD & AMBER THEME)
+          HEADER BANNER BERSIH & RAMAH
          ========================================================================= */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-soft-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         
@@ -370,7 +295,7 @@ export default function KeamananSiberManager({
               Kelola Akun &amp; Kata Sandi
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Ubah username &amp; sandi Dashboard Pusat Pak Agan, kasir 10 cabang, dan staf dengan praktis.
+              Atur username &amp; sandi Dashboard Pusat Pak Agan serta seluruh kasir 10 cabang secara terpusat.
             </p>
           </div>
         </div>
@@ -383,7 +308,7 @@ export default function KeamananSiberManager({
       </div>
 
       {/* =========================================================================
-          NOTIFICATIONS
+          NOTIFIKASI
          ========================================================================= */}
       {kasirActionSuccess && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-bold shadow-2xs flex items-center gap-2.5 animate-fadeIn">
@@ -392,15 +317,8 @@ export default function KeamananSiberManager({
         </div>
       )}
 
-      {karyawanActionSuccess && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl text-xs font-bold shadow-2xs flex items-center gap-2.5 animate-fadeIn">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{karyawanActionSuccess}</span>
-        </div>
-      )}
-
       {/* =========================================================================
-          SUB-TAB NAVIGATION
+          NAVIGASI 2 TAB (HANYA DASHBOARD PUSAT & KASIR 10 CABANG)
          ========================================================================= */}
       <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200/80 shadow-soft-sm">
         
@@ -435,20 +353,6 @@ export default function KeamananSiberManager({
               {lockedCabangCount} Digembok
             </span>
           )}
-        </button>
-
-        {/* Tab 3: Staf Karyawan */}
-        <button
-          type="button"
-          onClick={() => setSubTab('karyawan')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
-            subTab === 'karyawan'
-              ? 'bg-emerald-700 text-white shadow-md shadow-emerald-800/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Akun Staf Karyawan ({totalKaryawan})</span>
         </button>
 
       </div>
@@ -775,99 +679,7 @@ export default function KeamananSiberManager({
       )}
 
       {/* =========================================================================
-          TAB 3: MATRIX KREDENSIAL KARYAWAN & STAF
-         ========================================================================= */}
-      {subTab === 'karyawan' && (
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-soft-sm p-5 space-y-4">
-          
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 border-slate-100">
-            <div>
-              <h3 className="text-sm font-black text-slate-900">
-                Kredensial Login Staf &amp; Karyawan
-              </h3>
-              <p className="text-xs text-slate-500">
-                Reset sandi staf untuk presensi harian dan cek slip gaji.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                value={searchKaryawan}
-                onChange={(e) => setSearchKaryawan(e.target.value)}
-                placeholder="Cari staf..."
-                className="pl-3 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50"
-              />
-              <select
-                value={filterKaryawanCabang}
-                onChange={(e) => setFilterKaryawanCabang(e.target.value)}
-                className="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50"
-              >
-                <option value="all">Semua Cabang</option>
-                {cabangList.map(c => (
-                  <option key={c.id} value={c.id}>{c.nama}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-600 font-extrabold uppercase text-[10px] border-b border-slate-200">
-                <tr>
-                  <th className="py-2.5 px-3">Nama Staf</th>
-                  <th className="py-2.5 px-3">Role</th>
-                  <th className="py-2.5 px-3">Cabang</th>
-                  <th className="py-2.5 px-3">Username</th>
-                  <th className="py-2.5 px-3">Sandi / PIN</th>
-                  <th className="py-2.5 px-3 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {filteredKaryawan.map((kar) => {
-                  const branchObj = cabangList.find(c => c.id === kar.cabang_id);
-
-                  return (
-                    <tr key={kar.id} className="hover:bg-slate-50 transition">
-                      <td className="py-3 px-3 font-bold text-slate-900">
-                        {kar.nama}
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px]">
-                          {formatKaryawanRole(kar.role)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-slate-500">
-                        {branchObj?.nama || kar.cabang_id}
-                      </td>
-                      <td className="py-3 px-3 font-mono font-bold text-slate-800">
-                        {kar.username || '-'}
-                      </td>
-                      <td className="py-3 px-3 font-mono font-bold text-slate-800">
-                        {kar.password_plain || '••••'}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditKaryawan(kar)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
-                        >
-                          <KeyRound className="w-3.5 h-3.5 text-slate-600" />
-                          <span>Ubah Sandi</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-        </div>
-      )}
-
-      {/* =========================================================================
-          MODAL: EDIT KREDENSIAL KASIR CABANG
+          MODAL: EDIT KREDENSIAL KASIR CABANG (DARI PUSAT)
          ========================================================================= */}
       {editingKasir && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -966,100 +778,6 @@ export default function KeamananSiberManager({
                   className="px-4 py-2 rounded-xl text-xs font-black text-white bg-emerald-700 hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
                 >
                   {savingKasir ? 'Menyimpan...' : 'Simpan'}
-                </button>
-              </div>
-
-            </form>
-
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          MODAL: EDIT KREDENSIAL KARYAWAN / STAF
-         ========================================================================= */}
-      {editingKaryawan && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-xl border-t-[4px] border-emerald-600 animate-scaleUp">
-            
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <div>
-                <h3 className="text-sm font-black text-slate-900">
-                  Ubah Sandi: {editingKaryawan.nama}
-                </h3>
-                <span className="text-[11px] text-slate-400">
-                  {formatKaryawanRole(editingKaryawan.role)}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingKaryawan(null)}
-                className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {karyawanModalError && (
-              <div className="mb-3 p-2.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-bold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{karyawanModalError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveKaryawanModal} className="space-y-3.5">
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Username Staf:
-                </label>
-                <input
-                  type="text"
-                  value={editKaryawanUsername}
-                  onChange={(e) => setEditKaryawanUsername(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-slate-50"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700">
-                    Sandi / PIN Baru:
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowEditKaryawanPassword(!showEditKaryawanPassword)}
-                    className="text-[10px] font-bold text-emerald-800 hover:underline cursor-pointer"
-                  >
-                    {showEditKaryawanPassword ? 'Tutup' : 'Lihat'}
-                  </button>
-                </div>
-
-                <input
-                  type={showEditKaryawanPassword ? 'text' : 'password'}
-                  value={editKaryawanPassword}
-                  onChange={(e) => setEditKaryawanPassword(e.target.value)}
-                  required
-                  placeholder="Bisa 1234 atau kata sandi"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-slate-50"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingKaryawan(null)}
-                  className="px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingKaryawan}
-                  className="px-4 py-2 rounded-xl text-xs font-black text-white bg-emerald-700 hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
-                >
-                  {savingKaryawan ? 'Menyimpan...' : 'Simpan'}
                 </button>
               </div>
 

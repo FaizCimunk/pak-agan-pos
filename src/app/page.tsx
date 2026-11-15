@@ -71,11 +71,7 @@ export default function LoginPage() {
             router.replace('/pos');
             return;
           }
-          if (user.role === 'owner') {
-            router.replace('/admin');
-            return;
-          }
-          router.replace('/karyawan');
+          router.replace('/admin');
           return;
         } catch {}
       } else if (kasirSession && lockedCabangId) {
@@ -151,11 +147,12 @@ export default function LoginPage() {
         return;
       }
 
-      // 3. Staf Pekerja Personal -> Portal Karyawan
+      // Default: Direct ke Admin Dashboard
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('pakagan_user', JSON.stringify(user));
+        sessionStorage.setItem('pakagan_owner_authenticated', 'true');
       }
-      router.push('/karyawan');
+      router.push('/admin');
     } catch (err: any) {
       setErrorMsg('Terjadi kendala saat verifikasi: ' + (err.message || 'Error'));
       setLoading(false);
