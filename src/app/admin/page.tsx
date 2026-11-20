@@ -179,7 +179,7 @@ export default function AdminDashboardPage() {
 
   // Fixed Cost Monthly Payments & Deduction Mode (Kas Riil vs Cadangan Amortisasi /30 Hr)
   const [fixedCostPayments, setFixedCostPayments] = useState<PembayaranFixedCostBulanan[]>([]);
-  const [fixedCostDeductionMode] = useState<'kas_riil' | 'cadangan_amortisasi'>('kas_riil');
+  const [fixedCostDeductionMode, setFixedCostDeductionMode] = useState<'kas_riil' | 'cadangan_amortisasi'>('kas_riil');
   // Upah Staf Deduction Mode (Default: Presensi Riil Hadir & Di-ACC, opsional: Standar /6 Hr)
   const [upahDeductionMode, setUpahDeductionMode] = useState<'presensi_riil' | 'standar_harian'>('presensi_riil');
 
@@ -189,8 +189,19 @@ export default function AdminDashboardPage() {
       if (savedMode === 'standar_harian' || savedMode === 'presensi_riil') {
         setUpahDeductionMode(savedMode);
       }
+      const savedFcMode = localStorage.getItem('pakagan_fixed_cost_mode');
+      if (savedFcMode === 'kas_riil' || savedFcMode === 'cadangan_amortisasi') {
+        setFixedCostDeductionMode(savedFcMode);
+      }
     }
   }, []);
+
+  const handleChangeFixedCostMode = (mode: 'kas_riil' | 'cadangan_amortisasi') => {
+    setFixedCostDeductionMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('pakagan_fixed_cost_mode', mode);
+    }
+  };
 
   const handleChangeUpahMode = (mode: 'presensi_riil' | 'standar_harian') => {
     setUpahDeductionMode(mode);
@@ -658,11 +669,17 @@ export default function AdminDashboardPage() {
       const sewaPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sewa' || p.jenis_biaya === 'semua_paket'));
       const wifiPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'listrik_wifi' || p.jenis_biaya === 'semua_paket'));
       const iuranPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sampah_kebersihan' || p.jenis_biaya === 'semua_paket'));
+      const paketPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, cabang.id) && p.periode_bulan === currentMonthKey && p.jenis_biaya === 'semua_paket');
 
-      const effectiveSewaHarian = fixedCostDeductionMode === 'kas_riil' && sewaPay?.status === 'lunas' ? 0 : sewaHarian;
-      const effectiveWifiHarian = fixedCostDeductionMode === 'kas_riil' && wifiPay?.status === 'lunas' ? 0 : wifiListrikHarian;
-      const effectiveIuranHarian = fixedCostDeductionMode === 'kas_riil' && iuranPay?.status === 'lunas' ? 0 : iuranHarian;
-      const effectiveBiayaLainHarian = biayaLainHarian;
+      const isSewaPaid = sewaPay?.status === 'lunas' || paketPay?.status === 'lunas';
+      const isWifiPaid = wifiPay?.status === 'lunas' || paketPay?.status === 'lunas';
+      const isIuranPaid = iuranPay?.status === 'lunas' || paketPay?.status === 'lunas';
+      const isBranchFullyPaid = (isSewaPaid && isWifiPaid && isIuranPaid) || paketPay?.status === 'lunas';
+
+      const effectiveSewaHarian = fixedCostDeductionMode === 'kas_riil' && isSewaPaid ? 0 : sewaHarian;
+      const effectiveWifiHarian = fixedCostDeductionMode === 'kas_riil' && isWifiPaid ? 0 : wifiListrikHarian;
+      const effectiveIuranHarian = fixedCostDeductionMode === 'kas_riil' && isIuranPaid ? 0 : iuranHarian;
+      const effectiveBiayaLainHarian = fixedCostDeductionMode === 'kas_riil' && isBranchFullyPaid ? 0 : biayaLainHarian;
       const effectiveFixedCost = effectiveSewaHarian + effectiveWifiHarian + effectiveIuranHarian + effectiveBiayaLainHarian;
 
       // 2. Upah Karyawan:
@@ -890,12 +907,14 @@ export default function AdminDashboardPage() {
       const sewaPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, b.cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sewa' || p.jenis_biaya === 'semua_paket'));
       const wifiPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, b.cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'listrik_wifi' || p.jenis_biaya === 'semua_paket'));
       const iuranPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, b.cabang.id) && p.periode_bulan === currentMonthKey && (p.jenis_biaya === 'sampah_kebersihan' || p.jenis_biaya === 'semua_paket'));
+      const paketPay = fixedCostPayments.find(p => isBranchMatch(p.cabang_id, b.cabang.id) && p.periode_bulan === currentMonthKey && p.jenis_biaya === 'semua_paket');
 
-      const isSewaPaid = sewaPay?.status === 'lunas';
-      const isWifiPaid = wifiPay?.status === 'lunas';
-      const isIuranPaid = iuranPay?.status === 'lunas';
+      const isSewaPaid = sewaPay?.status === 'lunas' || paketPay?.status === 'lunas';
+      const isWifiPaid = wifiPay?.status === 'lunas' || paketPay?.status === 'lunas';
+      const isIuranPaid = iuranPay?.status === 'lunas' || paketPay?.status === 'lunas';
+      const isBranchFullyPaid = (isSewaPaid && isWifiPaid && isIuranPaid) || paketPay?.status === 'lunas';
 
-      if (isSewaPaid && isWifiPaid && isIuranPaid) {
+      if (isBranchFullyPaid) {
         fullySettledBranchCount++;
       }
 
@@ -903,7 +922,7 @@ export default function AdminDashboardPage() {
         effectiveSewa += isSewaPaid ? 0 : b.sewaHarian;
         effectiveWifi += isWifiPaid ? 0 : b.wifiListrikHarian;
         effectiveIuran += isIuranPaid ? 0 : b.iuranHarian;
-        effectiveLain += (b.biayaLainHarian || 0);
+        effectiveLain += isBranchFullyPaid ? 0 : (b.biayaLainHarian || 0);
       } else {
         effectiveSewa += b.sewaHarian;
         effectiveWifi += b.wifiListrikHarian;
@@ -1413,17 +1432,48 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* 2. Fixed Cost */}
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between relative group hover:border-rose-500/40 transition min-w-0">
+                <div className={`p-4 rounded-2xl flex flex-col justify-between relative group transition min-w-0 ${
+                  activeExecutiveSummary.fixedCost === 0
+                    ? 'bg-emerald-950/20 border border-emerald-500/30 hover:border-emerald-500/50'
+                    : 'bg-white/5 border border-white/10 hover:border-rose-500/40'
+                }`}>
                   <div>
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-rose-300 block">
+                      <span className={`text-[10px] uppercase font-bold tracking-wider block ${
+                        activeExecutiveSummary.fixedCost === 0 ? 'text-emerald-300' : 'text-rose-300'
+                      }`}>
                         2. Fixed Cost Harian
                       </span>
-                      {activeExecutiveSummary.isAllTargetFullySettled && fixedCostDeductionMode === 'kas_riil' && (
-                        <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-black shrink-0">
-                          ✓ LUNAS
-                        </span>
-                      )}
+                      <div className="flex items-center space-x-1 shrink-0">
+                        {activeExecutiveSummary.fixedCost === 0 ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-black inline-flex items-center space-x-1">
+                            <span>✓ LUNAS</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab('fixedcost');
+                            }}
+                            className="px-2 py-0.5 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[9px] font-extrabold transition cursor-pointer"
+                            title="Klik untuk kelola atau lunaskan beban toko"
+                          >
+                            Kelola Beban
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleChangeFixedCostMode(fixedCostDeductionMode === 'kas_riil' ? 'cadangan_amortisasi' : 'kas_riil')}
+                          className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                            fixedCostDeductionMode === 'kas_riil'
+                              ? 'bg-emerald-500/10 text-emerald-300/80 border-emerald-500/30 hover:bg-emerald-500/20'
+                              : 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                          }`}
+                          title="Beralih antara Mode Kas Riil (Lunas = Rp 0) vs Cadangan Amortisasi /30 Hari"
+                        >
+                          {fixedCostDeductionMode === 'kas_riil' ? 'Kas Riil' : 'Amortisasi'}
+                        </button>
+                      </div>
                     </div>
                     <div className={`text-base sm:text-lg xl:text-xl font-mono font-extrabold mt-1.5 tabular-nums tracking-tight break-words ${
                       activeExecutiveSummary.fixedCost === 0 ? 'text-emerald-300' : 'text-rose-300'
@@ -1433,9 +1483,9 @@ export default function AdminDashboardPage() {
                   </div>
                   <span className="text-[10px] text-white/60 block mt-2">
                     {activeExecutiveSummary.fixedCost === 0 
-                      ? '✓ Sewa & utilitas lunas dibayar' 
+                      ? '✓ Sewa & utilitas bulan ini lunas dibayar Boss (Omzet utuh)' 
                       : fixedCostDeductionMode === 'kas_riil'
-                      ? 'Sisa beban toko belum lunas'
+                      ? `Sisa beban toko belum lunas (${activeExecutiveSummary.fullySettledBranchCount}/${activeExecutiveSummary.targetCount} Toko Lunas)`
                       : 'Sewa, Wi-Fi, Sampah (/30 hr)'}
                   </span>
                 </div>

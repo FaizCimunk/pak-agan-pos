@@ -48,9 +48,13 @@ export default function FixedCostPaymentManager({
   // Navigation Tabs: 'pembayaran' | 'tarif'
   const [activeSubTab, setActiveSubTab] = useState<'pembayaran' | 'tarif'>('pembayaran');
 
-  // Month & Year Filter (Default: Oktober 2026)
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedMonth, setSelectedMonth] = useState<number>(10); // 1-12
+  // Month & Year Filter (Default: Bulan Berjalan)
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    return typeof window !== 'undefined' ? new Date().getFullYear() : 2026;
+  });
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => {
+    return typeof window !== 'undefined' ? new Date().getMonth() + 1 : 11;
+  });
 
   const periodeBulanKey = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
 
@@ -264,6 +268,28 @@ export default function FixedCostPaymentManager({
     }
   };
 
+  // Mark all 10 branches as LUNAS in 1 click
+  const handleMarkAllLunas = async () => {
+    const confirmAll = confirm(
+      `LUNASKAN SELURUH BEBAN 10 CABANG?\n\n` +
+      `Periode: ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}\n` +
+      `Seluruh sewa ruko, listrik & utilitas 10 cabang akan ditandai LUNAS.\n\n` +
+      `Lanjutkan pelunasan ini?`
+    );
+    if (!confirmAll) return;
+
+    setLoading(true);
+    try {
+      await db.markAllFixedCostsLunas(periodeBulanKey, cabangList);
+      await fetchPayments();
+      alert(`Berhasil! Seluruh beban 10 cabang periode ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} telah ditandai LUNAS.`);
+    } catch (e: any) {
+      alert(`Gagal menandai lunas: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       
@@ -291,8 +317,23 @@ export default function FixedCostPaymentManager({
           </div>
         </div>
 
-        {/* Sub-Tabs: Pembayaran Bulanan vs Master Tarif */}
-        <div className="flex items-center space-x-2 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 self-start lg:self-auto">
+        {/* Action Button & Sub-Tabs */}
+        <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
+          {activeSubTab === 'pembayaran' && (
+            <button
+              type="button"
+              onClick={handleMarkAllLunas}
+              disabled={loading}
+              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-md shadow-emerald-700/20 transition-all cursor-pointer btn-tactile"
+              title="Tandai seluruh beban 10 cabang lunas untuk bulan terpilih"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+              <span>Tandai Lunas Semua (10 Toko)</span>
+            </button>
+          )}
+
+          {/* Sub-Tabs: Pembayaran Bulanan vs Master Tarif */}
+          <div className="flex items-center space-x-2 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200">
           <button
             type="button"
             onClick={() => setActiveSubTab('pembayaran')}
@@ -319,6 +360,7 @@ export default function FixedCostPaymentManager({
             <span>Master Tarif Sewa Toko</span>
           </button>
         </div>
+      </div>
 
       </div>
 
@@ -383,12 +425,13 @@ export default function FixedCostPaymentManager({
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedMonth(10);
-                    setSelectedYear(2026);
+                    const now = new Date();
+                    setSelectedMonth(now.getMonth() + 1);
+                    setSelectedYear(now.getFullYear());
                   }}
                   className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200 px-2.5 py-1 rounded-xl transition-colors cursor-pointer ml-1"
                 >
-                  Oktober 2026
+                  Bulan Ini
                 </button>
               </div>
             </div>

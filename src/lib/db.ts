@@ -4827,6 +4827,85 @@ export class PosDatabase {
     return all[idx];
   }
 
+  async markAllFixedCostsLunas(periodeBulan: string, cabangList: Cabang[]): Promise<boolean> {
+    const all = loadLocal<PembayaranFixedCostBulanan[]>(STORAGE_KEYS.FIXED_COST_PAYMENTS, INITIAL_FIXED_COST_PAYMENTS);
+    const updatedPayList: PembayaranFixedCostBulanan[] = [...all];
+    const newCloudPayloads: any[] = [];
+    const nowIso = new Date().toISOString();
+    const todayDate = nowIso.slice(0, 10);
+
+    for (const c of cabangList) {
+      const branchUuid = getBranchUuid(c.id) || (isValidUuid(c.id) ? c.id : null);
+      if (!branchUuid) continue;
+
+      const totalBeban = (c.sewa_bulanan || 3500000) + (c.listrik_air_bulanan || 650000) + (c.iuran_kebersihan_bulanan || 150000) + (c.biaya_lain_bulanan || 0);
+
+      const existingIdx = updatedPayList.findIndex(
+        p => isBranchMatch(p.cabang_id, c.id) && p.periode_bulan === periodeBulan && p.jenis_biaya === 'semua_paket'
+      );
+
+      const paymentId = existingIdx >= 0 && isValidUuid(updatedPayList[existingIdx].id)
+        ? updatedPayList[existingIdx].id
+        : generateUUID();
+
+      const payItem: PembayaranFixedCostBulanan = {
+        id: paymentId,
+        cabang_id: branchUuid,
+        cabang_nama: c.nama,
+        periode_bulan: periodeBulan,
+        jenis_biaya: 'semua_paket',
+        nama_biaya: 'Paket Penuh Beban Toko',
+        nominal: totalBeban,
+        status: 'lunas',
+        tanggal_bayar: todayDate,
+        metode_bayar: 'Transfer Mandiri / BCA (Pak Agan)',
+        no_referensi: `TRF-ALL-${Date.now().toString().slice(-8)}`,
+        catatan: `Pelunasan beban penuh ${c.nama} periode ${periodeBulan}`,
+        dibayar_oleh: 'Pak Agan (Owner)',
+        updated_at: nowIso,
+      };
+
+      if (existingIdx >= 0) {
+        updatedPayList[existingIdx] = payItem;
+      } else {
+        updatedPayList.unshift(payItem);
+      }
+
+      newCloudPayloads.push({
+        id: paymentId,
+        cabang_id: branchUuid,
+        periode_bulan: periodeBulan,
+        jenis_biaya: 'semua_paket',
+        nama_biaya: 'Paket Penuh Beban Toko',
+        nominal: totalBeban,
+        status: 'lunas',
+        tanggal_bayar: todayDate,
+        metode_bayar: 'Transfer Mandiri / BCA (Pak Agan)',
+        no_referensi: payItem.no_referensi,
+        catatan: payItem.catatan,
+        dibayar_oleh: 'Pak Agan (Owner)',
+        updated_at: nowIso,
+      });
+    }
+
+    saveLocal(STORAGE_KEYS.FIXED_COST_PAYMENTS, updatedPayList);
+
+    if (isSupabaseConfigured && supabase && newCloudPayloads.length > 0) {
+      try {
+        await supabase.from('pembayaran_fixed_cost_bulanan').upsert(newCloudPayloads, { onConflict: 'id' });
+      } catch (e) {
+        console.warn('Supabase markAllFixedCostsLunas error:', e);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pak_agan_db_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
+    return true;
+  }
+
   async deleteFixedCostPayment(id: string): Promise<boolean> {
     const all = loadLocal<PembayaranFixedCostBulanan[]>(STORAGE_KEYS.FIXED_COST_PAYMENTS, INITIAL_FIXED_COST_PAYMENTS);
     const filtered = all.filter(p => p.id !== id);
