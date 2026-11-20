@@ -539,8 +539,18 @@ export default function BukuTabunganModal({
             </span>
 
             {logs.length === 0 ? (
-              <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                Belum ada riwayat mutasi dompet untuk karyawan ini. Presensi yang di-ACC atau kasbon akan otomatis tercatat di sini.
+              <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2.5">
+                <p className="text-slate-500 text-xs font-medium">
+                  Belum ada mutasi aktif berjalan. Presensi yang di-ACC atau kasbon baru akan otomatis tercatat di sini.
+                </p>
+                {lastResetItem && (
+                  <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-bold shadow-2xs">
+                    <RotateCcw className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>
+                      Jejak Reset: Saldo dibersihkan ke Rp 0 pada {lastResetItem.created_at ? `${new Date(lastResetItem.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} (${new Date(lastResetItem.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB)` : ''} • {lastResetItem.keterangan.includes('Saldo Sebelum') ? lastResetItem.keterangan.slice(lastResetItem.keterangan.indexOf('(')) : `(Saldo Sebelum: ${formatRupiah(karyawan.last_reset_saldo_snapshot || 0)})`}
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="divide-y divide-slate-100 bg-slate-50 rounded-2xl border border-slate-200/90 overflow-hidden">
