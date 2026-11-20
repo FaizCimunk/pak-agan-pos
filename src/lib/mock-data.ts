@@ -1535,6 +1535,47 @@ export const INITIAL_FIXED_COST_PAYMENTS: any[] = [
     nominal: 180000,
     status: 'belum_bayar',
     catatan: 'Jatuh tempo tanggal 28 Oktober'
+  },
+  // Periode Berjalan: November 2026
+  {
+    id: 'fcp-1-sewa-202611',
+    cabang_id: 'cbg-1',
+    cabang_nama: 'Cabang HK Kademangan',
+    periode_bulan: '2026-11',
+    jenis_biaya: 'sewa',
+    nama_biaya: 'Sewa Ruko Cabang HK Kademangan',
+    nominal: 6000000,
+    status: 'lunas',
+    tanggal_bayar: '2026-11-01',
+    metode_bayar: 'Transfer BCA (Pak Agan)',
+    no_referensi: 'TRF-BCA-99210011',
+    catatan: 'Lunas ditransfer oleh Pak Agan (Owner)',
+    dibayar_oleh: 'Pak Agan (Owner)'
+  },
+  {
+    id: 'fcp-1-wifi-202611',
+    cabang_id: 'cbg-1',
+    cabang_nama: 'Cabang HK Kademangan',
+    periode_bulan: '2026-11',
+    jenis_biaya: 'listrik_wifi',
+    nama_biaya: 'Listrik & Wi-Fi HK Kademangan',
+    nominal: 750000,
+    status: 'lunas',
+    tanggal_bayar: '2026-11-08',
+    metode_bayar: 'Transfer BCA',
+    catatan: 'Token Listrik & Wi-Fi'
+  },
+  {
+    id: 'fcp-1-sampah-202611',
+    cabang_id: 'cbg-1',
+    cabang_nama: 'Cabang HK Kademangan',
+    periode_bulan: '2026-11',
+    jenis_biaya: 'sampah_kebersihan',
+    nama_biaya: 'Sampah & Retribusi HK Kademangan',
+    nominal: 150000,
+    status: 'lunas',
+    tanggal_bayar: '2026-11-05',
+    metode_bayar: 'Kas Laci Cabang'
   }
 ];
 
