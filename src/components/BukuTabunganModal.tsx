@@ -19,7 +19,9 @@ import {
   TrendingDown,
   Trash2,
   RotateCcw,
-  History
+  History,
+  SlidersHorizontal,
+  Edit3
 } from 'lucide-react';
 import { Karyawan, TabunganKaryawanItem } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -43,6 +45,15 @@ export default function BukuTabunganModal({
   const [isTarikOpen, setIsTarikOpen] = useState<boolean>(false);
   const [tarikNominal, setTarikNominal] = useState<number>(0);
   const [tarikKeperluan, setTarikKeperluan] = useState<string>('Pencairan Gaji ke Rekening / Tunai');
+
+  // State Koreksi & Input Manual (Upah Masuk, Kasbon, Atur Saldo Langsung)
+  const [isAdjustOpen, setIsAdjustOpen] = useState<boolean>(false);
+  const [adjustType, setAdjustType] = useState<'tambah_upah' | 'tambah_kasbon' | 'set_saldo'>('tambah_upah');
+  const [adjustNominal, setAdjustNominal] = useState<number>(0);
+  const [adjustTargetSaldo, setAdjustTargetSaldo] = useState<number>(0);
+  const [adjustKategori, setAdjustKategori] = useState<string>('upah_hadir');
+  const [adjustKeterangan, setAdjustKeterangan] = useState<string>('');
+
   const [loading, setLoading] = useState<boolean>(false);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -150,6 +161,85 @@ export default function BukuTabunganModal({
     }
   };
 
+  const handleSaveAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      if (adjustType === 'tambah_upah') {
+        if (adjustNominal <= 0) throw new Error('Nominal uang masuk harus lebih dari Rp 0');
+        const ket = adjustKeterangan.trim() || 'Penambahan Upah / Hak Gaji Masuk';
+        await db.setorTabunganKaryawan(
+          karyawan.id,
+          adjustNominal,
+          ket,
+          'Pak Agan (Owner)',
+          {
+            kategori: (adjustKategori as any) || 'upah_hadir',
+            tanggal: new Date().toISOString().slice(0, 10),
+          }
+        );
+        setSuccessMsg(`Berhasil menambahkan upah masuk sebesar ${formatRupiah(adjustNominal)}!`);
+      } else if (adjustType === 'tambah_kasbon') {
+        if (adjustNominal <= 0) throw new Error('Nominal kasbon harus lebih dari Rp 0');
+        const ket = adjustKeterangan.trim() || 'Pengambilan Kasbon Staf';
+        await db.tarikTabunganKaryawan(
+          karyawan.id,
+          adjustNominal,
+          ket,
+          'Pak Agan (Owner)',
+          {
+            kategori: 'kasbon',
+            allowOverdraft: true,
+            tanggal: new Date().toISOString().slice(0, 10),
+          }
+        );
+        setSuccessMsg(`Berhasil mencatat kasbon sebesar -${formatRupiah(adjustNominal)}!`);
+      } else if (adjustType === 'set_saldo') {
+        const diff = adjustTargetSaldo - saldo;
+        if (diff === 0) throw new Error('Target saldo sama dengan saldo saat ini.');
+        const ket = adjustKeterangan.trim() || `Penyesuaian Koreksi Saldo dari ${formatRupiah(saldo)} ke ${formatRupiah(adjustTargetSaldo)}`;
+        if (diff > 0) {
+          await db.setorTabunganKaryawan(
+            karyawan.id,
+            diff,
+            ket,
+            'Pak Agan (Owner)',
+            {
+              kategori: 'koreksi',
+              tanggal: new Date().toISOString().slice(0, 10),
+            }
+          );
+        } else {
+          await db.tarikTabunganKaryawan(
+            karyawan.id,
+            Math.abs(diff),
+            ket,
+            'Pak Agan (Owner)',
+            {
+              kategori: 'denda',
+              allowOverdraft: true,
+              tanggal: new Date().toISOString().slice(0, 10),
+            }
+          );
+        }
+        setSuccessMsg(`Saldo ${karyawan.nama} berhasil disesuaikan menjadi ${formatRupiah(adjustTargetSaldo)}!`);
+      }
+
+      setAdjustNominal(0);
+      setAdjustKeterangan('');
+      setIsAdjustOpen(false);
+      await loadLogs();
+      await onSuccess();
+      setTimeout(() => setSuccessMsg(''), 5000);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Gagal menyimpan penyesuaian');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSyncAbsensi = async () => {
     setSyncing(true);
     setErrorMsg('');
@@ -250,7 +340,7 @@ export default function BukuTabunganModal({
     }
   };
 
-  const lastResetItem = logs.find(l => l.kategori === 'koreksi' || l.keterangan.includes('[RESET AUDIT]')) || 
+  const lastResetItem = logs.find(l => l.keterangan.includes('[RESET AUDIT]')) || 
     (karyawan.last_reset_at ? {
       id: 'last-reset-placeholder',
       created_at: karyawan.last_reset_at,
@@ -385,7 +475,7 @@ export default function BukuTabunganModal({
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
             {saldo > 0 ? (
               <button
                 type="button"
@@ -395,12 +485,15 @@ export default function BukuTabunganModal({
                 title="Tarik seluruh saldo dompet sehingga sisa saldo menjadi Rp 0"
               >
                 <ArrowDownLeft className="w-4 h-4 text-emerald-200" />
-                <span>Tarik Lunas (Jadi Rp 0)</span>
+                <span>Tarik Lunas (Rp 0)</span>
               </button>
             ) : (
               <button
                 type="button"
-                onClick={() => setIsTarikOpen(!isTarikOpen)}
+                onClick={() => {
+                  setIsTarikOpen(!isTarikOpen);
+                  setIsAdjustOpen(false);
+                }}
                 className="px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs transition cursor-pointer flex items-center justify-center space-x-1.5 shadow-sm"
               >
                 <ArrowDownLeft className="w-4 h-4 text-amber-400" />
@@ -408,24 +501,47 @@ export default function BukuTabunganModal({
               </button>
             )}
 
-            {saldo > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsAdjustOpen(!isAdjustOpen);
+                setIsTarikOpen(false);
+                if (!isAdjustOpen) {
+                  setAdjustTargetSaldo(saldo);
+                }
+              }}
+              className={`px-3 py-2.5 rounded-xl font-extrabold text-xs transition cursor-pointer flex items-center justify-center space-x-1.5 shadow-sm border ${
+                isAdjustOpen
+                  ? 'bg-amber-600 text-white border-amber-600 ring-2 ring-amber-400/50'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+              }`}
+              title="Input upah masuk, catat kasbon, atau atur saldo langsung (koreksi salah pencet)"
+            >
+              <Edit3 className="w-4 h-4 text-amber-600" />
+              <span>Input &amp; Edit Saldo</span>
+            </button>
+
+            {saldo > 0 ? (
               <button
                 type="button"
                 onClick={() => {
                   setTarikNominal(saldo);
                   setIsTarikOpen(!isTarikOpen);
+                  setIsAdjustOpen(false);
                 }}
                 className="px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs transition cursor-pointer flex items-center justify-center space-x-1.5 shadow-sm"
               >
                 <Coins className="w-4 h-4 text-amber-400" />
                 <span>Pencairan Kustom</span>
               </button>
+            ) : (
+              <div className="hidden sm:block" />
             )}
 
             <button
               type="button"
               onClick={handleShareWa}
-              className="px-3 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-extrabold text-xs transition cursor-pointer flex items-center justify-center space-x-1.5 shadow-sm"
+              className={`px-3 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-extrabold text-xs transition cursor-pointer flex items-center justify-center space-x-1.5 shadow-sm ${saldo <= 0 ? 'col-span-2 sm:col-span-1' : ''}`}
             >
               <MessageCircle className="w-4 h-4" />
               <span>Kirim ke WA Staf</span>
@@ -436,9 +552,28 @@ export default function BukuTabunganModal({
           <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-[10px] text-slate-500 font-semibold">
-                Perlu cek presensi atau bersihkan data uji coba?
+                Perlu cek presensi, edit saldo, atau bersihkan data uji coba?
               </span>
               <div className="flex items-center space-x-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAdjustOpen(!isAdjustOpen);
+                    setIsTarikOpen(false);
+                    if (!isAdjustOpen) {
+                      setAdjustTargetSaldo(saldo);
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-lg border text-[10px] font-extrabold flex items-center space-x-1 transition cursor-pointer ${
+                    isAdjustOpen
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                      : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+                  }`}
+                  title="Koreksi saldo, masukkan gaji/upah manual, atau catat kasbon jika salah reset"
+                >
+                  <Edit3 className="w-3 h-3 text-amber-600" />
+                  <span>Input / Edit Saldo</span>
+                </button>
                 <button
                   type="button"
                   onClick={handleResetDompet}
@@ -483,6 +618,241 @@ export default function BukuTabunganModal({
               </div>
             )}
           </div>
+
+          {/* Form Koreksi & Input Saldo Manual (Dropdown Collapse) */}
+          {isAdjustOpen && (
+            <form onSubmit={handleSaveAdjustment} className="p-4 rounded-2xl bg-gradient-to-b from-amber-50/70 to-orange-50/40 border border-amber-200/90 space-y-3.5 animate-fadeIn shadow-xs">
+              <div className="flex items-center justify-between border-b border-amber-200/70 pb-2.5">
+                <div className="flex items-center space-x-2">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-800 flex items-center justify-center">
+                    <SlidersHorizontal className="w-4 h-4 text-amber-700" />
+                  </div>
+                  <div>
+                    <span className="font-black text-slate-900 text-xs block">
+                      Input &amp; Koreksi Saldo Dompet
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Gunakan jika admin salah pencet reset atau perlu penyesuaian gaji &amp; kasbon manual.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustOpen(false)}
+                  className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white/80 flex items-center justify-center transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 3 Tab Mode Pilihan */}
+              <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-white border border-amber-200/80">
+                <button
+                  type="button"
+                  onClick={() => setAdjustType('tambah_upah')}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-black transition flex items-center justify-center space-x-1 cursor-pointer ${
+                    adjustType === 'tambah_upah'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>+ Upah Masuk</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustType('tambah_kasbon')}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-black transition flex items-center justify-center space-x-1 cursor-pointer ${
+                    adjustType === 'tambah_kasbon'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>- Kasbon Staf</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdjustType('set_saldo');
+                    setAdjustTargetSaldo(saldo);
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-black transition flex items-center justify-center space-x-1 cursor-pointer ${
+                    adjustType === 'set_saldo'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>✏️ Atur Saldo Pas</span>
+                </button>
+              </div>
+
+              {/* Mode 1: Tambah Upah Masuk */}
+              {adjustType === 'tambah_upah' && (
+                <div className="space-y-3">
+                  <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-[10.5px] text-emerald-900 leading-snug">
+                    💡 <strong>Tambah Upah:</strong> Menambahkan nominal ke saldo dompet (misal: gaji presensi yang belum terhitung, bonus, atau lembur).
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-700 text-xs block">Nominal Uang Masuk (Rp):</label>
+                      <input
+                        type="text"
+                        value={adjustNominal === 0 ? '' : formatNominal(adjustNominal)}
+                        onChange={(e) => setAdjustNominal(parseNominal(e.target.value))}
+                        placeholder="Contoh: 35.000"
+                        className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-mono font-black text-sm text-slate-900 focus:outline-none focus:border-emerald-600"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-700 text-xs block">Kategori Upah:</label>
+                      <select
+                        value={adjustKategori}
+                        onChange={(e) => setAdjustKategori(e.target.value)}
+                        className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-bold text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                      >
+                        <option value="upah_hadir">Upah Hadir Presensi</option>
+                        <option value="bonus">Bonus / Insentif Omzet</option>
+                        <option value="lembur">Uang Lembur Toko</option>
+                        <option value="koreksi">Koreksi Tambah Saldo</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-700 text-xs block">Keterangan / Alasan:</label>
+                    <input
+                      type="text"
+                      value={adjustKeterangan}
+                      onChange={(e) => setAdjustKeterangan(e.target.value)}
+                      placeholder="Contoh: Masukkan kembali upah kemarin (salah reset)"
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-medium text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Mode 2: Tambah Kasbon / Potongan */}
+              {adjustType === 'tambah_kasbon' && (
+                <div className="space-y-3">
+                  <div className="p-2.5 rounded-xl bg-rose-50/70 border border-rose-200/80 text-[10.5px] text-rose-900 leading-snug">
+                    ⚠️ <strong>Catat Kasbon / Potongan:</strong> Mengurangi saldo dompet (atau menambah minus utang staf jika saldo kurang).
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-700 text-xs block">Nominal Kasbon / Potongan (Rp):</label>
+                      <input
+                        type="text"
+                        value={adjustNominal === 0 ? '' : formatNominal(adjustNominal)}
+                        onChange={(e) => setAdjustNominal(parseNominal(e.target.value))}
+                        placeholder="Contoh: 20.000"
+                        className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-mono font-black text-sm text-rose-700 focus:outline-none focus:border-rose-600"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-700 text-xs block">Kategori Potongan:</label>
+                      <select
+                        value={adjustKategori}
+                        onChange={(e) => setAdjustKategori(e.target.value)}
+                        className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-bold text-xs text-slate-800 focus:outline-none focus:border-rose-600"
+                      >
+                        <option value="kasbon">Kasbon Staf</option>
+                        <option value="denda">Denda / Penggantian Selisih</option>
+                        <option value="potongan_lain">Potongan Lainnya</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-700 text-xs block">Keterangan / Keperluan Kasbon:</label>
+                    <input
+                      type="text"
+                      value={adjustKeterangan}
+                      onChange={(e) => setAdjustKeterangan(e.target.value)}
+                      placeholder="Contoh: Pinjaman kasbon tunai dari laci kasir"
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-medium text-xs text-slate-900 focus:outline-none focus:border-rose-600"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Mode 3: Atur Saldo Langsung (Koreksi Cepat Jika Salah Reset) */}
+              {adjustType === 'set_saldo' && (
+                <div className="space-y-3">
+                  <div className="p-2.5 rounded-xl bg-amber-100/70 border border-amber-300/80 text-[10.5px] text-amber-950 leading-snug">
+                    🎯 <strong>Koreksi Saldo Langsung:</strong> Ketikkan angka saldo akhir yang diinginkan. Sistem otomatis menghitung selisih dari saldo saat ini (<strong>{formatRupiah(saldo)}</strong>) sehingga saldo dompet staf langsung berubah pas sesuai yang Anda ketik.
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="font-bold text-slate-700">Target Saldo Akhir Staf (Rp):</label>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        Saldo Saat Ini: {formatRupiah(saldo)}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={adjustTargetSaldo === 0 ? '' : formatNominal(adjustTargetSaldo)}
+                      onChange={(e) => setAdjustTargetSaldo(parseNominal(e.target.value))}
+                      placeholder="Contoh: 35.000"
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-mono font-black text-sm text-slate-900 focus:outline-none focus:border-amber-600"
+                      required
+                    />
+                    {adjustTargetSaldo !== saldo && (
+                      <div className="text-[10.5px] font-bold text-slate-600 pt-0.5">
+                        {adjustTargetSaldo > saldo ? (
+                          <span className="text-emerald-700">
+                            + Sistem akan menambahkan kredit sebesar <strong>+{formatRupiah(adjustTargetSaldo - saldo)}</strong>.
+                          </span>
+                        ) : (
+                          <span className="text-rose-700">
+                            - Sistem akan mencatat penyesuaian debit sebesar <strong>-{formatRupiah(saldo - adjustTargetSaldo)}</strong>.
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-700 text-xs block">Alasan Koreksi Saldo:</label>
+                    <input
+                      type="text"
+                      value={adjustKeterangan}
+                      onChange={(e) => setAdjustKeterangan(e.target.value)}
+                      placeholder="Contoh: Koreksi salah pencet tombol reset, kembalikan ke saldo sebelum reset"
+                      className="w-full px-3 py-2 bg-white rounded-xl border border-slate-300 font-medium text-xs text-slate-900 focus:outline-none focus:border-amber-600"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Tombol Simpan Penyesuaian */}
+              <div className="flex items-center justify-end space-x-2 pt-1 border-t border-amber-200/70">
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustOpen(false)}
+                  className="px-3 py-1.5 rounded-lg text-slate-600 text-xs font-bold hover:bg-slate-200 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`px-4 py-1.5 rounded-xl text-white font-extrabold text-xs shadow-sm cursor-pointer transition ${
+                    adjustType === 'tambah_upah'
+                      ? 'bg-emerald-700 hover:bg-emerald-800'
+                      : adjustType === 'tambah_kasbon'
+                        ? 'bg-rose-700 hover:bg-rose-800'
+                        : 'bg-amber-600 hover:bg-amber-700'
+                  }`}
+                >
+                  {loading
+                    ? 'Menyimpan...'
+                    : adjustType === 'tambah_upah'
+                      ? '+ Masukkan Upah ke Dompet'
+                      : adjustType === 'tambah_kasbon'
+                        ? '- Potong Kasbon dari Dompet'
+                        : '💾 Simpan Target Saldo'}
+                </button>
+              </div>
+            </form>
+          )}
 
           {/* Form Tarik Kustom (Dropdown Collapse) */}
           {isTarikOpen && (
@@ -556,7 +926,8 @@ export default function BukuTabunganModal({
             ) : (
               <div className="divide-y divide-slate-100 bg-slate-50 rounded-2xl border border-slate-200/90 overflow-hidden">
                 {logs.map((item) => {
-                  const isResetAudit = item.kategori === 'koreksi' || item.keterangan.includes('[RESET AUDIT]');
+                  const isResetAudit = item.keterangan.includes('[RESET AUDIT]');
+                  const isKoreksi = item.kategori === 'koreksi' && !isResetAudit;
                   const isSetor = item.tipe === 'setor';
                   const isNegativeSaldo = item.saldo_setelah < 0;
                   return (
@@ -565,12 +936,16 @@ export default function BukuTabunganModal({
                         <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                           isResetAudit
                             ? 'bg-amber-100 text-amber-800'
-                            : isSetor 
-                              ? 'bg-emerald-100 text-emerald-800' 
-                              : 'bg-rose-100 text-rose-800'
+                            : isKoreksi
+                              ? 'bg-blue-100 text-blue-800'
+                              : isSetor 
+                                ? 'bg-emerald-100 text-emerald-800' 
+                                : 'bg-rose-100 text-rose-800'
                         }`}>
                           {isResetAudit ? (
                             <RotateCcw className="w-4 h-4 text-amber-700" />
+                          ) : isKoreksi ? (
+                            <SlidersHorizontal className="w-4 h-4 text-blue-700" />
                           ) : isSetor ? (
                             <ArrowUpRight className="w-4 h-4 text-emerald-700" />
                           ) : (
@@ -582,7 +957,12 @@ export default function BukuTabunganModal({
                             <span>{item.keterangan.replace('[RESET AUDIT] ', '')}</span>
                             {isResetAudit && (
                               <span className="px-1.5 py-0.2 rounded-full bg-amber-200/80 text-amber-900 text-[8.5px] font-black uppercase">
-                                Jejak Audit
+                                Jejak Reset
+                              </span>
+                            )}
+                            {isKoreksi && (
+                              <span className="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-800 text-[8.5px] font-black uppercase">
+                                Koreksi Saldo
                               </span>
                             )}
                           </div>
@@ -618,17 +998,27 @@ export default function BukuTabunganModal({
                           <span className={`text-[9.5px] font-bold uppercase ${
                             isResetAudit
                               ? 'text-amber-700'
-                              : isSetor ? 'text-emerald-600' : 'text-rose-600'
+                              : isKoreksi
+                                ? 'text-blue-700'
+                                : item.kategori === 'upah_hadir'
+                                  ? 'Upah Hadir'
+                                  : item.kategori === 'kasbon'
+                                    ? 'Kasbon'
+                                    : item.kategori === 'pencairan_gaji'
+                                      ? 'Pencairan'
+                                      : isSetor ? 'Uang Masuk' : 'Uang Keluar'}
                           }`}>
                             {isResetAudit
                               ? 'Reset Saldo'
-                              : item.kategori === 'upah_hadir'
-                                ? 'Upah Hadir'
-                                : item.kategori === 'kasbon'
-                                  ? 'Kasbon'
-                                  : item.kategori === 'pencairan_gaji'
-                                    ? 'Pencairan'
-                                    : isSetor ? 'Uang Masuk' : 'Uang Keluar'}
+                              : isKoreksi
+                                ? 'Koreksi'
+                                : item.kategori === 'upah_hadir'
+                                  ? 'Upah Hadir'
+                                  : item.kategori === 'kasbon'
+                                    ? 'Kasbon'
+                                    : item.kategori === 'pencairan_gaji'
+                                      ? 'Pencairan'
+                                      : isSetor ? 'Uang Masuk' : 'Uang Keluar'}
                           </span>
                         </div>
                         <button
