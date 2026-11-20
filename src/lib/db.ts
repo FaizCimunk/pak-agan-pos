@@ -3574,7 +3574,7 @@ export class PosDatabase {
         if (!error && data) {
           const mapped: TabunganKaryawanItem[] = data.map((d: any) => ({
             ...d,
-            nominal: Number(d.nominal),
+            nominal: (d.keterangan || '').includes('[RESET AUDIT]') ? 0 : Number(d.nominal),
             saldo_setelah: Number(d.saldo_setelah)
           }));
           // Sinkronkan ke local cache agar mutasi yang sudah dihapus di cloud tidak membayangi lagi
@@ -3591,7 +3591,10 @@ export class PosDatabase {
         console.warn('Fallback to local tabungan:', e);
       }
     }
-    const all = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+    const all = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN).map(t => ({
+      ...t,
+      nominal: (t.keterangan || '').includes('[RESET AUDIT]') ? 0 : Number(t.nominal)
+    }));
     if (!karyawanId) return all;
     return all.filter(t => t.karyawan_id === karyawanId || getKaryawanUuid(t.karyawan_id) === getKaryawanUuid(karyawanId));
   }
@@ -3848,7 +3851,7 @@ export class PosDatabase {
       cabang_id: targetKar?.cabang_id,
       tanggal: today,
       tipe: 'tarik',
-      nominal: Math.max(1, Math.abs(nominalSaldoAwal)),
+      nominal: 0,
       saldo_setelah: 0,
       keterangan: `[RESET AUDIT] Saldo dibersihkan ke Rp 0 (Saldo Sebelum Reset: ${nominalSaldoAwal < 0 ? `-${formatRupiah(Math.abs(nominalSaldoAwal))}` : formatRupiah(nominalSaldoAwal)})`,
       kategori: 'koreksi',
@@ -3919,7 +3922,7 @@ export class PosDatabase {
           cabang_id: getBranchUuid(targetKar?.cabang_id) || targetKar?.cabang_id,
           tanggal: today,
           tipe: 'tarik',
-          nominal: auditItem.nominal,
+          nominal: Math.max(1, Math.abs(nominalSaldoAwal)), // Memenuhi check constraint Supabase (nominal > 0)
           saldo_setelah: 0,
           keterangan: auditItem.keterangan,
           dicatat_oleh: resetBy,

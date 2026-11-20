@@ -61,7 +61,13 @@ export default function BukuTabunganModal({
 
   const loadLogs = async () => {
     const list = await db.getTabunganKaryawanList(karyawan.id);
-    setLogs(list);
+    const sanitizedList = list.map(item => {
+      if ((item.keterangan || '').includes('[RESET AUDIT]')) {
+        return { ...item, nominal: 0 };
+      }
+      return item;
+    });
+    setLogs(sanitizedList);
     const kars = await db.getAllKaryawan();
     const fresh = kars.find(k => k.id === karyawan.id);
     if (fresh) {
@@ -73,11 +79,13 @@ export default function BukuTabunganModal({
     loadLogs();
   }, [karyawan.id]);
 
-  const totalMasuk = logs
+  const activeLogs = logs.filter(l => !(l.keterangan || '').includes('[RESET AUDIT]'));
+
+  const totalMasuk = activeLogs
     .filter(l => l.tipe === 'setor')
     .reduce((sum, l) => sum + Number(l.nominal || 0), 0);
 
-  const totalKeluar = logs
+  const totalKeluar = activeLogs
     .filter(l => l.tipe === 'tarik')
     .reduce((sum, l) => sum + Number(l.nominal || 0), 0);
 
@@ -906,7 +914,9 @@ export default function BukuTabunganModal({
           <div className="space-y-2 pt-2">
             <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center justify-between">
               <span>Mutasi Dompet Masuk (+ Kredit) &amp; Keluar (- Debit):</span>
-              <span className="text-[10px] text-slate-400 font-bold">{logs.length} Mutasi Tercatat</span>
+              <span className="text-[10px] text-slate-400 font-bold">
+                {activeLogs.length > 0 ? `${activeLogs.length} Mutasi Aktif` : logs.length > 0 ? `${logs.length} Log Riwayat` : '0 Mutasi'}
+              </span>
             </span>
 
             {logs.length === 0 ? (
