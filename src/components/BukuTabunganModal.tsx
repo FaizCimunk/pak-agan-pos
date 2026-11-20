@@ -454,9 +454,10 @@ export default function BukuTabunganModal({
                   onClick={handleSyncAbsensi}
                   disabled={syncing}
                   className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[10px] font-extrabold flex items-center space-x-1 transition cursor-pointer"
+                  title="Cek apakah ada presensi masuk baru yang belum tercatat di buku dompet"
                 >
                   <RefreshCw className={`w-3 h-3 text-brand-primary ${syncing ? 'animate-spin' : ''}`} />
-                  <span>{syncing ? 'Memeriksa...' : 'Audit & Sinkronkan'}</span>
+                  <span>{syncing ? 'Memeriksa...' : 'Cek Presensi Baru'}</span>
                 </button>
               </div>
             </div>

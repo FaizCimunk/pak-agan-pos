@@ -3863,17 +3863,30 @@ export class PosDatabase {
 
     // 2. Bersihkan kasbon uji coba staf ini dari pengeluaran lokal
     const allExpenses = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
-    const remainingExpenses = allExpenses.filter(e => !(e.karyawan_id === karyawanId || getKaryawanUuid(e.karyawan_id) === karUuid));
+    const targetNama = (targetKar?.nama || '').toLowerCase().trim();
+    const remainingExpenses = allExpenses.filter(e => {
+      const matchId = e.karyawan_id === karyawanId || getKaryawanUuid(e.karyawan_id) === karUuid;
+      const matchName = targetNama && (e.pemohon_nama || '').toLowerCase().trim() === targetNama;
+      return !(matchId || matchName);
+    });
     saveLocal(STORAGE_KEYS.EXPENSES, remainingExpenses);
 
     // 3. Bersihkan presensi uji coba staf ini dari absensi lokal (agar Hadir jadi 0 hari & Gaji Kotor Hadir jadi Rp 0)
     const allAbs = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
-    const remainingAbs = allAbs.filter(a => !(a.karyawan_id === karyawanId || getKaryawanUuid(a.karyawan_id) === karUuid));
+    const remainingAbs = allAbs.filter(a => {
+      const matchId = a.karyawan_id === karyawanId || getKaryawanUuid(a.karyawan_id) === karUuid;
+      const matchName = targetNama && (a.karyawan_nama || '').toLowerCase().trim() === targetNama;
+      return !(matchId || matchName);
+    });
     saveLocal(STORAGE_KEYS.ABSENSI, remainingAbs);
 
     // 4. Bersihkan draf/riwayat payroll uji coba staf ini
     const allPay = loadLocal<Payroll[]>(STORAGE_KEYS.PAYROLL, []);
-    const remainingPay = allPay.filter(p => !(p.karyawan_id === karyawanId || getKaryawanUuid(p.karyawan_id) === karUuid));
+    const remainingPay = allPay.filter(p => {
+      const matchId = p.karyawan_id === karyawanId || getKaryawanUuid(p.karyawan_id) === karUuid;
+      const matchName = targetNama && (p.karyawan_nama || '').toLowerCase().trim() === targetNama;
+      return !(matchId || matchName);
+    });
     saveLocal(STORAGE_KEYS.PAYROLL, remainingPay);
 
     // 5. Reset saldo karyawan ke 0 & catat timestamp riwayat reset
@@ -4160,6 +4173,7 @@ export class PosDatabase {
     const allAbsensi = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
     const allExpenses = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
     const existingLogs = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
+    const allKars = await this.getAllKaryawan();
 
     let syncedAbsensi = 0;
     let syncedKasbon = 0;
@@ -4167,6 +4181,16 @@ export class PosDatabase {
     // 1. Audit absensi approved yang belum ada kreditnya di dompet
     for (const a of allAbsensi) {
       if (a.approval_status === 'approved' && a.karyawan_id && (a.status === 'hadir' || a.status === 'setengah_hari')) {
+        // Jangan pulihkan presensi lama yang terjadi sebelum tanggal/jam akun staf di-reset oleh Owner!
+        const kar = allKars.find(k => k.id === a.karyawan_id || getKaryawanUuid(k.id) === getKaryawanUuid(a.karyawan_id));
+        if (kar?.last_reset_at) {
+          const resetIso = kar.last_reset_at;
+          const aCreated = a.approved_at || a.created_at || `${a.tanggal}T23:59:59`;
+          if (aCreated <= resetIso || a.tanggal <= resetIso.slice(0, 10)) {
+            continue;
+          }
+        }
+
         const upah = Number(a.upah_harian_terhitung) > 0
           ? Number(a.upah_harian_terhitung)
           : (a.status === 'hadir' ? 100000 : 50000);
@@ -4198,6 +4222,16 @@ export class PosDatabase {
     // 2. Audit kasbon approved yang belum ada debitnya di dompet
     for (const e of allExpenses) {
       if (e.jenis === 'kasbon' && e.status === 'approved' && e.karyawan_id && e.nominal > 0) {
+        // Jangan pulihkan kasbon lama yang terjadi sebelum tanggal/jam akun staf di-reset oleh Owner!
+        const kar = allKars.find(k => k.id === e.karyawan_id || getKaryawanUuid(k.id) === getKaryawanUuid(e.karyawan_id));
+        if (kar?.last_reset_at) {
+          const resetIso = kar.last_reset_at;
+          const eCreated = e.approved_at || e.tanggal || e.created_at || new Date().toISOString();
+          if (eCreated <= resetIso || (e.tanggal || '').slice(0, 10) <= resetIso.slice(0, 10)) {
+            continue;
+          }
+        }
+
         const alreadyDebited = existingLogs.some(
           l => l.karyawan_id === e.karyawan_id && (
             l.ref_id === e.id || 
@@ -4226,7 +4260,9 @@ export class PosDatabase {
     return {
       syncedAbsensi,
       syncedKasbon,
-      message: `Audit Dompet Selesai: ${syncedAbsensi} presensi masuk & ${syncedKasbon} kasbon berhasil disinkronkan ke buku dompet.`,
+      message: syncedAbsensi === 0 && syncedKasbon === 0
+        ? `Audit Selesai: Seluruh saldo dompet sudah sinkron & mutakhir. Data yang di-reset oleh Owner tetap bersih Rp 0.`
+        : `Audit Dompet Selesai: ${syncedAbsensi} presensi masuk & ${syncedKasbon} kasbon berhasil disinkronkan ke buku dompet.`,
     };
   }
 
