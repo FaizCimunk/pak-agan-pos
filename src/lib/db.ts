@@ -3840,7 +3840,17 @@ export class PosDatabase {
     const remainingExpenses = allExpenses.filter(e => !(e.karyawan_id === karyawanId || getKaryawanUuid(e.karyawan_id) === karUuid));
     saveLocal(STORAGE_KEYS.EXPENSES, remainingExpenses);
 
-    // 3. Reset saldo karyawan ke 0
+    // 3. Bersihkan presensi uji coba staf ini dari absensi lokal (agar Hadir jadi 0 hari & Gaji Kotor Hadir jadi Rp 0)
+    const allAbs = loadLocal<Absensi[]>(STORAGE_KEYS.ABSENSI, INITIAL_ABSENSI);
+    const remainingAbs = allAbs.filter(a => !(a.karyawan_id === karyawanId || getKaryawanUuid(a.karyawan_id) === karUuid));
+    saveLocal(STORAGE_KEYS.ABSENSI, remainingAbs);
+
+    // 4. Bersihkan draf/riwayat payroll uji coba staf ini
+    const allPay = loadLocal<Payroll[]>(STORAGE_KEYS.PAYROLL, []);
+    const remainingPay = allPay.filter(p => !(p.karyawan_id === karyawanId || getKaryawanUuid(p.karyawan_id) === karUuid));
+    saveLocal(STORAGE_KEYS.PAYROLL, remainingPay);
+
+    // 5. Reset saldo karyawan ke 0
     const kars = await this.getAllKaryawan();
     const updatedKars = kars.map(k => (k.id === karyawanId || getKaryawanUuid(k.id) === karUuid)
       ? { ...k, total_tabungan: 0, utang_nominal: 0 }
@@ -3848,11 +3858,13 @@ export class PosDatabase {
     );
     saveLocal(STORAGE_KEYS.KARYAWAN, updatedKars);
 
-    // 4. Sync ke Supabase
+    // 6. Sync ke Supabase
     if (isSupabaseConfigured && supabase && karUuid) {
       try {
         await supabase.from('tabungan_karyawan_log').delete().eq('karyawan_id', karUuid);
         await supabase.from('pengeluaran_kasbon').delete().eq('karyawan_id', karUuid);
+        await supabase.from('absensi').delete().eq('karyawan_id', karUuid);
+        await supabase.from('payroll').delete().eq('karyawan_id', karUuid);
         await supabase.from('karyawan').update({ total_tabungan: 0, utang_nominal: 0 }).eq('id', karUuid);
       } catch (e) {
         console.warn('Supabase resetKaryawanDompet error:', e);
