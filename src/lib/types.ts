@@ -61,6 +61,9 @@ export interface Karyawan {
   bank_nama?: string; // Contoh: 'DANA', 'BCA', 'BRI', 'Mandiri', 'SeaBank', 'Tunai'
   no_rekening?: string; // Nomor rekening bank atau nomor HP DANA tujuan transfer gaji
   atas_nama_rekening?: string; // Nama pemilik rekening/e-wallet jika berbeda dengan nama staf
+  last_reset_at?: string; // Tanggal & jam reset terakhir (WIB)
+  last_reset_by?: string; // Siapa yang mereset (misal: 'Pak Agan (Owner)')
+  last_reset_saldo_snapshot?: number; // Saldo sebelum di-reset (misal: Rp 35.000)
   is_active: boolean;
   created_at?: string;
 }

@@ -17,7 +17,9 @@ import {
   Building2,
   TrendingUp,
   TrendingDown,
-  Trash2
+  Trash2,
+  RotateCcw,
+  History
 } from 'lucide-react';
 import { Karyawan, TabunganKaryawanItem } from '@/lib/types';
 import { db } from '@/lib/db';
@@ -199,7 +201,8 @@ export default function BukuTabunganModal({
     const confirmReset = confirm(
       `PERINGATAN RESET DOMPET STAF:\n\n` +
       `Apakah Anda yakin ingin MENGHAPUS SEMUA RIWAYAT MUTASI & ME-RESET SALDO "${karyawan.nama}" MENJADI RP 0?\n\n` +
-      `Semua riwayat kasbon uji coba dan upah simulasi staf ini akan dibersihkan agar saldo kembali Rp 0.`
+      `Semua riwayat kasbon uji coba dan upah simulasi staf ini akan dibersihkan agar saldo kembali Rp 0.\n\n` +
+      `Waktu reset dan saldo akhir sebelum reset (${formatRupiah(saldo)}) akan otomatis dicatat dalam jejak audit.`
     );
     if (!confirmReset) return;
 
@@ -207,7 +210,10 @@ export default function BukuTabunganModal({
     setErrorMsg('');
     setSuccessMsg('');
     try {
-      await db.resetKaryawanDompet(karyawan.id);
+      await db.resetKaryawanDompet(karyawan.id, {
+        saldoSebelumnya: saldo,
+        resetBy: 'Pak Agan (Owner)'
+      });
       await loadLogs();
       await onSuccess();
       setSuccessMsg(`Buku dompet & saldo ${karyawan.nama} berhasil dibersihkan dan di-reset ke Rp 0.`);
@@ -243,6 +249,14 @@ export default function BukuTabunganModal({
       setLoading(false);
     }
   };
+
+  const lastResetItem = logs.find(l => l.kategori === 'koreksi' || l.keterangan.includes('[RESET AUDIT]')) || 
+    (karyawan.last_reset_at ? {
+      id: 'last-reset-placeholder',
+      created_at: karyawan.last_reset_at,
+      dicatat_oleh: karyawan.last_reset_by || 'Pak Agan (Owner)',
+      keterangan: `(Saldo Sebelum Reset: ${formatRupiah(karyawan.last_reset_saldo_snapshot || 0)})`
+    } : null);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
@@ -419,31 +433,54 @@ export default function BukuTabunganModal({
           </div>
 
           {/* Tombol Audit & Reset Dompet Staf */}
-          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] text-slate-500 font-semibold">
-              Perlu cek presensi atau bersihkan data uji coba?
-            </span>
-            <div className="flex items-center space-x-1.5">
-              <button
-                type="button"
-                onClick={handleResetDompet}
-                disabled={loading}
-                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-extrabold flex items-center space-x-1 transition cursor-pointer"
-                title="Hapus riwayat uji coba dan jadikan saldo staf Rp 0"
-              >
-                <Trash2 className="w-3 h-3 text-rose-600" />
-                <span>Reset ke Rp 0</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleSyncAbsensi}
-                disabled={syncing}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[10px] font-extrabold flex items-center space-x-1 transition cursor-pointer"
-              >
-                <RefreshCw className={`w-3 h-3 text-brand-primary ${syncing ? 'animate-spin' : ''}`} />
-                <span>{syncing ? 'Memeriksa...' : 'Audit & Sinkronkan'}</span>
-              </button>
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[10px] text-slate-500 font-semibold">
+                Perlu cek presensi atau bersihkan data uji coba?
+              </span>
+              <div className="flex items-center space-x-1.5">
+                <button
+                  type="button"
+                  onClick={handleResetDompet}
+                  disabled={loading}
+                  className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-extrabold flex items-center space-x-1 transition cursor-pointer"
+                  title="Hapus riwayat uji coba dan jadikan saldo staf Rp 0"
+                >
+                  <Trash2 className="w-3 h-3 text-rose-600" />
+                  <span>Reset ke Rp 0</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSyncAbsensi}
+                  disabled={syncing}
+                  className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-[10px] font-extrabold flex items-center space-x-1 transition cursor-pointer"
+                >
+                  <RefreshCw className={`w-3 h-3 text-brand-primary ${syncing ? 'animate-spin' : ''}`} />
+                  <span>{syncing ? 'Memeriksa...' : 'Audit & Sinkronkan'}</span>
+                </button>
+              </div>
             </div>
+
+            {/* Jejak Audit Waktu & Riwayat Akhir Reset */}
+            {lastResetItem && (
+              <div className="pt-2 border-t border-slate-200/90 flex flex-wrap items-center justify-between gap-1 text-[9.5px]">
+                <div className="flex items-center space-x-1.5 text-amber-900 font-bold">
+                  <RotateCcw className="w-3 h-3 text-amber-600 shrink-0" />
+                  <span>Jejak Reset Terakhir:</span>
+                  <span className="font-mono text-slate-800">
+                    {lastResetItem.created_at ? new Date(lastResetItem.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}{' '}
+                    {lastResetItem.created_at ? new Date(lastResetItem.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : ''} WIB
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span>Oleh: <strong className="text-slate-800">{lastResetItem.dicatat_oleh || 'Pak Agan (Owner)'}</strong></span>
+                </div>
+                <div className="text-slate-600 font-semibold font-mono">
+                  {lastResetItem.keterangan.includes('Saldo Sebelum')
+                    ? lastResetItem.keterangan.slice(lastResetItem.keterangan.indexOf('('))
+                    : `(Saldo Sebelum Reset: ${formatRupiah(karyawan.last_reset_saldo_snapshot || 0)})`}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Form Tarik Kustom (Dropdown Collapse) */}
@@ -508,19 +545,35 @@ export default function BukuTabunganModal({
             ) : (
               <div className="divide-y divide-slate-100 bg-slate-50 rounded-2xl border border-slate-200/90 overflow-hidden">
                 {logs.map((item) => {
+                  const isResetAudit = item.kategori === 'koreksi' || item.keterangan.includes('[RESET AUDIT]');
                   const isSetor = item.tipe === 'setor';
                   const isNegativeSaldo = item.saldo_setelah < 0;
                   return (
                     <div key={item.id} className="p-3.5 flex items-start justify-between gap-3 bg-white hover:bg-slate-50/80 transition-colors">
                       <div className="flex items-start space-x-2.5">
                         <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                          isSetor ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                          isResetAudit
+                            ? 'bg-amber-100 text-amber-800'
+                            : isSetor 
+                              ? 'bg-emerald-100 text-emerald-800' 
+                              : 'bg-rose-100 text-rose-800'
                         }`}>
-                          {isSetor ? <ArrowUpRight className="w-4 h-4 text-emerald-700" /> : <ArrowDownLeft className="w-4 h-4 text-rose-700" />}
+                          {isResetAudit ? (
+                            <RotateCcw className="w-4 h-4 text-amber-700" />
+                          ) : isSetor ? (
+                            <ArrowUpRight className="w-4 h-4 text-emerald-700" />
+                          ) : (
+                            <ArrowDownLeft className="w-4 h-4 text-rose-700" />
+                          )}
                         </div>
                         <div className="space-y-0.5">
-                          <div className="font-extrabold text-slate-900 text-xs">
-                            {item.keterangan}
+                          <div className={`font-extrabold text-xs flex items-center gap-1.5 ${isResetAudit ? 'text-amber-950' : 'text-slate-900'}`}>
+                            <span>{item.keterangan.replace('[RESET AUDIT] ', '')}</span>
+                            {isResetAudit && (
+                              <span className="px-1.5 py-0.2 rounded-full bg-amber-200/80 text-amber-900 text-[8.5px] font-black uppercase">
+                                Jejak Audit
+                              </span>
+                            )}
                           </div>
                           <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-1.5">
                             <span>{item.tanggal}</span>
@@ -529,9 +582,15 @@ export default function BukuTabunganModal({
                                 ({new Date(item.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB)
                               </span>
                             )}
+                            {item.dicatat_oleh && (
+                              <>
+                                <span>•</span>
+                                <span>Oleh: <strong className="text-slate-700">{item.dicatat_oleh}</strong></span>
+                              </>
+                            )}
                             <span>•</span>
                             <span>
-                              Saldo jadi: <strong className={`font-mono ${isNegativeSaldo ? 'text-rose-600 font-black' : 'text-slate-700 font-bold'}`}>
+                              Saldo jadi: <strong className={`font-mono ${isNegativeSaldo ? 'text-rose-600 font-black' : isResetAudit ? 'text-emerald-700 font-black' : 'text-slate-700 font-bold'}`}>
                                 {isNegativeSaldo ? `-${formatRupiah(Math.abs(item.saldo_setelah))}` : formatRupiah(item.saldo_setelah)}
                               </strong>
                             </span>
@@ -541,20 +600,24 @@ export default function BukuTabunganModal({
                       <div className="flex items-center space-x-2 shrink-0">
                         <div className="text-right">
                           <span className={`font-mono font-black text-xs block tabular-nums ${
-                            isSetor ? 'text-emerald-700' : 'text-rose-700'
+                            isResetAudit ? 'text-amber-700' : isSetor ? 'text-emerald-700' : 'text-rose-700'
                           }`}>
-                            {isSetor ? '+' : '-'}{formatRupiah(item.nominal)}
+                            {isResetAudit ? 'Rp 0' : `${isSetor ? '+' : '-'}${formatRupiah(item.nominal)}`}
                           </span>
                           <span className={`text-[9.5px] font-bold uppercase ${
-                            isSetor ? 'text-emerald-600' : 'text-rose-600'
+                            isResetAudit
+                              ? 'text-amber-700'
+                              : isSetor ? 'text-emerald-600' : 'text-rose-600'
                           }`}>
-                            {item.kategori === 'upah_hadir'
-                              ? 'Upah Hadir'
-                              : item.kategori === 'kasbon'
-                                ? 'Kasbon'
-                                : item.kategori === 'pencairan_gaji'
-                                  ? 'Pencairan'
-                                  : isSetor ? 'Uang Masuk' : 'Uang Keluar'}
+                            {isResetAudit
+                              ? 'Reset Saldo'
+                              : item.kategori === 'upah_hadir'
+                                ? 'Upah Hadir'
+                                : item.kategori === 'kasbon'
+                                  ? 'Kasbon'
+                                  : item.kategori === 'pencairan_gaji'
+                                    ? 'Pencairan'
+                                    : isSetor ? 'Uang Masuk' : 'Uang Keluar'}
                           </span>
                         </div>
                         <button

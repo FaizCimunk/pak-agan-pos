@@ -3808,6 +3808,11 @@ export default function AdminDashboardPage() {
                         }`}>
                           {isMinus ? '⚠️ Utang Minus' : saldoDompet > 0 ? '✓ Siap Tarik' : 'Lunas (Rp 0)'}
                         </span>
+                        {!isMinus && saldoDompet === 0 && kar?.last_reset_at && (
+                          <span className="text-[8.5px] text-slate-400 block mt-0.5" title={`Direset oleh ${kar.last_reset_by || 'Owner'}`}>
+                            🕒 Reset {new Date(kar.last_reset_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} {new Date(kar.last_reset_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
                       </td>
 
                       {/* Kolom Buku Rekening Dompet */}

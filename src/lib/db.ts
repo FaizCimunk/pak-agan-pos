@@ -51,7 +51,7 @@ import {
   INITIAL_TABUNGAN_KARYAWAN,
   DEFAULT_PIN_HASH 
 } from './mock-data';
-import { hashPin, parseCustomFixedCosts, serializeCustomFixedCosts, toWibDateString, getBusinessDateForRecord } from './utils';
+import { hashPin, parseCustomFixedCosts, serializeCustomFixedCosts, toWibDateString, getBusinessDateForRecord, formatRupiah } from './utils';
 
 // Local storage keys for hybrid offline/standalone simulation
 const STORAGE_KEYS = {
@@ -3827,13 +3827,39 @@ export class PosDatabase {
     return true;
   }
 
-  async resetKaryawanDompet(karyawanId: string): Promise<boolean> {
+  async resetKaryawanDompet(
+    karyawanId: string,
+    resetInfo?: { saldoSebelumnya?: number; resetBy?: string; keepAuditLog?: boolean }
+  ): Promise<boolean> {
     const karUuid = getKaryawanUuid(karyawanId);
+    const nowIso = new Date().toISOString();
+    const today = nowIso.slice(0, 10);
+    const resetBy = resetInfo?.resetBy || 'Pak Agan (Owner)';
+    const saldoSebelum = resetInfo?.saldoSebelumnya ?? 0;
 
-    // 1. Bersihkan logs tabungan karyawan di local storage
+    const kars = await this.getAllKaryawan();
+    const targetKar = kars.find(k => k.id === karyawanId || getKaryawanUuid(k.id) === karUuid);
+    const nominalSaldoAwal = saldoSebelum !== 0 ? saldoSebelum : (targetKar?.total_tabungan || 0);
+
+    const auditItem: TabunganKaryawanItem = {
+      id: generateUUID(),
+      karyawan_id: karUuid || karyawanId,
+      karyawan_nama: targetKar?.nama || 'Staf',
+      cabang_id: targetKar?.cabang_id,
+      tanggal: today,
+      tipe: 'tarik',
+      nominal: 0,
+      saldo_setelah: 0,
+      keterangan: `[RESET AUDIT] Saldo dibersihkan ke Rp 0 (Saldo Sebelum Reset: ${nominalSaldoAwal < 0 ? `-${formatRupiah(Math.abs(nominalSaldoAwal))}` : formatRupiah(nominalSaldoAwal)})`,
+      kategori: 'koreksi',
+      dicatat_oleh: resetBy,
+      created_at: nowIso
+    };
+
+    // 1. Bersihkan logs tabungan karyawan di local storage, simpan 1 baris Jejak Audit
     const allTab = loadLocal<TabunganKaryawanItem[]>(STORAGE_KEYS.TABUNGAN_KARYAWAN, INITIAL_TABUNGAN_KARYAWAN);
     const remainingTab = allTab.filter(t => t.karyawan_id !== karyawanId && getKaryawanUuid(t.karyawan_id) !== karUuid);
-    saveLocal(STORAGE_KEYS.TABUNGAN_KARYAWAN, remainingTab);
+    saveLocal(STORAGE_KEYS.TABUNGAN_KARYAWAN, [auditItem, ...remainingTab]);
 
     // 2. Bersihkan kasbon uji coba staf ini dari pengeluaran lokal
     const allExpenses = loadLocal<PengeluaranKasbon[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
@@ -3850,10 +3876,16 @@ export class PosDatabase {
     const remainingPay = allPay.filter(p => !(p.karyawan_id === karyawanId || getKaryawanUuid(p.karyawan_id) === karUuid));
     saveLocal(STORAGE_KEYS.PAYROLL, remainingPay);
 
-    // 5. Reset saldo karyawan ke 0
-    const kars = await this.getAllKaryawan();
+    // 5. Reset saldo karyawan ke 0 & catat timestamp riwayat reset
     const updatedKars = kars.map(k => (k.id === karyawanId || getKaryawanUuid(k.id) === karUuid)
-      ? { ...k, total_tabungan: 0, utang_nominal: 0 }
+      ? { 
+          ...k, 
+          total_tabungan: 0, 
+          utang_nominal: 0,
+          last_reset_at: nowIso,
+          last_reset_by: resetBy,
+          last_reset_saldo_snapshot: nominalSaldoAwal
+        }
       : k
     );
     saveLocal(STORAGE_KEYS.KARYAWAN, updatedKars);
@@ -3866,6 +3898,20 @@ export class PosDatabase {
         await supabase.from('absensi').delete().eq('karyawan_id', karUuid);
         await supabase.from('payroll').delete().eq('karyawan_id', karUuid);
         await supabase.from('karyawan').update({ total_tabungan: 0, utang_nominal: 0 }).eq('id', karUuid);
+
+        // Catat baris Jejak Audit ke Supabase
+        await supabase.from('tabungan_karyawan_log').insert([{
+          id: auditItem.id,
+          karyawan_id: karUuid,
+          cabang_id: getBranchUuid(targetKar?.cabang_id) || targetKar?.cabang_id,
+          tanggal: today,
+          tipe: 'tarik',
+          nominal: 0,
+          saldo_setelah: 0,
+          keterangan: auditItem.keterangan,
+          dicatat_oleh: resetBy,
+          created_at: nowIso
+        }]);
       } catch (e) {
         console.warn('Supabase resetKaryawanDompet error:', e);
       }
